@@ -13,3 +13,4 @@ git clone https://github.com/occipital/OpenNI2.git
 cd OpenNI2
 make
 cd $root_dir
+mkdir obj

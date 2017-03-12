@@ -6,7 +6,7 @@ VPATH = src \
 
 KINECT_SRCS = main.cpp
 
-KINECT_OBJS = $(COMPASS_SRCS:.cpp=.o)
+KINECT_OBJS = $(KINECT_SRCS:.cpp=.o)
 
 kinect: obj/main.o $(KINECT_OBJS:%=obj/%)
 	$(CXX) $^ -o $@ -fPIC -l freenect

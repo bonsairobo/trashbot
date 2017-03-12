@@ -6,15 +6,13 @@
 using namespace std;
 using namespace openni;
 
-void analyzeFrame(const VideoFrameRef& frame)
-{
+void analyzeFrame(const VideoFrameRef& frame) {
     DepthPixel* pDepth;
     RGB888Pixel* pColor;
 
     int middleIndex = (frame.getHeight()+1)*frame.getWidth()/2;
 
-    switch (frame.getVideoMode().getPixelFormat())
-    {
+    switch (frame.getVideoMode().getPixelFormat()) {
     case PIXEL_FORMAT_DEPTH_1_MM:
     case PIXEL_FORMAT_DEPTH_100_UM:
         pDepth = (DepthPixel*)frame.getData();
@@ -33,13 +31,10 @@ void analyzeFrame(const VideoFrameRef& frame)
     }
 }
 
-class PrintCallback : public VideoStream::NewFrameListener
-{
+class PrintCallback : public VideoStream::NewFrameListener {
 public:
-    void onNewFrame(VideoStream& stream)
-    {
+    void onNewFrame(VideoStream& stream) {
         stream.readFrame(&m_frame);
-
         analyzeFrame(m_frame);
     }
 private:
@@ -51,33 +46,31 @@ class OpenNIDeviceListener : public OpenNI::DeviceConnectedListener,
                                     public OpenNI::DeviceStateChangedListener
 {
 public:
-    virtual void onDeviceStateChanged(const DeviceInfo* pInfo, DeviceState state) 
+    virtual void onDeviceStateChanged(
+        const DeviceInfo* pInfo, DeviceState state) 
     {
-        printf("Device \"%s\" error state changed to %d\n", pInfo->getUri(), state);
+        cout << "Device " << pInfo->getUri()
+             << " error state changed to " << state << endl;
     }
 
-    virtual void onDeviceConnected(const DeviceInfo* pInfo)
-    {
-        printf("Device \"%s\" connected\n", pInfo->getUri());
+    virtual void onDeviceConnected(const DeviceInfo* pInfo) {
+        cout << "Device " << pInfo->getUri() << " connected" << endl;
     }
 
-    virtual void onDeviceDisconnected(const DeviceInfo* pInfo)
-    {
-        printf("Device \"%s\" disconnected\n", pInfo->getUri());
+    virtual void onDeviceDisconnected(const DeviceInfo* pInfo) {
+        cout << "Device " << pInfo->getUri() << " disconnected" << endl;
     }
 };
 
-static void Sleep(int millisecs)
-{
+static void Sleep(int millisecs) {
     usleep(millisecs * 1000);
 }
 
-int main()
-{
+int main() {
     Status rc = OpenNI::initialize();
-    if (rc != STATUS_OK)
-    {
-        printf("Initialize failed\n%s\n", OpenNI::getExtendedError());
+    if (rc != STATUS_OK) {
+        cout << "Initialize failed" << endl
+             << OpenNI::getExtendedError() << endl;
         return 1;
     }
 
@@ -89,35 +82,34 @@ int main()
 
     openni::Array<openni::DeviceInfo> deviceList;
     openni::OpenNI::enumerateDevices(&deviceList);
-    for (int i = 0; i < deviceList.getSize(); ++i)
-    {
-        printf("Device \"%s\" already connected\n", deviceList[i].getUri());
+    for (int i = 0; i < deviceList.getSize(); ++i) {
+        cout << "Device " << deviceList[i].getUri()
+             << " already connected" << endl;
     }
 
     Device device;
     rc = device.open(ANY_DEVICE);
-    if (rc != STATUS_OK)
-    {
-        printf("Couldn't open device\n%s\n", OpenNI::getExtendedError());
+    if (rc != STATUS_OK) {
+        cout << "Couldn't open device" << endl
+             << OpenNI::getExtendedError() << endl;
         return 2;
     }
 
     VideoStream depth;
 
-    if (device.getSensorInfo(SENSOR_DEPTH) != NULL)
-    {
+    if (device.getSensorInfo(SENSOR_DEPTH) != NULL) {
         rc = depth.create(device, SENSOR_DEPTH);
         if (rc != STATUS_OK)
         {
-            printf("Couldn't create depth stream\n%s\n", OpenNI::getExtendedError());
+            cout << "Couldn't create depth stream" << endl
+                 << OpenNI::getExtendedError() << endl;
         }
     }
     rc = depth.start();
-    if (rc != STATUS_OK)
-    {
-        printf("Couldn't start the depth stream\n%s\n", OpenNI::getExtendedError());
+    if (rc != STATUS_OK) {
+        cout << "Couldn't start the depth stream" << endl
+             << OpenNI::getExtendedError() << endl;
     }
-
 
     PrintCallback depthPrinter;
 
@@ -125,13 +117,11 @@ int main()
     depth.addNewFrameListener(&depthPrinter);
 
     // Wait while we're getting frames through the printer
-    while (true)
-    {
+    while (true) {
         Sleep(100);
     }
 
     depth.removeNewFrameListener(&depthPrinter);
-
 
     depth.stop();
     depth.destroy();

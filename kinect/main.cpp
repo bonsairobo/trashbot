@@ -5,10 +5,18 @@
 #include "OpenNI.h"
 #include <cstdint>
 #include <mutex>
+#include <atomic>
 
 using namespace std;
 using namespace openni;
 using namespace cv;
+
+static bool g_depth_set = false;
+static bool g_color_set = false;
+static Mat g_depth_img;
+static mutex g_depth_mutx;
+static Mat g_color_img;
+static mutex g_color_mutx;
 
 // Zero-based rectangular frame indexing.
 template<typename T>
@@ -21,42 +29,27 @@ static const T* get_pixel(const VideoFrameRef& frame, int x, int y, int n_bytes)
 static Mat cv_image_from_vframe_ref(const VideoFrameRef& frame, int n_bytes) {
     int type = n_bytes == 3 ? CV_8UC3 : CV_16UC1;
     Mat out(frame.getHeight(), frame.getWidth(), type);
-    if (type == CV_8UC3) {
-        for (int y = 0; y < frame.getHeight(); ++y) {
-            for (int x = 0; x < frame.getWidth(); ++x) {
-                const RGB888Pixel *px =
-                    get_pixel<RGB888Pixel>(frame, x, y, n_bytes);
-                out.at<Vec3b>(y,x) = Vec3b(px->r, px->g, px->b);
-            }
-        }
-    } else if (type == CV_16UC1) {
-        for (int y = 0; y < frame.getHeight(); ++y) {
-            for (int x = 0; x < frame.getWidth(); ++x) {
-                const DepthPixel *px =
-                    get_pixel<DepthPixel>(frame, x, y, n_bytes);
-                out.at<uint16_t>(y,x) = *px;
-            }
-        }
-    }
-
+    memcpy(out.data, frame.getData(),
+        frame.getWidth() * frame.getHeight() * n_bytes);
     return out;
 }
 
-static Mat g_depth_img;
-static mutex g_depth_mutx;
-
 static void draw_frame(const VideoFrameRef& frame) {
     switch (frame.getVideoMode().getPixelFormat()) {
+    case PIXEL_FORMAT_RGB888:
+        cout << "NEW COLOR FRAME" << endl;
+        g_color_mutx.lock();
+        g_color_img = cv_image_from_vframe_ref(frame, 3);
+        g_color_set = true;
+        g_color_mutx.unlock();
+        break;
     case PIXEL_FORMAT_DEPTH_1_MM:
     case PIXEL_FORMAT_DEPTH_100_UM:
         cout << "NEW DEPTH FRAME" << endl;
         g_depth_mutx.lock();
         g_depth_img = cv_image_from_vframe_ref(frame, 2);
+        g_depth_set = true;
         g_depth_mutx.unlock();
-        break;
-    case PIXEL_FORMAT_RGB888:
-        cout << "NEW COLOR FRAME" << endl;
-        //image = cv_image_from_vframe_ref(frame, 3);
         break;
     default:
         cout << "Unknown format" << endl;
@@ -68,6 +61,10 @@ class FrameCallback : public VideoStream::NewFrameListener {
 public:
     void onNewFrame(VideoStream& stream) {
         stream.readFrame(&m_frame);
+        if (m_frame.getHeight() <= 0 or m_frame.getWidth() <= 0) {
+            cout << "ERROR: zero frame dimension" << endl;
+            return;
+        }
         draw_frame(m_frame);
     }
 private:
@@ -166,8 +163,13 @@ int main() {
     char key = 0;
     while (key != 27) { // escape
         g_depth_mutx.lock();
-        imshow("kinect_depth", g_depth_img);
+        if (g_depth_set)
+            imshow("kinect_depth", g_depth_img);
         g_depth_mutx.unlock();
+        g_color_mutx.lock();
+        if (g_color_set)
+            imshow("kinect_color", g_color_img);
+        g_color_mutx.unlock();
         key = waitKey(30);
     }
 

@@ -4,6 +4,7 @@
 #include <opencv2/opencv.hpp>
 #include "OpenNI.h"
 #include <cstdint>
+#include <mutex>
 
 using namespace std;
 using namespace openni;
@@ -41,20 +42,21 @@ static Mat cv_image_from_vframe_ref(const VideoFrameRef& frame, int n_bytes) {
     return out;
 }
 
-static void draw_frame(const VideoFrameRef& frame) {
-    Mat image;
+static Mat g_depth_img;
+static mutex g_depth_mutx;
 
+static void draw_frame(const VideoFrameRef& frame) {
     switch (frame.getVideoMode().getPixelFormat()) {
     case PIXEL_FORMAT_DEPTH_1_MM:
     case PIXEL_FORMAT_DEPTH_100_UM:
         cout << "NEW DEPTH FRAME" << endl;
-        image = cv_image_from_vframe_ref(frame, 2);
-        imshow("kinect_depth", image);
+        g_depth_mutx.lock();
+        g_depth_img = cv_image_from_vframe_ref(frame, 2);
+        g_depth_mutx.unlock();
         break;
     case PIXEL_FORMAT_RGB888:
         cout << "NEW COLOR FRAME" << endl;
-        image = cv_image_from_vframe_ref(frame, 3);
-        imshow("kinect_color", image);
+        //image = cv_image_from_vframe_ref(frame, 3);
         break;
     default:
         cout << "Unknown format" << endl;
@@ -163,7 +165,10 @@ int main() {
     // Wait for new frames.
     char key = 0;
     while (key != 27) { // escape
-        key = waitKey(10);
+        g_depth_mutx.lock();
+        imshow("kinect_depth", g_depth_img);
+        g_depth_mutx.unlock();
+        key = waitKey(30);
     }
 
     depth.removeNewFrameListener(&frame_cb);

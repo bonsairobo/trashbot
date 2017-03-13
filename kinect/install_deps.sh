@@ -19,7 +19,7 @@ git clone https://github.com/OpenKinect/libfreenect.git
 cd libfreenect
 mkdir build
 cd build
-cmake .. -DBUILD_OPENNI2_DRIVER=ON
+cmake .. -D BUILD_OPENNI2_DRIVER=ON -D CMAKE_BUILD_TYPE=RELEASE
 make
 cd $root_dir
 git clone https://github.com/occipital/OpenNI2.git

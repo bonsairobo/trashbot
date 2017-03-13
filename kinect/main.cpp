@@ -9,13 +9,14 @@ using namespace std;
 using namespace openni;
 using namespace cv;
 
-// zero-based rectangular frame indexing
+// Zero-based rectangular frame indexing.
 template<typename T>
 static const T* get_pixel(const VideoFrameRef& frame, int x, int y, int n_bytes)
 {
     return ((T*)frame.getData() + y * (frame.getStrideInBytes() / n_bytes) + x);
 }
 
+// Convert OpenNI image format to OpenCV format.
 static Mat cv_image_from_vframe_ref(const VideoFrameRef& frame, int n_bytes) {
     int type = n_bytes == 3 ? CV_8UC3 : CV_16UC1;
     Mat out(frame.getHeight(), frame.getWidth(), type);
@@ -58,6 +59,7 @@ static void draw_frame(const VideoFrameRef& frame) {
     }
 }
 
+// Event-based frame processing.
 class FrameCallback : public VideoStream::NewFrameListener {
 public:
     void onNewFrame(VideoStream& stream) {
@@ -139,7 +141,7 @@ int main() {
     if (rc != STATUS_OK) {
         cout << "Couldn't open device" << endl
              << OpenNI::getExtendedError() << endl;
-        return 2;
+        return 1;
     }
 
     // Register callbacks for new frame events.

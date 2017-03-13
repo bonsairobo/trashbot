@@ -162,6 +162,7 @@ int main() {
         key = waitKey(30);
     }
 
+    // Clean up.
     depth.removeNewFrameListener(&depth_frame_cb);
     depth.stop();
     depth.destroy();
@@ -170,6 +171,5 @@ int main() {
     color.destroy();
     device.close();
     OpenNI::shutdown();
-
     return 0;
 }

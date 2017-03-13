@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <opencv2/opencv.hpp>
 #include "OpenNI.h"
+#include <cstdint>
 
 using namespace std;
 using namespace openni;
@@ -15,27 +16,42 @@ static const T* get_pixel(const VideoFrameRef& frame, int x, int y, int n_bytes)
     return ((T*)frame.getData() + y * (frame.getStrideInBytes() / n_bytes) + x);
 }
 
-static void analyze_frame(const VideoFrameRef& frame) {
-    const DepthPixel* pDepth;
-    const RGB888Pixel* pColor;
+static Mat cv_image_from_vframe_ref(const VideoFrameRef& frame, int n_bytes) {
+    int type = n_bytes == 3 ? CV_8UC3 : CV_16UC1;
+    Mat out(frame.getHeight(), frame.getWidth(), type);
+    if (type == CV_8UC3) {
+        for (int y = 0; y < frame.getHeight(); ++y) {
+            for (int x = 0; x < frame.getWidth(); ++x) {
+                const RGB888Pixel *px =
+                    get_pixel<RGB888Pixel>(frame, x, y, n_bytes);
+                out.at<Vec3b>(x,y) = Vec3b(px->r, px->g, px->b);
+            }
+        }
+    } else if (type == CV_16UC1) {
+        for (int y = 0; y < frame.getHeight(); ++y) {
+            for (int x = 0; x < frame.getWidth(); ++x) {
+                const DepthPixel *px =
+                    get_pixel<DepthPixel>(frame, x, y, n_bytes);
+                out.at<uint16_t>(x,y) = *px;
+            }
+        }
+    }
 
-    int middleIndex = (frame.getHeight()+1)*frame.getWidth()/2;
+    return out;
+}
+
+static void draw_frame(const VideoFrameRef& frame) {
+    Mat image;
 
     switch (frame.getVideoMode().getPixelFormat()) {
     case PIXEL_FORMAT_DEPTH_1_MM:
     case PIXEL_FORMAT_DEPTH_100_UM:
-        pDepth = get_pixel<DepthPixel>(
-            frame, frame.getWidth() / 2, frame.getHeight() / 2, 2);
-        printf("[%08llu] %8d\n", (long long)frame.getTimestamp(), *pDepth);
+        image = cv_image_from_vframe_ref(frame, 1);
+        imshow("kinect_depth", image);
         break;
     case PIXEL_FORMAT_RGB888:
-        pColor = get_pixel<RGB888Pixel>(
-            frame, frame.getWidth() / 2, frame.getHeight() / 2, 3);
-        printf("[%08llu] 0x%02x%02x%02x\n",
-            (long long)frame.getTimestamp(),
-            pColor->r&0xff,
-            pColor->g&0xff,
-            pColor->b&0xff);
+        image = cv_image_from_vframe_ref(frame, 3);
+        imshow("kinect_color", image);
         break;
     default:
         cout << "Unknown format" << endl;
@@ -46,7 +62,7 @@ class FrameCallback : public VideoStream::NewFrameListener {
 public:
     void onNewFrame(VideoStream& stream) {
         stream.readFrame(&m_frame);
-        analyze_frame(m_frame);
+        draw_frame(m_frame);
     }
 private:
     VideoFrameRef m_frame;
@@ -137,7 +153,8 @@ int main() {
         return 1;
     color.addNewFrameListener(&frame_cb);
 
-    namedWindow("kinect", 1);
+    namedWindow("kinect_color", 1);
+    namedWindow("kinect_depth", 1);
 
     // Wait for new frames.
     char key = 0;
@@ -148,6 +165,9 @@ int main() {
     depth.removeNewFrameListener(&frame_cb);
     depth.stop();
     depth.destroy();
+    color.removeNewFrameListener(&frame_cb);
+    color.stop();
+    color.destroy();
     device.close();
     OpenNI::shutdown();
 

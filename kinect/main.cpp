@@ -25,7 +25,7 @@ static Mat cv_image_from_vframe_ref(const VideoFrameRef& frame, int n_bytes) {
             for (int x = 0; x < frame.getWidth(); ++x) {
                 const RGB888Pixel *px =
                     get_pixel<RGB888Pixel>(frame, x, y, n_bytes);
-                out.at<Vec3b>(x,y) = Vec3b(px->r, px->g, px->b);
+                out.at<Vec3b>(y,x) = Vec3b(px->r, px->g, px->b);
             }
         }
     } else if (type == CV_16UC1) {
@@ -33,7 +33,7 @@ static Mat cv_image_from_vframe_ref(const VideoFrameRef& frame, int n_bytes) {
             for (int x = 0; x < frame.getWidth(); ++x) {
                 const DepthPixel *px =
                     get_pixel<DepthPixel>(frame, x, y, n_bytes);
-                out.at<uint16_t>(x,y) = *px;
+                out.at<uint16_t>(y,x) = *px;
             }
         }
     }
@@ -47,10 +47,12 @@ static void draw_frame(const VideoFrameRef& frame) {
     switch (frame.getVideoMode().getPixelFormat()) {
     case PIXEL_FORMAT_DEPTH_1_MM:
     case PIXEL_FORMAT_DEPTH_100_UM:
-        image = cv_image_from_vframe_ref(frame, 1);
+        cout << "NEW DEPTH FRAME" << endl;
+        image = cv_image_from_vframe_ref(frame, 2);
         imshow("kinect_depth", image);
         break;
     case PIXEL_FORMAT_RGB888:
+        cout << "NEW COLOR FRAME" << endl;
         image = cv_image_from_vframe_ref(frame, 3);
         imshow("kinect_color", image);
         break;

@@ -1,32 +1,41 @@
 #include <libfreenect.h>
 #include <iostream>
 #include <signal.h>
+#include <opencv2/opencv.hpp>
 #include "OpenNI.h"
 
 using namespace std;
 using namespace openni;
+using namespace cv;
 
-void analyzeFrame(const VideoFrameRef& frame) {
-    DepthPixel* pDepth;
-    RGB888Pixel* pColor;
+// zero-based rectangular frame indexing
+template<typename T>
+static const T* get_pixel(const VideoFrameRef& frame, int x, int y, int n_bytes)
+{
+    return ((T*)frame.getData() + y * (frame.getStrideInBytes() / n_bytes) + x);
+}
+
+static void analyze_frame(const VideoFrameRef& frame) {
+    const DepthPixel* pDepth;
+    const RGB888Pixel* pColor;
 
     int middleIndex = (frame.getHeight()+1)*frame.getWidth()/2;
 
     switch (frame.getVideoMode().getPixelFormat()) {
     case PIXEL_FORMAT_DEPTH_1_MM:
     case PIXEL_FORMAT_DEPTH_100_UM:
-        pDepth = (DepthPixel*)frame.getData();
-        printf("[%08llu] %8d\n",
-            (long long)frame.getTimestamp(),
-            pDepth[middleIndex]);
+        pDepth = get_pixel<DepthPixel>(
+            frame, frame.getWidth() / 2, frame.getHeight() / 2, 2);
+        printf("[%08llu] %8d\n", (long long)frame.getTimestamp(), *pDepth);
         break;
     case PIXEL_FORMAT_RGB888:
-        pColor = (RGB888Pixel*)frame.getData();
+        pColor = get_pixel<RGB888Pixel>(
+            frame, frame.getWidth() / 2, frame.getHeight() / 2, 3);
         printf("[%08llu] 0x%02x%02x%02x\n",
             (long long)frame.getTimestamp(),
-            pColor[middleIndex].r&0xff,
-            pColor[middleIndex].g&0xff,
-            pColor[middleIndex].b&0xff);
+            pColor->r&0xff,
+            pColor->g&0xff,
+            pColor->b&0xff);
         break;
     default:
         cout << "Unknown format" << endl;
@@ -37,7 +46,7 @@ class FrameCallback : public VideoStream::NewFrameListener {
 public:
     void onNewFrame(VideoStream& stream) {
         stream.readFrame(&m_frame);
-        analyzeFrame(m_frame);
+        analyze_frame(m_frame);
     }
 private:
     VideoFrameRef m_frame;
@@ -63,10 +72,6 @@ public:
         cout << "Device " << pInfo->getUri() << " disconnected" << endl;
     }
 };
-
-static void sleep(int millisecs) {
-    usleep(millisecs * 1000);
-}
 
 static int try_start_video_stream(
     VideoStream& stream,
@@ -132,9 +137,12 @@ int main() {
         return 1;
     color.addNewFrameListener(&frame_cb);
 
+    namedWindow("kinect", 1);
+
     // Wait for new frames.
-    while (true) {
-        sleep(100);
+    char key = 0;
+    while (key != 27) { // escape
+        key = waitKey(10);
     }
 
     depth.removeNewFrameListener(&frame_cb);

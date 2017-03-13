@@ -61,10 +61,6 @@ class FrameCallback : public VideoStream::NewFrameListener {
 public:
     void onNewFrame(VideoStream& stream) {
         stream.readFrame(&m_frame);
-        if (m_frame.getHeight() <= 0 or m_frame.getWidth() <= 0) {
-            cout << "ERROR: zero frame dimension" << endl;
-            return;
-        }
         draw_frame(m_frame);
     }
 private:
@@ -146,15 +142,15 @@ int main() {
     }
 
     // Register callbacks for new frame events.
-    FrameCallback frame_cb;
-    VideoStream depth;
-    if (try_start_video_stream(depth, device, SENSOR_DEPTH, "depth") != 0)
-        return 1;
-    depth.addNewFrameListener(&frame_cb);
+    FrameCallback color_frame_cb, depth_frame_cb;
     VideoStream color;
     if (try_start_video_stream(color, device, SENSOR_COLOR, "color") != 0)
         return 1;
-    color.addNewFrameListener(&frame_cb);
+    color.addNewFrameListener(&color_frame_cb);
+    VideoStream depth;
+    if (try_start_video_stream(depth, device, SENSOR_DEPTH, "depth") != 0)
+        return 1;
+    depth.addNewFrameListener(&depth_frame_cb);
 
     namedWindow("kinect_color", 1);
     namedWindow("kinect_depth", 1);
@@ -173,10 +169,10 @@ int main() {
         key = waitKey(30);
     }
 
-    depth.removeNewFrameListener(&frame_cb);
+    depth.removeNewFrameListener(&depth_frame_cb);
     depth.stop();
     depth.destroy();
-    color.removeNewFrameListener(&frame_cb);
+    color.removeNewFrameListener(&color_frame_cb);
     color.stop();
     color.destroy();
     device.close();

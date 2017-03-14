@@ -19,7 +19,7 @@ git clone https://github.com/OpenKinect/libfreenect.git
 cd libfreenect
 mkdir build
 cd build
-cmake .. -D BUILD_OPENNI2_DRIVER=ON -D CMAKE_BUILD_TYPE=RELEASE
+cmake -DBUILD_OPENNI2_DRIVER=ON -DCMAKE_BUILD_TYPE=RELEASE ..
 make
 cd $root_dir
 git clone https://github.com/occipital/OpenNI2.git
@@ -30,7 +30,7 @@ git clone https://github.com/opencv/opencv.git
 cd opencv
 mkdir build
 cd build
-cmake -D CMAKE_BUILD_TYPE=RELEASE ..
+cmake -DCMAKE_BUILD_TYPE=RELEASE ..
 make -j4
 sudo make install
 cd $root_dir

@@ -118,7 +118,7 @@ void KinectReceiver::update_model(const Mat& depth, const Mat& color) {
 
     // TODO: Find grasping points.
 
-    // TODO: Write object and Rexarm feedback data to named pipe.
+    // TODO: Write object and Rexarm feedback data to socket.
 }
 
 void KinectReceiver::update() {

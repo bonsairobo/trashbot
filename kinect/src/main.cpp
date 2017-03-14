@@ -9,7 +9,8 @@ using namespace openni;
 int main(int argc, char **argv) {
     bool show_feeds = !(argc > 1 and *(argv[1]) == '0');
 
-    // Reserve STDOUT for IPC.
+    // All debug and error messages get saved. `watch` the file for
+    // realtime feedback.
     ofstream log_stream("kinect_log.txt");
 
     Status rc = OpenNI::initialize();
@@ -42,7 +43,8 @@ int main(int argc, char **argv) {
 
     // Create Kinect streams and register new-frame callbacks to the receiver.
     KinectReceiver recv(show_feeds, &log_stream);
-    recv.try_start_streams(device);
+    if (recv.try_start_streams(device) != 0)
+        return 1;
     recv.maybe_make_windows();
     recv.loop_until_esc();
 

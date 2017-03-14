@@ -8,7 +8,7 @@ OpenNIDeviceListener::OpenNIDeviceListener(ofstream* log_stream):
 	log_stream(log_stream) {}
 
 void OpenNIDeviceListener::onDeviceStateChanged(
-    const DeviceInfo* pInfo, DeviceState state) 
+    const DeviceInfo* pInfo, DeviceState state)
 {
     *log_stream << "Device " << pInfo->getUri()
          		<< " error state changed to " << state << endl;

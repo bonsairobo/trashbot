@@ -55,13 +55,13 @@ int KinectReceiver::try_start_streams(Device& device) {
         color, device, SENSOR_COLOR, "color", log_stream) != 0)
     {
         return 1;
-    }   
+    }
     if (try_start_video_stream(
         depth, device, SENSOR_DEPTH, "depth", log_stream) != 0)
     {
         return 1;
     }
-        
+
     color.addNewFrameListener(&color_cb);
     depth.addNewFrameListener(&depth_cb);
     return 0;
@@ -117,6 +117,8 @@ void KinectReceiver::update_model(const Mat& depth, const Mat& color) {
     // TODO: Detect graspable objects.
 
     // TODO: Find grasping points.
+
+    // TODO: Write object and Rexarm feedback data to named pipe.
 }
 
 void KinectReceiver::update() {

@@ -18,39 +18,50 @@ static int try_start_video_stream(
     VideoStream& stream,
     Device& device,
     SensorType type,
-    const string& type_str)
+    const string& type_str,
+    ofstream *log_stream)
 {
     Status rc;
     if (device.getSensorInfo(type) != NULL) {
         rc = stream.create(device, type);
         if (rc != STATUS_OK) {
-            cout << "Couldn't create " << type_str <<  " stream" << endl
-                 << OpenNI::getExtendedError() << endl;
+            *log_stream << "ERROR: Couldn't create " << type_str
+                        <<  " stream" << endl
+                        << OpenNI::getExtendedError() << endl;
             return 1;
         }
     }
     rc = stream.start();
     if (rc != STATUS_OK) {
-        cout << "Couldn't start the " << type_str << " stream" << endl
-             << OpenNI::getExtendedError() << endl;
+        *log_stream << "ERROR: Couldn't start the " << type_str
+                    << " stream" << endl
+                    << OpenNI::getExtendedError() << endl;
         return 1;
     }
     return 0;
 }
 
-KinectReceiver::KinectReceiver(bool show_feeds):
+KinectReceiver::KinectReceiver(bool show_feeds, ofstream *log_stream):
     show_feeds(show_feeds),
     depth_set(false),
     color_set(false),
     color_cb(this),
-    depth_cb(this)
+    depth_cb(this),
+    log_stream(log_stream)
 {}
 
 int KinectReceiver::try_start_streams(Device& device) {
-    if (try_start_video_stream(color, device, SENSOR_COLOR, "color") != 0)
+    if (try_start_video_stream(
+        color, device, SENSOR_COLOR, "color", log_stream) != 0)
+    {
         return 1;
-    if (try_start_video_stream(depth, device, SENSOR_DEPTH, "depth") != 0)
+    }   
+    if (try_start_video_stream(
+        depth, device, SENSOR_DEPTH, "depth", log_stream) != 0)
+    {
         return 1;
+    }
+        
     color.addNewFrameListener(&color_cb);
     depth.addNewFrameListener(&depth_cb);
     return 0;
@@ -96,12 +107,16 @@ void KinectReceiver::write_mat(const VideoFrameRef& frame) {
         depth_mutx.unlock();
         break;
     default:
-        cout << "Unknown format" << endl;
+        *log_stream << "WARNING: Unknown format" << endl;
     }
 }
 
 void KinectReceiver::update_model(const Mat& depth, const Mat& color) {
     // TODO: Use cv::rgbd::RgbdOdometry to do visual odometry.
+
+    // TODO: Detect graspable objects.
+
+    // TODO: Find grasping points.
 }
 
 void KinectReceiver::update() {

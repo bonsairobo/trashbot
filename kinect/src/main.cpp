@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include "openni_device_listener.hpp"
 #include "kinect_receiver.hpp"
 
@@ -8,36 +9,39 @@ using namespace openni;
 int main(int argc, char **argv) {
     bool show_feeds = !(argc > 1 and *(argv[1]) == '0');
 
+    // Reserve STDOUT for IPC.
+    ofstream log_stream("kinect_log.txt");
+
     Status rc = OpenNI::initialize();
     if (rc != STATUS_OK) {
-        cout << "Initialize failed" << endl
-             << OpenNI::getExtendedError() << endl;
+        log_stream << "Initialize failed" << endl
+                   << OpenNI::getExtendedError() << endl;
         return 1;
     }
 
     // Register callbacks for device events.
-    OpenNIDeviceListener devicePrinter;
-    OpenNI::addDeviceConnectedListener(&devicePrinter);
-    OpenNI::addDeviceDisconnectedListener(&devicePrinter);
-    OpenNI::addDeviceStateChangedListener(&devicePrinter);
+    OpenNIDeviceListener device_printer(&log_stream);
+    OpenNI::addDeviceConnectedListener(&device_printer);
+    OpenNI::addDeviceDisconnectedListener(&device_printer);
+    OpenNI::addDeviceStateChangedListener(&device_printer);
 
     // Enumerate devices and choose the first one.
-    openni::Array<openni::DeviceInfo> deviceList;
-    openni::OpenNI::enumerateDevices(&deviceList);
-    for (int i = 0; i < deviceList.getSize(); ++i) {
-        cout << "Device " << deviceList[i].getUri()
-             << " already connected" << endl;
+    openni::Array<openni::DeviceInfo> device_list;
+    openni::OpenNI::enumerateDevices(&device_list);
+    for (int i = 0; i < device_list.getSize(); ++i) {
+        log_stream << "LOG: Device " << device_list[i].getUri()
+                   << " already connected" << endl;
     }
     Device device;
     rc = device.open(ANY_DEVICE);
     if (rc != STATUS_OK) {
-        cout << "Couldn't open device" << endl
-             << OpenNI::getExtendedError() << endl;
+        log_stream << "Couldn't open device" << endl
+                   << OpenNI::getExtendedError() << endl;
         return 1;
     }
 
     // Create Kinect streams and register new-frame callbacks to the receiver.
-    KinectReceiver recv(show_feeds);
+    KinectReceiver recv(show_feeds, &log_stream);
     recv.try_start_streams(device);
     recv.maybe_make_windows();
     recv.loop_until_esc();

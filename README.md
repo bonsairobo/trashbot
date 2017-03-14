@@ -5,6 +5,7 @@ This project is split into separate modules:
 * Rexarm controller
 * MagicBot motion controller
 * Joystick
+
 each of which runs on its own process. To build any of these executables, perform
 the following steps.
 

@@ -5,8 +5,8 @@
 mkfifo a=rw /tmp/pickup_pipe
 mkfifo a=rw /tmp/bot_move_pipe
 
-./joystick
-./motion_controller < /tmp/bot_move_pipe
+./joystick/joystick
+./motion_controller/motion_controller < /tmp/bot_move_pipe
 
 rm /tmp/pickup_pipe
 rm /tmp/bot_move_pipe

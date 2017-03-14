@@ -5,8 +5,8 @@
 if [-e /tmp/pickup_pipe] then
 	mkfifo a=rw /tmp/object_pipe
 
-	./kinect 0 > /tmp/object_pipe
-	./rexarm
+	./kinect/kinect 0 > /tmp/object_pipe
+	./rexarm/rexarm
 
 	rm /tmp/object_pipe
 fi

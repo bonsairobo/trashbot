@@ -1,3 +1,0 @@
-Couldn't open device
-	DeviceOpen using default: no devices found
-

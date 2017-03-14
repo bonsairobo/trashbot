@@ -14,14 +14,54 @@ static Mat cv_image_from_vframe_ref(const VideoFrameRef& frame, int n_bytes) {
     return out;
 }
 
-KinectReceiver::KinectReceiver(VideoStream& color, VideoStream& depth):
+static int try_start_video_stream(
+    VideoStream& stream,
+    Device& device,
+    SensorType type,
+    const string& type_str)
+{
+    Status rc;
+    if (device.getSensorInfo(type) != NULL) {
+        rc = stream.create(device, type);
+        if (rc != STATUS_OK) {
+            cout << "Couldn't create " << type_str <<  " stream" << endl
+                 << OpenNI::getExtendedError() << endl;
+            return 1;
+        }
+    }
+    rc = stream.start();
+    if (rc != STATUS_OK) {
+        cout << "Couldn't start the " << type_str << " stream" << endl
+             << OpenNI::getExtendedError() << endl;
+        return 1;
+    }
+    return 0;
+}
+
+KinectReceiver::KinectReceiver():
     depth_set(false),
     color_set(false),
     color_cb(this),
     depth_cb(this)
-{
+{}
+
+int KinectReceiver::try_start_streams(Device& device) {
+    if (try_start_video_stream(color, device, SENSOR_COLOR, "color") != 0)
+        return 1;
+    if (try_start_video_stream(depth, device, SENSOR_DEPTH, "depth") != 0)
+        return 1;
     color.addNewFrameListener(&color_cb);
     depth.addNewFrameListener(&depth_cb);
+    return 0;
+}
+
+void KinectReceiver::close_streams() {
+    depth.removeNewFrameListener(&depth_cb);
+    depth.stop();
+    depth.destroy();
+    color.removeNewFrameListener(&color_cb);
+    color.stop();
+    color.destroy();
 }
 
 void KinectReceiver::make_windows() const {

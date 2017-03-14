@@ -7,7 +7,7 @@
 #include "frame_callback.hpp"
 
 class KinectReceiver {
-	friend FrameCallback;
+    friend FrameCallback;
 
     bool depth_set;
     bool color_set;
@@ -16,14 +16,17 @@ class KinectReceiver {
     cv::Mat color_img;
     std::mutex color_mutx;
     FrameCallback color_cb, depth_cb;
+    openni::VideoStream depth, color;
 
     void draw_feeds();
     void write_mat(const openni::VideoFrameRef&);
 
 public:
-    KinectReceiver(openni::VideoStream& color, openni::VideoStream& depth);
+    KinectReceiver();
     void make_windows() const;
     void loop_until_esc();
+    void close_streams();
+    int try_start_streams(openni::Device&);
 };
 
 #endif // KINECT_RECEIVER_HPP

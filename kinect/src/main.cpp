@@ -5,30 +5,6 @@
 using namespace std;
 using namespace openni;
 
-static int try_start_video_stream(
-    VideoStream& stream,
-    Device& device,
-    SensorType type,
-    const string& type_str)
-{
-    Status rc;
-    if (device.getSensorInfo(type) != NULL) {
-        rc = stream.create(device, type);
-        if (rc != STATUS_OK) {
-            cout << "Couldn't create " << type_str <<  " stream" << endl
-                 << OpenNI::getExtendedError() << endl;
-            return 1;
-        }
-    }
-    rc = stream.start();
-    if (rc != STATUS_OK) {
-        cout << "Couldn't start the " << type_str << " stream" << endl
-             << OpenNI::getExtendedError() << endl;
-        return 1;
-    }
-    return 0;
-}
-
 int main() {
     Status rc = OpenNI::initialize();
     if (rc != STATUS_OK) {
@@ -59,21 +35,13 @@ int main() {
     }
 
     // Create Kinect streams and register new-frame callbacks to the receiver.
-    VideoStream color;
-    if (try_start_video_stream(color, device, SENSOR_COLOR, "color") != 0)
-        return 1;
-    VideoStream depth;
-    if (try_start_video_stream(depth, device, SENSOR_DEPTH, "depth") != 0)
-        return 1;
-    KinectReceiver recv(color, depth);
+    KinectReceiver recv;
+    recv.try_start_streams(device);
     recv.make_windows();
     recv.loop_until_esc();
 
     // Clean up.
-    depth.stop();
-    depth.destroy();
-    color.stop();
-    color.destroy();
+    recv.close_streams();
     device.close();
     OpenNI::shutdown();
     return 0;

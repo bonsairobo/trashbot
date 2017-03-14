@@ -4,7 +4,6 @@
 
 using namespace std;
 using namespace openni;
-using namespace cv;
 
 static int try_start_video_stream(
     VideoStream& stream,
@@ -67,15 +66,8 @@ int main() {
     if (try_start_video_stream(depth, device, SENSOR_DEPTH, "depth") != 0)
         return 1;
     KinectReceiver recv(color, depth);
-
-    // Draw frames to CV window.
-    namedWindow("kinect_color", 1);
-    namedWindow("kinect_depth", 1);
-    char key = 0;
-    while (key != 27) { // escape
-        recv.draw_feeds();
-        key = waitKey(30);
-    }
+    recv.make_windows();
+    recv.loop_until_esc();
 
     // Clean up.
     depth.stop();

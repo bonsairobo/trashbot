@@ -24,6 +24,20 @@ KinectReceiver::KinectReceiver(VideoStream& color, VideoStream& depth):
     depth.addNewFrameListener(&depth_cb);
 }
 
+void KinectReceiver::make_windows() const {
+    namedWindow("kinect_color", 1);
+    namedWindow("kinect_depth", 1);
+}
+
+void KinectReceiver::loop_until_esc() {
+    // Draw frames to CV window.
+    char key = 0;
+    while (key != 27) { // escape
+        draw_feeds();
+        key = waitKey(30);
+    }
+}
+
 void KinectReceiver::write_mat(const VideoFrameRef& frame) {
     switch (frame.getVideoMode().getPixelFormat()) {
     case PIXEL_FORMAT_RGB888:

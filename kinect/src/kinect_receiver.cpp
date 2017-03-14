@@ -73,11 +73,10 @@ void KinectReceiver::maybe_make_windows() const {
 }
 
 void KinectReceiver::loop_until_esc() {
-    // Draw frames to CV window.
     char key = 0;
     while (key != 27) { // escape
         update();
-        key = waitKey(30);
+        key = waitKey(5);
     }
 }
 
@@ -101,19 +100,29 @@ void KinectReceiver::write_mat(const VideoFrameRef& frame) {
     }
 }
 
+void KinectReceiver::update_model(const Mat& depth, const Mat& color) {
+    // TODO: Use cv::rgbd::RgbdOdometry to do visual odometry.
+}
+
 void KinectReceiver::update() {
+    // Fetch current images.
+    bool images_ready = true;
+    Mat depth_cpy, color_cpy;
     depth_mutx.lock();
-    if (depth_set) {
-        if (show_feeds)
-            imshow("kinect_depth", depth_img);
-        depth_set = false;
-    }
+    images_ready &= depth_set;
+    depth_cpy = depth_img;
     depth_mutx.unlock();
     color_mutx.lock();
-    if (color_set) {
-        if (show_feeds)
-            imshow("kinect_color", color_img);
-        color_set = false;
-    }
+    images_ready &= color_set;
+    color_cpy = color_img;
     color_mutx.unlock();
+
+    if (images_ready) {
+        if (show_feeds) {
+            imshow("kinect_depth", depth_cpy);
+            imshow("kinect_color", color_cpy);
+        }
+
+        update_model(depth_cpy, color_cpy);
+    }
 }

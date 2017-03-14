@@ -20,6 +20,7 @@ class KinectReceiver {
     openni::VideoStream depth, color;
 
     void update();
+    void update_model(const cv::Mat& depth, const cv::Mat& color);
     void write_mat(const openni::VideoFrameRef&);
 
 public:

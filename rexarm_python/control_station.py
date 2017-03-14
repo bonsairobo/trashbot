@@ -4,6 +4,7 @@ import numpy as np
 from PyQt4 import QtGui, QtCore, Qt
 from ui import Ui_MainWindow
 from rexarm import Rexarm
+import functools #Let's us give parameters to callback functions for QT connect
 
 from video import Video
 
@@ -61,11 +62,17 @@ class Gui(QtGui.QMainWindow):
         Connect Sliders to Function
         LAB TASK: CONNECT THE OTHER 5 SLIDERS IMPLEMENTED IN THE GUI 
         """ 
-        self.ui.sldrBase.valueChanged.connect(self.sliderChange)
-        self.ui.sldrMaxTorque.valueChanged.connect(self.sliderChange)
+        self.ui.sldrBase.valueChanged.connect(functools.partial(self.sliderChange,0))
+        self.ui.sldrShoulder.valueChanged.connect(functools.partial(self.sliderChange,1))
+        self.ui.sldrElbow.valueChanged.connect(functools.partial(self.sliderChange,2))
+        self.ui.sldrWrist.valueChanged.connect(functools.partial(self.sliderChange,3))
+        self.ui.sldrGrip1.valueChanged.connect(functools.partial(self.sliderChange,4))
+        self.ui.sldrGrip2.valueChanged.connect(functools.partial(self.sliderChange,5))
+        self.ui.sldrMaxTorque.valueChanged.connect(functools.partial(self.sliderChange,6))
+        self.ui.sldrSpeed.valueChanged.connect(functools.partial(self.sliderChange,7))
 
         """ Commands the arm as the arm initialize to 0,0,0,0 angles """
-        self.sliderChange() 
+        self.sliderChange(0) 
         
         """ Connect Buttons to Functions 
         LAB TASK: NAME AND CONNECT BUTTONS AS NEEDED
@@ -129,16 +136,45 @@ class Gui(QtGui.QMainWindow):
                                     %(self.rex.wpt_number + 1))
 
 
-    def sliderChange(self):
+    def sliderChange(self,selected_slider):
         """ 
         Function to change the slider labels when sliders are moved
         and to command the arm to the given position 
         TO DO: Implement for the other sliders
         """
-        self.ui.rdoutBase.setText(str(self.ui.sldrBase.value()))
-        self.ui.rdoutTorq.setText(str(self.ui.sldrMaxTorque.value()) + "%")
-        self.rex.max_torque = self.ui.sldrMaxTorque.value()/100.0
-        self.rex.joint_angles[0] = self.ui.sldrBase.value()*D2R
+        #print "Selected joint:", selected_slider
+        if 0 <= selected_slider and selected_slider <= 5:
+            angle = 0
+            if selected_slider == 0:
+                self.ui.rdoutBase.setText(str(self.ui.sldrBase.value()))
+                angle = self.ui.sldrBase.value()*D2R
+            elif selected_slider == 1:
+                self.ui.rdoutShoulder.setText(str(self.ui.sldrShoulder.value()))
+                angle = self.ui.sldrShoulder.value()*D2R
+            elif selected_slider == 2:
+                self.ui.rdoutElbow.setText(str(self.ui.sldrElbow.value()))
+                angle = self.ui.sldrElbow.value()*D2R
+            elif selected_slider == 3:
+                self.ui.rdoutWrist.setText(str(self.ui.sldrWrist.value()))
+                angle = self.ui.sldrWrist.value()*D2R
+            elif selected_slider == 4:
+                self.ui.rdoutGrip1.setText(str(self.ui.sldrGrip1.value()))
+                angle = self.ui.sldrGrip1.value()*D2R
+            elif selected_slider == 5:
+                self.ui.rdoutGrip2.setText(str(self.ui.sldrGrip2.value()))
+                angle = self.ui.sldrGrip2.value()*D2R
+
+            self.rex.joint_angles[selected_slider] = angle;
+        elif 6 <= selected_slider and selected_slider <= 7:
+            if selected_slider == 6:
+                self.ui.rdoutTorq.setText(str(self.ui.sldrMaxTorque.value()) + "%")
+                self.rex.max_torque = self.ui.sldrMaxTorque.value()/100.0
+            elif selected_slider == 7:
+                self.ui.rdoutSpeed.setText(str(self.ui.sldrSpeed.value()) + "%")
+                self.rex.speed = self.ui.sldrSpeed.value()/100.0
+        else:
+            print "Error: Unrecognized slider index", selected_slider
+
         self.rex.cmd_publish()
 
     def mousePressEvent(self, QMouseEvent):

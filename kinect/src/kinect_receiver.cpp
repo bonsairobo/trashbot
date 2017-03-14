@@ -38,7 +38,8 @@ static int try_start_video_stream(
     return 0;
 }
 
-KinectReceiver::KinectReceiver():
+KinectReceiver::KinectReceiver(bool show_feeds):
+    show_feeds(show_feeds),
     depth_set(false),
     color_set(false),
     color_cb(this),
@@ -64,16 +65,18 @@ void KinectReceiver::close_streams() {
     color.destroy();
 }
 
-void KinectReceiver::make_windows() const {
-    namedWindow("kinect_color", 1);
-    namedWindow("kinect_depth", 1);
+void KinectReceiver::maybe_make_windows() const {
+    if (show_feeds) {
+        namedWindow("kinect_color", 1);
+        namedWindow("kinect_depth", 1);
+    }
 }
 
 void KinectReceiver::loop_until_esc() {
     // Draw frames to CV window.
     char key = 0;
     while (key != 27) { // escape
-        draw_feeds();
+        update();
         key = waitKey(30);
     }
 }
@@ -98,13 +101,19 @@ void KinectReceiver::write_mat(const VideoFrameRef& frame) {
     }
 }
 
-void KinectReceiver::draw_feeds() {
+void KinectReceiver::update() {
     depth_mutx.lock();
-    if (depth_set)
-        imshow("kinect_depth", depth_img);
+    if (depth_set) {
+        if (show_feeds)
+            imshow("kinect_depth", depth_img);
+        depth_set = false;
+    }
     depth_mutx.unlock();
     color_mutx.lock();
-    if (color_set)
-        imshow("kinect_color", color_img);
+    if (color_set) {
+        if (show_feeds)
+            imshow("kinect_color", color_img);
+        color_set = false;
+    }
     color_mutx.unlock();
 }

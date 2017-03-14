@@ -9,6 +9,7 @@
 class KinectReceiver {
     friend FrameCallback;
 
+    const bool show_feeds;
     bool depth_set;
     bool color_set;
     cv::Mat depth_img;
@@ -18,12 +19,12 @@ class KinectReceiver {
     FrameCallback color_cb, depth_cb;
     openni::VideoStream depth, color;
 
-    void draw_feeds();
+    void update();
     void write_mat(const openni::VideoFrameRef&);
 
 public:
-    KinectReceiver();
-    void make_windows() const;
+    KinectReceiver(bool show_feeds);
+    void maybe_make_windows() const;
     void loop_until_esc();
     void close_streams();
     int try_start_streams(openni::Device&);

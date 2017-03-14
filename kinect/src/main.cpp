@@ -5,7 +5,9 @@
 using namespace std;
 using namespace openni;
 
-int main() {
+int main(int argc, char **argv) {
+    bool show_feeds = !(argc > 1 and *(argv[1]) == '0');
+
     Status rc = OpenNI::initialize();
     if (rc != STATUS_OK) {
         cout << "Initialize failed" << endl
@@ -35,9 +37,9 @@ int main() {
     }
 
     // Create Kinect streams and register new-frame callbacks to the receiver.
-    KinectReceiver recv;
+    KinectReceiver recv(show_feeds);
     recv.try_start_streams(device);
-    recv.make_windows();
+    recv.maybe_make_windows();
     recv.loop_until_esc();
 
     // Clean up.

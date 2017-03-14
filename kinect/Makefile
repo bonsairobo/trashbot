@@ -9,7 +9,7 @@ LINK_PATH = -L opencv/build/lib \
 VPATH = src \
 		obj
 
-KINECT_SRCS = main.cpp
+KINECT_SRCS = main.cpp openni_device_listener.cpp kinect_receiver.cpp frame_callback.cpp
 
 KINECT_OBJS = $(KINECT_SRCS:.cpp=.o)
 

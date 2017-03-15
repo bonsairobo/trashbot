@@ -1,1 +1,1 @@
-TODO: Describe the sensor model socket API for Rexarm receiver.
+TODO: describe the sensor model socket API for Rexarm receiver.

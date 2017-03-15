@@ -1,3 +1,5 @@
+# If you have trouble finding the Kinect device, you might need to run as root :(
+
 root_dir=$PWD
 sudo add-apt-repository ppa:george-edison55/cmake-3.x
 sudo apt-get update
@@ -15,6 +17,7 @@ sudo apt-get install build-essential \
 					 freeglut3-dev \
 					 libxmu-dev \
 					 libxi-dev
+
 git clone https://github.com/OpenKinect/libfreenect.git
 cd libfreenect
 mkdir build

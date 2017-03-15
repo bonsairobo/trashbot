@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
     while (true) {
         usleep(1000);
         JoystickEvent event;
-        if (js.sample(&event)) {
+        while (js.sample(&event)) {
             if (event.isButton()) {
                 cout << "Button " << (unsigned)event.number << " is "
                      << (event.value == 0 ? "up" : "down") << endl;

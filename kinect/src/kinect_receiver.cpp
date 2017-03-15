@@ -21,8 +21,7 @@ static int try_start_video_stream(
     Device& device,
     SensorType type,
     const string& type_str,
-    ofstream *log_stream,
-    bool set_reg)
+    ofstream *log_stream)
 {
     Status rc;
     if (device.getSensorInfo(type) != NULL) {
@@ -33,11 +32,6 @@ static int try_start_video_stream(
                         << OpenNI::getExtendedError() << endl;
             return 1;
         }
-    }
-    if (set_reg and device.isImageRegistrationModeSupported(
-            IMAGE_REGISTRATION_DEPTH_TO_COLOR))
-    {
-        device.setImageRegistrationMode(IMAGE_REGISTRATION_DEPTH_TO_COLOR);
     }
     rc = stream.start();
     if (rc != STATUS_OK) {
@@ -60,14 +54,19 @@ KinectReceiver::KinectReceiver(bool show_feeds, ofstream *log_stream):
 
 int KinectReceiver::try_start_streams(Device& device) {
     if (try_start_video_stream(
-        color, device, SENSOR_COLOR, "color", log_stream, false) != 0)
+        color, device, SENSOR_COLOR, "color", log_stream) != 0)
     {
         return 1;
     }
     if (try_start_video_stream(
-        depth, device, SENSOR_DEPTH, "depth", log_stream, true) != 0)
+        depth, device, SENSOR_DEPTH, "depth", log_stream) != 0)
     {
         return 1;
+    }
+    if (device.isImageRegistrationModeSupported(
+            IMAGE_REGISTRATION_DEPTH_TO_COLOR))
+    {
+        device.setImageRegistrationMode(IMAGE_REGISTRATION_DEPTH_TO_COLOR);
     }
 
     color.addNewFrameListener(&color_cb);

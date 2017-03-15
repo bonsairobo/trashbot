@@ -21,6 +21,7 @@ kinect: obj/main.o $(KINECT_OBJS:%=obj/%)
 									   -l opencv_flann \
 									   -l opencv_highgui \
 									   -l opencv_imgcodecs \
+									   -l opencv_imgproc \
 									   -l freenect \
 									   -l OpenNI2 \
 

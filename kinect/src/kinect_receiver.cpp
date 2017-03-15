@@ -11,6 +11,8 @@ static Mat cv_image_from_vframe_ref(const VideoFrameRef& frame, int n_bytes) {
     Mat out(frame.getHeight(), frame.getWidth(), type);
     memcpy(out.data, frame.getData(),
         frame.getWidth() * frame.getHeight() * n_bytes);
+    if (type == CV_8UC3)
+        cvtColor(out, out, CV_RGB2BGR);
     return out;
 }
 
@@ -26,7 +28,7 @@ static int try_start_video_stream(
         rc = stream.create(device, type);
         if (rc != STATUS_OK) {
             *log_stream << "ERROR: Couldn't create " << type_str
-                        <<  " stream" << endl
+                        << " stream" << endl
                         << OpenNI::getExtendedError() << endl;
             return 1;
         }

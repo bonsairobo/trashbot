@@ -19,8 +19,11 @@ int main(int argc, char **argv) {
         "/tmp/joystick_endpoint",
         &recv_addr,
         &send_addr);
+    // If the path already exists, must unlink before rebinding.
+    if (access(send_addr.sun_path, F_OK) == 0)
+        unlink(send_addr.sun_path);
     if (bind(sock, (sockaddr*)&send_addr, sizeof(send_addr)) == -1) {
-        cerr << "ERROR: could not bind socket" << endl;
+        perror("bind");
         exit(-1);
     }
 
@@ -28,17 +31,20 @@ int main(int argc, char **argv) {
         usleep(1000);
         JoystickPacket packet;
         while (js.sample(&packet.event)) {
-            auto now = chrono::system_clock::now();
-            auto duration = now.time_since_epoch();
-            packet.time_ms = chrono::duration_cast<chrono::milliseconds>(
-                duration).count();
-            sendto(
-                sock,
-                &packet,
-                sizeof(packet),
-                0,
-                (sockaddr*)&recv_addr,
-                sizeof(recv_addr));
+            if (packet.event.isButton()) {
+                cout << "BUTTON PRESS" << endl;
+                auto now = chrono::system_clock::now();
+                auto duration = now.time_since_epoch();
+                packet.time_ms = chrono::duration_cast<chrono::milliseconds>(
+                    duration).count();
+                sendto(
+                    sock,
+                    &packet,
+                    sizeof(packet),
+                    0,
+                    (sockaddr*)&recv_addr,
+                    sizeof(recv_addr));
+            }
         }
     }
 

@@ -14,22 +14,26 @@ int main(int argc, char **argv) {
         "/tmp/joystick_endpoint",
         &recv_addr,
         &send_addr);
+    // If the path already exists, must unlink before rebinding.
+    if (access(recv_addr.sun_path, F_OK) == 0)
+        unlink(recv_addr.sun_path);
     if (bind(sock, (sockaddr*)&recv_addr, sizeof(recv_addr)) == -1) {
-        cerr << "ERROR: could not bind socket" << endl;
+        perror("bind");
         exit(-1);
     }
 
     while (true) {
         JoystickPacket packet;
-        size_t bytes_read = recvfrom(
+        socklen_t len = sizeof(send_addr);
+        ssize_t bytes_read = recvfrom(
             sock,
             &packet,
             sizeof(packet),
             0,
             (sockaddr*)&send_addr,
-            (socklen_t*) sizeof(send_addr));
+            &len);
         if (bytes_read < 0) {
-            cerr << "ERROR: could not read from socket" << endl;
+            perror("recvfrom");
             return 1;
         } else if (bytes_read != sizeof(packet)) {
             continue;

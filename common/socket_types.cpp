@@ -18,13 +18,9 @@ int try_create_udp_socket(
     strncpy(recv_addr_out->sun_path, recv_path, sizeof(sockaddr_un)-1);
     strncpy(send_addr_out->sun_path, send_path, sizeof(sockaddr_un)-1);
 
-    // If the path already exists, must unlink before rebinding.
-    if (access(recv_addr_out->sun_path, F_OK) == 0)
-        unlink(recv_addr_out->sun_path);
-
     int sock;
     if ((sock = socket(AF_UNIX, SOCK_DGRAM, 0)) == -1) {
-        cerr << "ERROR: could not create socket" << endl;
+        perror("socket");
         exit(-1);
     }
 

@@ -4,7 +4,8 @@ INCLUDE_PATH = -I libfreenect/include -I OpenNI2/Include
 LINK_PATH = -L opencv/build/lib \
 			-L libfreenect/build/lib \
 			-L OpenNI2/Bin/x64-Release/OpenNI2/Drivers \
-			-L OpenNI2/Bin/x64-Release
+			-L OpenNI2/Bin/x64-Release \
+			-L ../common
 
 VPATH = src \
 		obj
@@ -24,6 +25,7 @@ kinect: obj/main.o $(KINECT_OBJS:%=obj/%)
 									   -l opencv_imgproc \
 									   -l freenect \
 									   -l OpenNI2 \
+									   -l common
 
 clean:
 	rm obj/*.o

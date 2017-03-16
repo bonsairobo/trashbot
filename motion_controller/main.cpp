@@ -30,6 +30,7 @@ int main(int argc, char **argv) {
             perror("recvfrom");
             return 1;
         } else if (bytes_read != sizeof(packet)) {
+            usleep(1000);
             continue;
         }
 

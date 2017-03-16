@@ -26,3 +26,13 @@ int try_create_udp_socket(
 
     return sock;
 }
+
+void try_bind_path(int sock, sockaddr_un addr) {
+    // If the path already exists, must unlink before rebinding.
+    if (access(addr.sun_path, F_OK) == 0)
+        unlink(addr.sun_path);
+    if (bind(sock, (sockaddr*)&addr, sizeof(addr)) == -1) {
+        perror("bind");
+        exit(-1);
+    }
+}

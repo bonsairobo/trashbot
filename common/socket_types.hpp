@@ -20,4 +20,6 @@ int try_create_udp_socket(
     sockaddr_un *recv_addr_out,
     sockaddr_un *send_addr_out);
 
+void try_bind_path(int sock, sockaddr_un addr);
+
 #endif // SOCKET_TYPES_HPP

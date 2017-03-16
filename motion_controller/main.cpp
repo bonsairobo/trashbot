@@ -20,7 +20,6 @@ int main(int argc, char **argv) {
     }
 
     while (true) {
-        // Joystick packets are small, so buffer can be small.
         JoystickPacket packet;
         size_t bytes_read = recvfrom(
             sock,

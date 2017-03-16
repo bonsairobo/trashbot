@@ -23,6 +23,12 @@ class Rexarm():
         self.speed = 0.5                         # 0 to 1
         self.max_torque = 0.5                    # 0 to 1
 
+        """ Joint Limits """
+        self.joint_limits = [[-PI,PI], #Joint 0
+                             [-2.00,2.00], #Joint 1
+                             [-1.87,1.87], #Joint 2
+                             [-1.4,2.51]] #Joint 3
+
         """ Feedback Values """
         self.joint_angles_fb = [0.0] * self.num_joints # radians
         self.speed_fb = [0.0] * self.num_joints        # 0 to 1   
@@ -85,7 +91,13 @@ class Rexarm():
         arm is not damaged.
         LAB TASK: IMPLEMENT A CLAMP FUNCTION
         """
-        pass
+        for i in range(len(self.joint_angles)):
+            if i in range(len(self.joint_limits)):
+                if self.joint_angles[i] > self.joint_limits[i][1]:
+                    self.joint_angles[i] = self.joint_limits[i][1]
+                if self.joint_angles[i] < self.joint_limits[i][0]:
+                    self.joint_angles[i] = self.joint_limits[i][0]
+        return
 
     def plan_command(self):
         """ Command planned waypoints """

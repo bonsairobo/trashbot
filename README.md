@@ -13,5 +13,6 @@ the following steps.
 
 1. `cd <module>`
 2. `install_deps.sh`
-3. `source set_ld_path.sh`
-4. `make`
+3. `make`
+
+For the newly built modules to link with shared libraries, you must run `set_ld_path.sh` in each new shell.

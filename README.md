@@ -1,5 +1,7 @@
 # Trashbot
 
+All testing is done on Ubuntu 14.04 LTS, and the dependency install scripts all make this assumption.
+
 This project is split into separate modules:
 * Kinect sensor model
 * Rexarm controller

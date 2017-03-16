@@ -1,10 +1,7 @@
 #include <iostream>
-#include <cstdlib>
-#include <cstdio>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include "joystick.hpp"
+#include "../../common/socket_types.hpp"
+#include <chrono>
 
 using namespace std;
 
@@ -15,17 +12,33 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    // This process is the sender.
+    struct sockaddr_un recv_addr, send_addr;
+    int sock = try_create_udp_socket(
+        "/tmp/motion_controller_endpoint",
+        "/tmp/joystick_endpoint",
+        &recv_addr,
+        &send_addr);
+    if (bind(sock, (sockaddr*)&send_addr, sizeof(send_addr)) == -1) {
+        cerr << "ERROR: could not bind socket" << endl;
+        exit(-1);
+    }
+
     while (true) {
         usleep(1000);
-        JoystickEvent event;
-        while (js.sample(&event)) {
-            if (event.isButton()) {
-                cout << "Button " << (unsigned)event.number << " is "
-                     << (event.value == 0 ? "up" : "down") << endl;
-            } else if (event.isAxis()) {
-                // cout << "Axis " << (unsigned)event.number
-                //      << " is at position " << event.value << endl;
-            }
+        JoystickPacket packet;
+        while (js.sample(&packet.event)) {
+            auto now = chrono::system_clock::now();
+            auto duration = now.time_since_epoch();
+            packet.time_ms = chrono::duration_cast<chrono::milliseconds>(
+                duration).count();
+            sendto(
+                sock,
+                &packet,
+                sizeof(packet),
+                0,
+                (sockaddr*)&recv_addr,
+                sizeof(recv_addr));
         }
     }
 

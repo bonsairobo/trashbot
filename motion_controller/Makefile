@@ -1,15 +1,15 @@
 CXX = g++
 CXX_FLAGS = -Wall -pedantic -std=c++11 -c
+LINK_PATH = -L ../common/
 
 VPATH = src \
 		obj
 
 MOTION_CONTROLLER_SRCS = main.cpp
-
 MOTION_CONTROLLER_OBJS = $(MOTION_CONTROLLER_SRCS:.cpp=.o)
 
 motion_controller: obj/main.o $(MOTION_CONTROLLER_OBJS:%=obj/%)
-	$(CXX) $^ -o $@
+	$(CXX) $(LINK_PATH) $^ -o $@ -l common
 
 clean:
 	rm obj/*.o

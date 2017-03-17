@@ -45,25 +45,12 @@ vector<Point2i> flood_select(const Mat& m, Point2i seed, Mat& visited) {
     return component;
 }
 
-vector<vector<Point2i>> find_nonzero_components(const Mat& m) {
-    Mat visited(m.size(), CV_8UC1, 0);
-    vector<vector<Point2i>> components;
-    for (int y = 0; y < m.rows; ++y) {
-        for (int x = 0; x < m.cols; ++x) {
-            if (visited.at<uint8_t>(y,x) == 0 and m.at<uint16_t>(y,x) != 0) {
-                components.push_back(flood_select(m, Point2i(x,y), visited));
-            }
-        }
-    }
-    return components;
-}
-
 vector<vector<Point2i>> find_object_regions(
     const Mat& depth, uint16_t thresh_depth)
 {
     Mat near_depth;
     threshold(-depth, near_depth, -thresh_depth, 0, THRESH_TOZERO);
     vector<vector<Point2i>> object_regions =
-        find_nonzero_components(near_depth);
+        find_nonzero_components<uint16_t>(near_depth);
     return object_regions;
 }

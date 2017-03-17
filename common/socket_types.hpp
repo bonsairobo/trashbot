@@ -1,24 +1,21 @@
 #ifndef SOCKET_TYPES_HPP
 #define SOCKET_TYPES_HPP
 
-#include <cstdlib>
+#include "../joystick/src/joystick.hpp"
+#include <cstdint>
 #include <cstdio>
-#include <unistd.h>
+#include <cstdlib>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <cstdint>
-#include "../joystick/src/joystick.hpp"
+#include <unistd.h>
 
-struct JoystickPacket {
+struct PickupCommand {
     uint32_t time_ms;
-    JoystickEvent event;
 };
 
-int try_create_udp_socket(
-    const char *recv_path,
-    const char *send_path,
-    sockaddr_un *recv_addr_out,
-    sockaddr_un *send_addr_out);
+sockaddr_un create_udp_addr(const char *path);
+
+int try_create_udp_socket();
 
 void try_bind_path(int sock, sockaddr_un addr);
 

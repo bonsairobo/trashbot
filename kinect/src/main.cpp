@@ -1,8 +1,7 @@
-#include <iostream>
-#include <fstream>
-#include "openni_device_listener.hpp"
 #include "kinect_receiver.hpp"
-#include "../../common/socket_types.hpp"
+#include "openni_device_listener.hpp"
+#include <fstream>
+#include <iostream>
 
 using namespace std;
 using namespace openni;
@@ -42,22 +41,13 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Set up UDP socket for sending data to Rexarm.
-    struct sockaddr_un recv_addr, send_addr;
-    int sock = try_create_udp_socket(
-        "/tmp/rexarm_endpoint",
-        "/tmp/kinect_endpoint",
-        &recv_addr,
-        &send_addr);
-    // This process is the sender.
-    try_bind_path(sock, send_addr);
-
     // Create Kinect streams and register new-frame callbacks to the receiver.
     KinectReceiver recv(show_feeds, &log_stream);
     if (recv.try_start_streams(device) != 0)
         return 1;
     recv.maybe_make_windows();
     recv.loop_until_esc();
+    recv.bind_socket();
 
     // Clean up.
     recv.close_streams();

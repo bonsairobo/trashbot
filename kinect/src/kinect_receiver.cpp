@@ -52,6 +52,15 @@ KinectReceiver::KinectReceiver(bool show_feeds, ofstream *log_stream):
     log_stream(log_stream)
 {}
 
+void KinectReceiver::bind_socket() {
+    // Set up UDP socket for receiving command from joystick and sending data
+    // to Rexarm.
+    recv_addr = create_udp_addr("/tmp/motion_controller_endpoint");
+    send_addr = create_udp_addr("/tmp/joystick_endpoint");
+    sock = try_create_udp_socket();
+    try_bind_path(sock, recv_addr);
+}
+
 int KinectReceiver::try_start_streams(Device& device) {
     if (try_start_video_stream(
         color, device, SENSOR_COLOR, "color", log_stream) != 0)
@@ -125,6 +134,8 @@ void KinectReceiver::update_model(const Mat& depth, const Mat& color) {
 
     // TODO: Find grasping points.
 
+    // Compute 
+
     // TODO: Write object and Rexarm feedback data to socket.
 }
 
@@ -148,5 +159,33 @@ void KinectReceiver::update() {
         }
 
         update_model(depth_cpy, color_cpy);
+    }
+
+    // Check for command to search for grasping points.
+    PickupCommand cmd;
+    socklen_t len = sizeof(send_addr);
+    ssize_t bytes_read = 1;
+    bool do_search = false;
+    while (bytes_read > 0) {
+        bytes_read = recvfrom(
+            sock,
+            &cmd,
+            sizeof(cmd),
+            0,
+            (sockaddr*)&send_addr,
+            &len);
+        if (bytes_read < 0) {
+            perror("recvfrom");
+            exit(1);
+        } else if (bytes_read != sizeof(cmd)) {
+            continue;
+        }
+
+        // Consume all commands and only do a single search.
+        do_search = true;
+    }
+
+    if (do_search) {
+
     }
 }

@@ -6,6 +6,7 @@
 #include <OpenNI.h>
 #include "frame_callback.hpp"
 #include <fstream>
+#include "../../common/socket_types.hpp"
 
 class KinectReceiver {
     friend FrameCallback;
@@ -20,6 +21,8 @@ class KinectReceiver {
     FrameCallback color_cb, depth_cb;
     openni::VideoStream depth, color;
     std::ofstream *log_stream;
+    int sock;
+    sockaddr_un recv_addr, send_addr;
 
     void update();
     void update_model(const cv::Mat& depth, const cv::Mat& color);
@@ -31,6 +34,7 @@ public:
     void loop_until_esc();
     void close_streams();
     int try_start_streams(openni::Device&);
+    void bind_socket();
 };
 
 #endif // KINECT_RECEIVER_HPP

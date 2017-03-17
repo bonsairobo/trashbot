@@ -5,14 +5,6 @@ using namespace openni;
 using namespace cv;
 using namespace std;
 
-
-static GraspingPoints search_grasping_points(
-    const Mat& depth, const Mat& color)
-{
-    GraspingPoints points;
-    return points;
-}
-
 // Convert OpenNI image format to OpenCV format.
 static Mat cv_image_from_vframe_ref(const VideoFrameRef& frame, int n_bytes) {
     int type = n_bytes == 3 ? CV_8UC3 : CV_16UC1;
@@ -85,6 +77,9 @@ int KinectReceiver::try_start_streams(Device& device) {
             IMAGE_REGISTRATION_DEPTH_TO_COLOR))
     {
         device.setImageRegistrationMode(IMAGE_REGISTRATION_DEPTH_TO_COLOR);
+    } else {
+        cerr << "ERROR: image registration is not supported" << endl;
+        return 1;
     }
 
     color.addNewFrameListener(&color_cb);
@@ -183,7 +178,8 @@ void KinectReceiver::update() {
     }
 
     if (do_search) {
-        GraspingPoints points = search_grasping_points(depth_cpy, color_cpy);
+        GraspingPoints points =
+            grasp_model.search_grasping_points(depth_cpy, color_cpy);
         sendto(
             sock,
             &points,

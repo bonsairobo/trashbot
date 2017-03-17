@@ -15,9 +15,12 @@ KINECT_SRCS = main.cpp \
 			  kinect_receiver.cpp \
 			  frame_callback.cpp \
 			  localization_model.cpp \
-			  grasping_model.cpp
+			  grasping_model.cpp \
+			  img_proc.cpp
 
 KINECT_OBJS = $(KINECT_SRCS:.cpp=.o)
+
+all: kinect file_analysis
 
 kinect: obj/main.o $(KINECT_OBJS:%=obj/%)
 	$(CXX) $(LINK_PATH) $^ -o $@ -fPIC -l opencv_core \
@@ -29,11 +32,21 @@ kinect: obj/main.o $(KINECT_OBJS:%=obj/%)
 									   -l OpenNI2 \
 									   -l common
 
+file_analysis: obj/file_analysis.o obj/img_proc.o
+	$(CXX) $(LINK_PATH) $^ -o $@ -fPIC -l opencv_core \
+									   -l opencv_highgui \
+									   -l opencv_imgcodecs \
+									   -l opencv_imgproc
+
 clean:
-	rm obj/*.o
 	rm kinect
+	rm file_analysis
+	rm obj/*.o
 
 obj/main.o: main.cpp
+	$(CXX) $(INCLUDE_PATH) $(CXX_FLAGS) $< -o $@
+
+obj/file_analysis.o: file_analysis.cpp
 	$(CXX) $(INCLUDE_PATH) $(CXX_FLAGS) $< -o $@
 
 obj/%.o: %.cpp %.hpp

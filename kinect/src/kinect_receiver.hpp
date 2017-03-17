@@ -28,6 +28,7 @@ class KinectReceiver {
     LocalizationModel loc_model;
     GraspingModel grasp_model;
     uint16_t min_depth, max_depth;
+    uint32_t frames_seen;
 
     void update();
     void write_mat(const openni::VideoFrameRef&);

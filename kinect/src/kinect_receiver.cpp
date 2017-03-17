@@ -1,21 +1,10 @@
 #include "kinect_receiver.hpp"
 #include <iostream>
+#include "img_proc.hpp"
 
 using namespace openni;
 using namespace cv;
 using namespace std;
-
-static Mat draw_color_on_depth(const Mat& color, const Mat& depth) {
-    Mat out(color.size(), CV_8UC3, Scalar(0,0,0));
-    for (int y = 0; y < out.rows; ++y) {
-        for (int x = 0; x < out.cols; ++x) {
-            if (depth.at<uint16_t>(y,x) != 0) {
-                out.at<Vec3b>(y,x) = color.at<Vec3b>(y,x);
-            }
-        }
-    }
-    return out;
-}
 
 // Convert OpenNI image format to OpenCV format.
 static Mat cv_image_from_vframe_ref(const VideoFrameRef& frame, int n_bytes) {
@@ -61,7 +50,8 @@ KinectReceiver::KinectReceiver(bool show_feeds, ofstream *log_stream):
     color_set(false),
     color_cb(this),
     depth_cb(this),
-    log_stream(log_stream)
+    log_stream(log_stream),
+    frames_seen(0)
 {}
 
 void KinectReceiver::bind_socket() {
@@ -164,6 +154,9 @@ void KinectReceiver::update() {
             imshow("kinect_depth", rgbd);
             imshow("kinect_color", color_cpy);
         }
+        //imwrite("depth" + to_string(frames_seen) + ".jpg", depth_cpy);
+        //imwrite("color" + to_string(frames_seen) + ".jpg", color_cpy);
+        ++frames_seen;
 
         loc_model.update(depth_cpy, color_cpy);
     }
@@ -182,8 +175,8 @@ void KinectReceiver::update() {
             (sockaddr*)&js_addr,
             &len);
         if (bytes_read < 0) {
-            perror("recvfrom");
             // TODO: remove this hack
+            //perror("recvfrom");
             continue;
             //exit(1);
         } else if (bytes_read != sizeof(cmd)) {

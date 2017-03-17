@@ -11,13 +11,12 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // This process is the sender.
-    sockaddr_un mc_recv_addr =
+    sockaddr_un mc_addr =
         create_udp_addr("/tmp/motion_controller_endpoint");
-    sockaddr_un kin_recv_addr = create_udp_addr("/tmp/kinect_endpoint");
-    sockaddr_un send_addr = create_udp_addr("/tmp/joystick_endpoint");
+    sockaddr_un kin_addr = create_udp_addr("/tmp/kinect_endpoint");
+    sockaddr_un js_addr = create_udp_addr("/tmp/joystick_endpoint");
     int sock = try_create_udp_socket();
-    try_bind_path(sock, send_addr);
+    try_bind_path(sock, js_addr);
 
     while (true) {
         usleep(1000);
@@ -32,8 +31,8 @@ int main(int argc, char **argv) {
                     &cmd,
                     sizeof(cmd),
                     0,
-                    (sockaddr*)&kin_recv_addr,
-                    sizeof(kin_recv_addr));
+                    (sockaddr*)&kin_addr,
+                    sizeof(kin_addr));
             } else if (event.isAxis() and
                 // TODO: get actual axis #s
                 (event.number == 0 or event.number == 1))
@@ -43,8 +42,8 @@ int main(int argc, char **argv) {
                     &event,
                     sizeof(event),
                     0,
-                    (sockaddr*)&mc_recv_addr,
-                    sizeof(mc_recv_addr));
+                    (sockaddr*)&mc_addr,
+                    sizeof(mc_addr));
             }
         }
     }

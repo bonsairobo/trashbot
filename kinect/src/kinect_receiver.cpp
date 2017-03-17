@@ -5,6 +5,14 @@ using namespace openni;
 using namespace cv;
 using namespace std;
 
+
+static GraspingPoints search_grasping_points(
+    const Mat& depth, const Mat& color)
+{
+    GraspingPoints points;
+    return points;
+}
+
 // Convert OpenNI image format to OpenCV format.
 static Mat cv_image_from_vframe_ref(const VideoFrameRef& frame, int n_bytes) {
     int type = n_bytes == 3 ? CV_8UC3 : CV_16UC1;
@@ -55,10 +63,11 @@ KinectReceiver::KinectReceiver(bool show_feeds, ofstream *log_stream):
 void KinectReceiver::bind_socket() {
     // Set up UDP socket for receiving command from joystick and sending data
     // to Rexarm.
-    recv_addr = create_udp_addr("/tmp/motion_controller_endpoint");
-    send_addr = create_udp_addr("/tmp/joystick_endpoint");
+    js_addr = create_udp_addr("/tmp/joystick_endpoint");
+    kin_addr = create_udp_addr("/tmp/kinect_endpoint");
+    rex_addr = create_udp_addr("/tmp/rexarm_endpoint");
     sock = try_create_udp_socket();
-    try_bind_path(sock, recv_addr);
+    try_bind_path(sock, kin_addr);
 }
 
 int KinectReceiver::try_start_streams(Device& device) {
@@ -127,18 +136,6 @@ void KinectReceiver::write_mat(const VideoFrameRef& frame) {
     }
 }
 
-void KinectReceiver::update_model(const Mat& depth, const Mat& color) {
-    // TODO: Use cv::rgbd::RgbdOdometry to do visual odometry.
-
-    // TODO: Detect graspable objects.
-
-    // TODO: Find grasping points.
-
-    // Compute 
-
-    // TODO: Write object and Rexarm feedback data to socket.
-}
-
 void KinectReceiver::update() {
     // Fetch current images.
     bool images_ready = true;
@@ -158,12 +155,12 @@ void KinectReceiver::update() {
             imshow("kinect_color", color_cpy);
         }
 
-        update_model(depth_cpy, color_cpy);
+        loc_model.update(depth_cpy, color_cpy);
     }
 
     // Check for command to search for grasping points.
     PickupCommand cmd;
-    socklen_t len = sizeof(send_addr);
+    socklen_t len = sizeof(js_addr);
     ssize_t bytes_read = 1;
     bool do_search = false;
     while (bytes_read > 0) {
@@ -172,7 +169,7 @@ void KinectReceiver::update() {
             &cmd,
             sizeof(cmd),
             0,
-            (sockaddr*)&send_addr,
+            (sockaddr*)&js_addr,
             &len);
         if (bytes_read < 0) {
             perror("recvfrom");
@@ -186,6 +183,13 @@ void KinectReceiver::update() {
     }
 
     if (do_search) {
-
+        GraspingPoints points = search_grasping_points(depth_cpy, color_cpy);
+        sendto(
+            sock,
+            &points,
+            sizeof(points),
+            0,
+            (sockaddr*)&rex_addr,
+            sizeof(rex_addr));
     }
 }

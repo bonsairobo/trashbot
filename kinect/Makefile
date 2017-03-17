@@ -13,7 +13,9 @@ VPATH = src \
 KINECT_SRCS = main.cpp \
 			  openni_device_listener.cpp \
 			  kinect_receiver.cpp \
-			  frame_callback.cpp
+			  frame_callback.cpp \
+			  localization_model.cpp \
+			  grasping_model.cpp
 
 KINECT_OBJS = $(KINECT_SRCS:.cpp=.o)
 

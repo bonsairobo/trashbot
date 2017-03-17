@@ -7,6 +7,8 @@
 #include "frame_callback.hpp"
 #include <fstream>
 #include "../../common/socket_types.hpp"
+#include "grasping_model.hpp"
+#include "localization_model.hpp"
 
 class KinectReceiver {
     friend FrameCallback;
@@ -22,10 +24,11 @@ class KinectReceiver {
     openni::VideoStream depth, color;
     std::ofstream *log_stream;
     int sock;
-    sockaddr_un recv_addr, send_addr;
+    sockaddr_un kin_addr, js_addr, rex_addr;
+    LocalizationModel loc_model;
+    GraspingModel grasp_model;
 
     void update();
-    void update_model(const cv::Mat& depth, const cv::Mat& color);
     void write_mat(const openni::VideoFrameRef&);
 
 public:

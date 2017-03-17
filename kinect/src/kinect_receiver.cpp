@@ -5,6 +5,18 @@ using namespace openni;
 using namespace cv;
 using namespace std;
 
+static Mat draw_color_on_depth(const Mat& color, const Mat& depth) {
+    Mat out(color.size(), CV_8UC3, Scalar(0,0,0));
+    for (int y = 0; y < out.rows; ++y) {
+        for (int x = 0; x < out.cols; ++x) {
+            if (depth.at<uint16_t>(y,x) != 0) {
+                out.at<Vec3b>(y,x) = color.at<Vec3b>(y,x);
+            }
+        }
+    }
+    return out;
+}
+
 // Convert OpenNI image format to OpenCV format.
 static Mat cv_image_from_vframe_ref(const VideoFrameRef& frame, int n_bytes) {
     int type = n_bytes == 3 ? CV_8UC3 : CV_16UC1;
@@ -73,6 +85,8 @@ int KinectReceiver::try_start_streams(Device& device) {
     {
         return 1;
     }
+    min_depth = depth.getMinPixelValue();
+    max_depth = depth.getMaxPixelValue();
     if (device.isImageRegistrationModeSupported(
             IMAGE_REGISTRATION_DEPTH_TO_COLOR))
     {
@@ -146,7 +160,8 @@ void KinectReceiver::update() {
 
     if (images_ready) {
         if (show_feeds) {
-            imshow("kinect_depth", depth_cpy);
+            Mat rgbd = draw_color_on_depth(color_cpy, depth_cpy);
+            imshow("kinect_depth", rgbd);
             imshow("kinect_color", color_cpy);
         }
 
@@ -168,7 +183,9 @@ void KinectReceiver::update() {
             &len);
         if (bytes_read < 0) {
             perror("recvfrom");
-            exit(1);
+            // TODO: remove this hack
+            continue;
+            //exit(1);
         } else if (bytes_read != sizeof(cmd)) {
             continue;
         }

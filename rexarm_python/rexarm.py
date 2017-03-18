@@ -11,6 +11,54 @@ PI = np.pi
 D2R = PI/180.0
 ANGLE_TOL = 2*PI/180.0 
 
+#Represents a transformation matrix for a link computed via DH parameters
+class DH_xform:
+    def __init__(self,a,d,alph):
+        self.a = a
+        self.d = d
+        self.alph = alph
+        self.gen_const_xform()
+
+    #Generates the constant xform matrix, given that link twist, link length, and
+    #link offset are constant
+    def gen_const_xform(self):
+         self.link_twist = np.array([
+             [1,0,0,0],
+             [0,np.cos(self.alph),-np.sin(self.alph),0],
+             [0,np.sin(self.alph),np.cos(self.alph),0],
+             [0,0,0,1]
+         ])
+
+         self.link_length = np.array([
+             [1,0,0,self.a],
+             [0,1,0,0],
+             [0,0,1,0],
+             [0,0,0,1]
+         ])
+
+         self.link_offset = np.array([
+             [1,0,0,0],
+             [0,1,0,0],
+             [0,0,1,self.d],
+             [0,0,0,1]
+         ])
+
+         temp = np.dot(self.link_length,self.link_twist)
+         self.const_xform = np.dot(self.link_offset,temp)
+
+         # Don't have theta yet
+         self.xform = None
+
+    def gen_xform(self,theta):
+        joint_angle = np.array([
+            [np.cos(theta),-np.sin(theta),0,0],
+            [np.sin(theta),np.cos(theta),0,0],
+            [0,0,1,0],
+            [0,0,0,1]
+        ])
+
+        self.xform = np.dot(joint_angle,self.const_xform)
+
 
 """ Rexarm Class """
 class Rexarm():
@@ -28,6 +76,14 @@ class Rexarm():
                              [-2.00,2.00], #Joint 1
                              [-1.87,1.87], #Joint 2
                              [-1.4,2.51]] #Joint 3
+
+        """ DH Table """
+        self.DH_table = [DH_xform(-.013,.066,0), #Joint 0
+                         DH_xform(0,.044,PI/2), #Joint 1
+                         DH_xform(-0.1,0,0), #Joint 2
+                         DH_xform(-0.1,0,0) #Joint 3
+        ]
+
 
         """ Feedback Values """
         self.joint_angles_fb = [0.0] * self.num_joints # radians
@@ -84,6 +140,15 @@ class Rexarm():
             self.load_fb[i] = msg.statuses[i].load 
             self.temp_fb[i] = msg.statuses[i].temperature
 
+        """
+        Compute forward kinematics
+        """
+        #Recompute DH Parameters
+        for i in range(len(self.joint_angles_fb)):
+            self.DH_table[i].gen_xform(self.joint_angles_fb[i])
+
+        rexarm_FK(self.DH_table,0)
+
     def clamp(self):
         """
         Clamp Function
@@ -103,6 +168,7 @@ class Rexarm():
         """ Command planned waypoints """
         pass
 
+    # Link is an integer represent index in joints array?
     def rexarm_FK(dh_table, link):
         """
         Calculates forward kinematics for rexarm

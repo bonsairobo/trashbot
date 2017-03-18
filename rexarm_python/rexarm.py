@@ -84,6 +84,8 @@ class Rexarm():
                          DH_xform(-0.1,0,0) #Joint 3
         ]
 
+        # Position of endeffector in frame of last link
+        self.endeffector_pos = [[.108,0,0]]
 
         """ Feedback Values """
         self.joint_angles_fb = [0.0] * self.num_joints # radians
@@ -147,7 +149,10 @@ class Rexarm():
         for i in range(len(self.joint_angles_fb)):
             self.DH_table[i].gen_xform(self.joint_angles_fb[i])
 
-        rexarm_FK(self.DH_table,0)
+        world_pose = rexarm_FK(self.DH_table,0)
+
+        #TODO: Update GUI with world_pose
+
 
     def clamp(self):
         """
@@ -177,7 +182,23 @@ class Rexarm():
         returns a 4-tuple (x, y, z, phi) representing the pose of the 
         desired link
         """
-        pass
+
+        #First multiply by +60 degree rotation about z axis to align coordinates with the rexarm board
+        rot_60 = np.array([[np.cos(PI/3),-np.sin(PI/3),0,0],
+                           [np.sin(PI/3),np.cos(PI/3),0,0],
+                           [0,0,1,0],
+                           [0,0,0,1]
+        ])
+
+        #Multiply DH matrices
+        final_xform = rot_60.copy()
+        for i in range(len(dh_table)):
+            temp = np.dot(dh_table[i].xform,final_xform)
+            final_xform = temp
+        
+        #Multiply final_xform by endeffector position vector
+        world_coords = np.dot(final_xform,self.endeffector_pos)
+        return world_coords
     	
     def rexarm_IK(pose, cfg):
         """

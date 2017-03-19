@@ -50,20 +50,20 @@ int main(int argc, char **argv) {
         recorder.start();
     }
 
+    if (show_feeds) {
+        namedWindow("masked color", 1);
+    }
+
     // Set up UDP socket for receiving command from joystick and sending data
     // to Rexarm.
-    sockaddr_un js_addr = create_udp_addr("/tmp/joystick_endpoint");
+    /*sockaddr_un js_addr = create_udp_addr("/tmp/joystick_endpoint");
     sockaddr_un kin_addr = create_udp_addr("/tmp/kinect_endpoint");
     sockaddr_un rex_addr = create_udp_addr("/tmp/rexarm_endpoint");
     int sock = try_create_udp_socket();
     try_bind_path(sock, kin_addr);
 
-    if (show_feeds) {
-        namedWindow("masked color", 1);
-    }
-
     LocalizationModel loc_model;
-    GraspingModel grasp_model;
+    GraspingModel grasp_model;*/
 
     char key = 0;
     while (key != 27) { // escape
@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
             imshow("masked color", masked);
         }
 
-        loc_model.update(depth_mat, color_mat);
+        /*loc_model.update(depth_mat, color_mat);
 
         // Check for command to search for grasping points.
         PickupCommand cmd;
@@ -120,7 +120,7 @@ int main(int argc, char **argv) {
                 (sockaddr*)&rex_addr,
                 sizeof(rex_addr));
         }
-        key = waitKey(5);
+        key = waitKey(5);*/
     }
 
     OpenNI::shutdown();

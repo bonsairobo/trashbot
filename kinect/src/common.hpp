@@ -15,6 +15,6 @@ int get_mat_from_stream(
     openni::VideoStream& stream,
     cv::Mat& mat,
     std::ostream& log_stream,
-    int byte_depth);
+    int n_bytes);
 
 #endif // KINECT_COMMON_HPP

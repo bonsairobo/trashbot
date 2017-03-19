@@ -73,7 +73,7 @@ static Mat cv_image_from_vframe_ref(const VideoFrameRef& frame, int n_bytes) {
 }
 
 int get_mat_from_stream(
-    VideoStream& stream, Mat& mat, ostream& log_stream, int byte_depth)
+    VideoStream& stream, Mat& mat, ostream& log_stream, int n_bytes)
 {
     VideoFrameRef *frame = nullptr;
     Status rc = stream.readFrame(frame);
@@ -82,6 +82,6 @@ int get_mat_from_stream(
                    << OpenNI::getExtendedError() << endl;
         return 1;
     }
-    mat = cv_image_from_vframe_ref(*frame, byte_depth);
+    mat = cv_image_from_vframe_ref(*frame, n_bytes);
     return 0;
 }

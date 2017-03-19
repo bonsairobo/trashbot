@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
     }
 
     Device device;
-    rc = device.open(ANY_DEVICE);
+    rc = device.open(argv[1]);
     if (rc != STATUS_OK) {
         cerr << "Couldn't open device" << endl
                    << OpenNI::getExtendedError() << endl;
@@ -37,6 +37,7 @@ int main(int argc, char **argv) {
 
     // Seek through recording by depth frame index.
     PlaybackControl *pbc = device.getPlaybackControl();
+    pbc->setSpeed(-1); // Make sure reading never blocks.
     int num_depth_frames = pbc->getNumberOfFrames(depth_stream);
     for (int i = 0; i < num_depth_frames; ++i) {
         // This should set also set color stream to the same point in time.

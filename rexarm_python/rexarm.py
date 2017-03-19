@@ -78,10 +78,10 @@ class Rexarm():
                              [-1.4,2.51]] #Joint 3
 
         """ DH Table """
-        self.DH_table = [DH_xform(.013,.066,0), #Joint 0
-                         DH_xform(0,.044,PI/2), #Joint 1
-                         DH_xform(-0.1,0,0), #Joint 2
-                         DH_xform(-0.1,0,0) #Joint 3
+        self.DH_table = [DH_xform(0,.044,PI/2), #Joint 0's parameters (Used to form A_0)
+                         DH_xform(0.1,0,0), #Joint 1's parameters (Used to form A_1)
+                         DH_xform(0.1,0,0), #Joint 3
+                         DH_xform(0.108,0,0), #Joint 4
         ]
         
         """ References to GUI labels for FK """
@@ -157,7 +157,7 @@ class Rexarm():
         for i in range(len(self.DH_table)):
             self.DH_table[i].gen_xform(self.joint_angles_fb[i])
 
-        world_pose = self.rexarm_FK(self.DH_table,1)
+        world_pose = self.rexarm_FK(self.DH_table,0)
 
         #Update GUI with world_pose
         self.x_out.setText(str(world_pose[0][0]))
@@ -184,7 +184,8 @@ class Rexarm():
         """ Command planned waypoints """
         pass
 
-    # Link is an integer representing index in joints array
+    # Link is an integer representing index in joints array. This function computes
+    # FK for the endeffector in the frame of that link
     def rexarm_FK(self,dh_table, link):
         """
         Calculates forward kinematics for rexarm
@@ -201,8 +202,16 @@ class Rexarm():
                            [0,0,0,1]
         ])
 
+        #Then apply transformation to frame of the first motor
+        trans_base = np.array([[1,0,0,0.013],
+                               [0,1,0,0],
+                               [0,0,1,0.066],
+                               [0,0,0,1]
+        ])
+
         #Multiply DH matrices
-        final_xform = rot_60.copy()
+        #final_xform = rot_60.copy()
+        final_xform = trans_base.copy()
         for i in range(link + 1):
             temp = np.dot(final_xform,dh_table[i].xform)
             final_xform = temp

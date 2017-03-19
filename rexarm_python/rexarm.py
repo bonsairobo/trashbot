@@ -92,7 +92,8 @@ class Rexarm():
 
         # Position of endeffector in frame of last link. Homogeneous
         # coordinates
-        self.endeffector_pos = np.transpose(np.array([[.108,0,0,1]]))
+        #self.endeffector_pos = np.transpose(np.array([[.108,0,0,1]]))
+        self.endeffector_pos = np.transpose(np.array([[0,0,0,1]]))
 
         """ Feedback Values """
         self.joint_angles_fb = [0.0] * self.num_joints # radians
@@ -156,7 +157,7 @@ class Rexarm():
         for i in range(len(self.DH_table)):
             self.DH_table[i].gen_xform(self.joint_angles_fb[i])
 
-        world_pose = self.rexarm_FK(self.DH_table,0)
+        world_pose = self.rexarm_FK(self.DH_table,1)
 
         #Update GUI with world_pose
         self.x_out.setText(str(world_pose[0][0]))
@@ -183,7 +184,7 @@ class Rexarm():
         """ Command planned waypoints """
         pass
 
-    # Link is an integer represent index in joints array?
+    # Link is an integer representing index in joints array
     def rexarm_FK(self,dh_table, link):
         """
         Calculates forward kinematics for rexarm
@@ -202,7 +203,7 @@ class Rexarm():
 
         #Multiply DH matrices
         final_xform = rot_60.copy()
-        for i in range(len(dh_table)):
+        for i in range(link + 1):
             temp = np.dot(final_xform,dh_table[i].xform)
             final_xform = temp
 
@@ -210,7 +211,7 @@ class Rexarm():
         world_coords = np.dot(final_xform,self.endeffector_pos)
         #Remove homogeneous coordinate
         return world_coords[0:3]
-    	
+
     def rexarm_IK(pose, cfg):
         """
         Calculates inverse kinematics for the rexarm
@@ -220,7 +221,7 @@ class Rexarm():
         returns a 4-tuple of joint angles or NONE if configuration is impossible
         """
         pass
-        
+
     def rexarm_collision_check(q):
         """
         Perform a collision check with the ground and the base

@@ -62,7 +62,7 @@ class DH_xform:
 
 """ Rexarm Class """
 class Rexarm():
-    def __init__(self):
+    def __init__(self,x_out,y_out,z_out,theta_out):
 
         """ Commanded Values """
         self.num_joints = 6
@@ -83,9 +83,16 @@ class Rexarm():
                          DH_xform(-0.1,0,0), #Joint 2
                          DH_xform(-0.1,0,0) #Joint 3
         ]
+        
+        """ References to GUI labels for FK """
+        self.x_out = x_out
+        self.y_out = y_out
+        self.z_out = z_out
+        self.theta_out = theta_out
 
-        # Position of endeffector in frame of last link
-        self.endeffector_pos = [[.108,0,0]]
+        # Position of endeffector in frame of last link. Homogeneous
+        # coordinates
+        self.endeffector_pos = np.transpose(np.array([[.108,0,0,1]]))
 
         """ Feedback Values """
         self.joint_angles_fb = [0.0] * self.num_joints # radians
@@ -146,13 +153,16 @@ class Rexarm():
         Compute forward kinematics
         """
         #Recompute DH Parameters
-        for i in range(len(self.joint_angles_fb)):
+        for i in range(len(self.DH_table)):
             self.DH_table[i].gen_xform(self.joint_angles_fb[i])
 
-        world_pose = rexarm_FK(self.DH_table,0)
+        world_pose = self.rexarm_FK(self.DH_table,0)
 
-        #TODO: Update GUI with world_pose
-
+        #Update GUI with world_pose
+        self.x_out.setText(str(world_pose[0][0]))
+        self.y_out.setText(str(world_pose[1][0]))
+        self.z_out.setText(str(world_pose[2][0]))
+        self.theta_out.setText("?")
 
     def clamp(self):
         """
@@ -174,7 +184,7 @@ class Rexarm():
         pass
 
     # Link is an integer represent index in joints array?
-    def rexarm_FK(dh_table, link):
+    def rexarm_FK(self,dh_table, link):
         """
         Calculates forward kinematics for rexarm
         takes a DH table filled with DH parameters of the arm
@@ -193,12 +203,13 @@ class Rexarm():
         #Multiply DH matrices
         final_xform = rot_60.copy()
         for i in range(len(dh_table)):
-            temp = np.dot(dh_table[i].xform,final_xform)
+            temp = np.dot(final_xform,dh_table[i].xform)
             final_xform = temp
-        
+
         #Multiply final_xform by endeffector position vector
         world_coords = np.dot(final_xform,self.endeffector_pos)
-        return world_coords
+        #Remove homogeneous coordinate
+        return world_coords[0:3]
     	
     def rexarm_IK(pose, cfg):
         """

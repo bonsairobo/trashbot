@@ -31,7 +31,7 @@ class Gui(QtGui.QMainWindow):
         self.ui.setupUi(self)
 
         """ Main Variables Using Other Classes"""
-        self.rex = Rexarm()
+        self.rex = Rexarm(self.ui.rdoutX,self.ui.rdoutY,self.ui.rdoutZ,self.ui.rdoutT)
         self.video = Video(cv2.VideoCapture(0))
 
         """ Other Variables """

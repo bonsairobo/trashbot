@@ -31,7 +31,7 @@ static int try_start_video_stream(
     return 0;
 }
 
-static int try_start_rgbd_streams(
+int try_start_rgbd_streams(
     Device& device,
     VideoStream& depth_stream,
     VideoStream& color_stream,
@@ -62,7 +62,7 @@ static int try_start_rgbd_streams(
 }
 
 // Convert OpenNI image format to OpenCV format.
-Mat cv_image_from_vframe_ref(const VideoFrameRef& frame, int n_bytes) {
+static Mat cv_image_from_vframe_ref(const VideoFrameRef& frame, int n_bytes) {
     int type = n_bytes == 3 ? CV_8UC3 : CV_16UC1;
     Mat out(frame.getHeight(), frame.getWidth(), type);
     memcpy(out.data, frame.getData(),
@@ -84,44 +84,4 @@ int get_mat_from_stream(
     }
     mat = cv_image_from_vframe_ref(*frame, byte_depth);
     return 0;
-}
-
-int NIManager::open(bool record_streams, ostream& log_stream) {
-    Status rc = OpenNI::initialize();
-    if (rc != STATUS_OK) {
-        log_stream << "Initialize failed" << endl
-                   << OpenNI::getExtendedError() << endl;
-        return 1;
-    }
-
-    rc = device.open(ANY_DEVICE);
-    if (rc != STATUS_OK) {
-        log_stream << "Couldn't open device" << endl
-                   << OpenNI::getExtendedError() << endl;
-        return 1;
-    }
-
-    if (try_start_rgbd_streams(
-        device, depth_stream, color_stream, log_stream) != 0)
-    {
-        return 1;
-    }
-
-    if (record_streams) {
-        recorder.create("./rgbd_stream.ONI");
-        recorder.attach(color_stream);
-        recorder.attach(depth_stream);
-        recorder.start();
-    }
-
-    return 0;
-}
-
-NIManager::~NIManager() {
-    depth_stream.stop();
-    depth_stream.destroy();
-    color_stream.stop();
-    color_stream.destroy();
-    device.close();
-    OpenNI::shutdown();
 }

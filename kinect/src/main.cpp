@@ -20,8 +20,35 @@ int main(int argc, char **argv) {
     // realtime feedback.
     ofstream log_stream("kinect_log.txt");
 
-    NIManager ni_man;
-    ni_man.open(record_streams, log_stream);
+    Status rc = OpenNI::initialize();
+    if (rc != STATUS_OK) {
+        log_stream << "Initialize failed" << endl
+                   << OpenNI::getExtendedError() << endl;
+        return 1;
+    }
+
+    Device device;
+    rc = device.open(ANY_DEVICE);
+    if (rc != STATUS_OK) {
+        log_stream << "Couldn't open device" << endl
+                   << OpenNI::getExtendedError() << endl;
+        return 1;
+    }
+
+    VideoStream depth_stream, color_stream;
+    if (try_start_rgbd_streams(
+        device, depth_stream, color_stream, log_stream) != 0)
+    {
+        return 1;
+    }
+
+    Recorder recorder;
+    if (record_streams) {
+        recorder.create("./rgbd_stream.ONI");
+        recorder.attach(color_stream);
+        recorder.attach(depth_stream);
+        recorder.start();
+    }
 
     // Set up UDP socket for receiving command from joystick and sending data
     // to Rexarm.
@@ -42,14 +69,10 @@ int main(int argc, char **argv) {
     while (key != 27) { // escape
         // Block until new frame data is ready.
         Mat depth_mat, color_mat;
-        if (get_mat_from_stream(
-            ni_man.depth_stream, depth_mat, log_stream, 2) != 0)
-        {
+        if (get_mat_from_stream(depth_stream, depth_mat, log_stream, 2) != 0) {
             return 1;
         }
-        if (get_mat_from_stream(
-            ni_man.color_stream, color_mat, log_stream, 3) != 0)
-        {
+        if (get_mat_from_stream(color_stream, color_mat, log_stream, 3) != 0) {
             return 1;
         }
 
@@ -100,5 +123,6 @@ int main(int argc, char **argv) {
         key = waitKey(5);
     }
 
+    OpenNI::shutdown();
     return 0;
 }

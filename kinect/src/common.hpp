@@ -5,16 +5,11 @@
 #include <OpenNI.h>
 #include <iostream>
 
-struct NIManager {
-    openni::Device device;
-    openni::VideoStream depth_stream, color_stream;
-    openni::Recorder recorder;
-
-    // Create Kinect streams and register new-frame callbacks to the receiver.
-    int open(bool record, std::ostream& log_stream);
-
-    ~NIManager();
-};
+int try_start_rgbd_streams(
+    openni::Device&,
+    openni::VideoStream& depth_stream,
+    openni::VideoStream& color_stream,
+    std::ostream& log_stream);
 
 int get_mat_from_stream(
     openni::VideoStream& stream,

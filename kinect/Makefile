@@ -36,7 +36,9 @@ file_analysis: obj/file_analysis.o obj/img_proc.o obj/common.o
 									   -l opencv_highgui \
 									   -l opencv_imgcodecs \
 									   -l opencv_imgproc \
-									   -l OpenNI2
+									   -l OpenNI2 \
+									   -l boost_system \
+									   -l boost_filesystem
 
 clean:
 	rm kinect

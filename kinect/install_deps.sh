@@ -16,7 +16,8 @@ sudo apt-get install build-essential \
 					 libusb-1.0-0-dev \
 					 freeglut3-dev \
 					 libxmu-dev \
-					 libxi-dev
+					 libxi-dev \
+					 libboost-all-dev
 
 git clone https://github.com/OpenKinect/libfreenect.git
 cd libfreenect

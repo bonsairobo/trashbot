@@ -1,5 +1,9 @@
 #include "img_proc.hpp"
 #include "common.hpp"
+#include <boost/filesystem.hpp>
+#include <algorithm>
+
+namespace fs = boost::filesystem;
 
 using namespace std;
 using namespace cv;
@@ -33,12 +37,32 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    namedWindow("debug", 1);
+    namedWindow("depth", 1);
+    namedWindow("kinect_color", 1);
+    namedWindow("webcam_color", 1);
+
+    vector<fs::path> webcam_img_paths;
+    fs::path p("images");
+    if (fs::is_directory(p)) {
+        copy(fs::directory_iterator(p),
+            fs::directory_iterator(),
+            back_inserter(webcam_img_paths));
+    }
+    sort(webcam_img_paths.begin(), webcam_img_paths.end());
 
     // Seek through recording by depth frame index.
     PlaybackControl *pbc = device.getPlaybackControl();
     pbc->setSpeed(-1); // Make sure reading never blocks.
+
+    // Interpolation between Kinect and webcam streams.
     int num_depth_frames = pbc->getNumberOfFrames(depth_stream);
+    int num_color_frames = pbc->getNumberOfFrames(color_stream);
+    int num_webcam_frames = webcam_img_paths.size();
+    cout << "# DEPTH FRAMES = " << num_depth_frames << endl;
+    cout << "# COLOR FRAMES = " << num_color_frames << endl;
+    cout << "# WEBCAM FRAMES = " << num_webcam_frames << endl;
+    float web_per_depth = float(num_webcam_frames) / float(num_depth_frames);
+
     for (int i = 0; i < num_depth_frames; ++i) {
         // This should set also set color stream to the same point in time.
         pbc->seek(depth_stream, i);
@@ -55,17 +79,17 @@ int main(int argc, char **argv) {
             return 1;
         }
 
-        // Load the corresponding webcam image if it exists, otherwise skip.
+        // Load the corresponding webcam image.
         Mat webcolor_mat = imread(
-            "images/webcolor" +
-            to_string(depth_frame.getTimestamp()) + ".png");
-        if (!webcolor_mat.data) {
-            //continue;
-        }
+            webcam_img_paths[round(i * web_per_depth)].string());
 
         // Do image analysis.
         Mat masked = draw_color_on_depth(color_mat, depth_mat);
-        imshow("debug", 10 * depth_mat);
+        imshow("depth", 10 * depth_mat);
+        imshow("kinect_color", masked);
+        if (webcolor_mat.data) {
+            imshow("webcam_color", webcolor_mat);
+        }
         char key = waitKey(0);
         if (key == 27) {
             break;

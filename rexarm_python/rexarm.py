@@ -78,7 +78,7 @@ class Rexarm():
                              [-1.4,2.51]] #Joint 3
 
         """ DH Table """
-        self.DH_table = [DH_xform(-.013,.066,0), #Joint 0
+        self.DH_table = [DH_xform(.013,.066,0), #Joint 0
                          DH_xform(0,.044,PI/2), #Joint 1
                          DH_xform(-0.1,0,0), #Joint 2
                          DH_xform(-0.1,0,0) #Joint 3

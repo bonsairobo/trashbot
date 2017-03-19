@@ -5,7 +5,7 @@ using namespace cv;
 using namespace std;
 
 Mat draw_color_on_depth(const Mat& color, const Mat& depth) {
-    Mat out(color.size(), CV_8UC3, Scalar(0,0,0));
+    Mat out = Mat::zeros(color.size(), CV_8UC3);
     for (int y = 0; y < out.rows; ++y) {
         for (int x = 0; x < out.cols; ++x) {
             if (depth.at<uint16_t>(y,x) != 0) {

@@ -11,12 +11,10 @@ VPATH = src \
 		obj
 
 KINECT_SRCS = main.cpp \
-			  openni_device_listener.cpp \
-			  kinect_receiver.cpp \
-			  frame_callback.cpp \
 			  localization_model.cpp \
 			  grasping_model.cpp \
-			  img_proc.cpp
+			  img_proc.cpp \
+			  common.cpp
 
 KINECT_OBJS = $(KINECT_SRCS:.cpp=.o)
 
@@ -32,11 +30,12 @@ kinect: obj/main.o $(KINECT_OBJS:%=obj/%)
 									   -l OpenNI2 \
 									   -l common
 
-file_analysis: obj/file_analysis.o obj/img_proc.o
+file_analysis: obj/file_analysis.o obj/img_proc.o obj/common.o
 	$(CXX) $(LINK_PATH) $^ -o $@ -fPIC -l opencv_core \
 									   -l opencv_highgui \
 									   -l opencv_imgcodecs \
-									   -l opencv_imgproc
+									   -l opencv_imgproc \
+									   -l OpenNI2
 
 clean:
 	rm kinect

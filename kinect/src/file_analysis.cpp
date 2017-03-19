@@ -44,10 +44,12 @@ int main(int argc, char **argv) {
         pbc->seek(depth_stream, i);
 
         Mat depth_mat, color_mat;
-        if (get_mat_from_stream(depth_stream, depth_mat, cout, 2) != 0) {
+        if (get_mat_from_stream(depth_stream, depth_mat, cout, 2, nullptr) != 0)
+        {
             return 1;
         }
-        if (get_mat_from_stream(color_stream, color_mat, cout, 3) != 0) {
+        if (get_mat_from_stream(color_stream, color_mat, cout, 3, nullptr) != 0)
+        {
             return 1;
         }
 

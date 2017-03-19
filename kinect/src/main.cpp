@@ -50,6 +50,12 @@ int main(int argc, char **argv) {
         recorder.start();
     }
 
+    // Open webcam.
+    VideoCapture webcam(0);
+    if (!webcam.isOpened()) {
+        cout << "Did not find webcam." << endl;
+    }
+
     if (show_feeds) {
         namedWindow("masked color", 1);
     }
@@ -68,17 +74,31 @@ int main(int argc, char **argv) {
     char key = 0;
     while (key != 27) { // escape
         // Block until new frame data is ready.
-        Mat depth_mat, color_mat;
-        if (get_mat_from_stream(depth_stream, depth_mat, log_stream, 2) != 0) {
+        Mat depth_mat, color_mat, webcolor_mat;
+        VideoFrameRef *depth_frame;
+        if (get_mat_from_stream(
+            depth_stream, depth_mat, log_stream, 2, &depth_frame) != 0)
+        {
             return 1;
         }
-        if (get_mat_from_stream(color_stream, color_mat, log_stream, 3) != 0) {
+        if (get_mat_from_stream(
+            color_stream, color_mat, log_stream, 3, nullptr) != 0)
+        {
             return 1;
         }
+        webcam.read(webcolor_mat);
 
         if (show_feeds) {
             Mat masked = draw_color_on_depth(color_mat, depth_mat);
             imshow("masked color", masked);
+        }
+
+        // Save webcam frames parallel to the depth frame timestamps.
+        if (record_streams) {
+            imwrite(
+                "images/webcolor" +
+                    to_string(depth_frame->getTimestamp()) + ".png",
+                webcolor_mat);
         }
 
         /*loc_model.update(depth_mat, color_mat);

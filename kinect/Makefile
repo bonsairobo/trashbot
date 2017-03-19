@@ -26,6 +26,7 @@ kinect: obj/main.o $(KINECT_OBJS:%=obj/%)
 									   -l opencv_highgui \
 									   -l opencv_imgcodecs \
 									   -l opencv_imgproc \
+									   -l opencv_videoio \
 									   -l freenect \
 									   -l OpenNI2 \
 									   -l common

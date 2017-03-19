@@ -73,7 +73,11 @@ static Mat cv_image_from_vframe_ref(const VideoFrameRef& frame, int n_bytes) {
 }
 
 int get_mat_from_stream(
-    VideoStream& stream, Mat& mat, ostream& log_stream, int n_bytes)
+    VideoStream& stream,
+    Mat& mat,
+    ostream& log_stream,
+    int n_bytes,
+    VideoFrameRef **frame_out)
 {
     VideoFrameRef *frame = nullptr;
     Status rc = stream.readFrame(frame);
@@ -83,5 +87,8 @@ int get_mat_from_stream(
         return 1;
     }
     mat = cv_image_from_vframe_ref(*frame, n_bytes);
+    if (frame_out != nullptr) {
+        *frame_out = frame;
+    }
     return 0;
 }

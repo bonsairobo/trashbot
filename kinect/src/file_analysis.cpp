@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
     Status rc = OpenNI::initialize();
     if (rc != STATUS_OK) {
         cerr << "Initialize failed" << endl
-                   << OpenNI::getExtendedError() << endl;
+             << OpenNI::getExtendedError() << endl;
         return 1;
     }
 
@@ -22,13 +22,13 @@ int main(int argc, char **argv) {
     rc = device.open(argv[1]);
     if (rc != STATUS_OK) {
         cerr << "Couldn't open device" << endl
-                   << OpenNI::getExtendedError() << endl;
+             << OpenNI::getExtendedError() << endl;
         return 1;
     }
 
     VideoStream depth_stream, color_stream;
     if (try_start_rgbd_streams(
-        device, depth_stream, color_stream, cout) != 0)
+        device, depth_stream, color_stream, cout, false) != 0)
     {
         return 1;
     }
@@ -44,7 +44,9 @@ int main(int argc, char **argv) {
         pbc->seek(depth_stream, i);
 
         Mat depth_mat, color_mat;
-        if (get_mat_from_stream(depth_stream, depth_mat, cout, 2, nullptr) != 0)
+        VideoFrameRef depth_frame;
+        if (get_mat_from_stream(
+            depth_stream, depth_mat, cout, 2, &depth_frame) != 0)
         {
             return 1;
         }
@@ -53,9 +55,28 @@ int main(int argc, char **argv) {
             return 1;
         }
 
+        // Load the corresponding webcam image if it exists, otherwise skip.
+        Mat webcolor_mat = imread(
+            "images/webcolor" +
+            to_string(depth_frame.getTimestamp()) + ".png");
+        if (!webcolor_mat.data) {
+            //continue;
+        }
+
         // Do image analysis.
+        Mat masked = draw_color_on_depth(color_mat, depth_mat);
+        imshow("debug", 10 * depth_mat);
+        char key = waitKey(0);
+        if (key == 27) {
+            break;
+        }
     }
 
+    color_stream.stop();
+    color_stream.destroy();
+    depth_stream.stop();
+    depth_stream.destroy();
+    device.close();
     OpenNI::shutdown();
     return 0;
 }

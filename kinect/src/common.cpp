@@ -35,7 +35,8 @@ int try_start_rgbd_streams(
     Device& device,
     VideoStream& depth_stream,
     VideoStream& color_stream,
-    ostream& log_stream)
+    ostream& log_stream,
+    bool do_registration)
 {
     if (try_start_video_stream(
         color_stream, device, SENSOR_COLOR, "color", log_stream) != 0)
@@ -53,7 +54,7 @@ int try_start_rgbd_streams(
             IMAGE_REGISTRATION_DEPTH_TO_COLOR))
     {
         device.setImageRegistrationMode(IMAGE_REGISTRATION_DEPTH_TO_COLOR);
-    } else {
+    } else if (do_registration) {
         cerr << "ERROR: image registration is not supported" << endl;
         return 1;
     }
@@ -77,16 +78,16 @@ int get_mat_from_stream(
     Mat& mat,
     ostream& log_stream,
     int n_bytes,
-    VideoFrameRef **frame_out)
+    VideoFrameRef *frame_out)
 {
-    VideoFrameRef *frame = nullptr;
-    Status rc = stream.readFrame(frame);
-    if (rc != STATUS_OK or frame == nullptr) {
+    VideoFrameRef frame;
+    Status rc = stream.readFrame(&frame);
+    if (rc != STATUS_OK) {
         log_stream << "Couldn't read depth frame." << endl
                    << OpenNI::getExtendedError() << endl;
         return 1;
     }
-    mat = cv_image_from_vframe_ref(*frame, n_bytes);
+    mat = cv_image_from_vframe_ref(frame, n_bytes);
     if (frame_out != nullptr) {
         *frame_out = frame;
     }

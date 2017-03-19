@@ -1,10 +1,10 @@
 CXX = g++
-CXX_FLAGS = -Wall -pedantic -std=c++11 -c
+CXX_FLAGS = -g -Wall -pedantic -std=c++11 -c
 INCLUDE_PATH = -I libfreenect/include -I OpenNI2/Include
 LINK_PATH = -L opencv/build/lib \
 			-L libfreenect/build/lib \
-			-L OpenNI2/Bin/x64-Release/OpenNI2/Drivers \
-			-L OpenNI2/Bin/x64-Release \
+			-L OpenNI2/Bin/x64-Debug/OpenNI2/Drivers \
+			-L OpenNI2/Bin/x64-Debug \
 			-L ../common
 
 VPATH = src \
@@ -32,7 +32,7 @@ kinect: obj/main.o $(KINECT_OBJS:%=obj/%)
 									   -l common
 
 file_analysis: obj/file_analysis.o obj/img_proc.o obj/common.o
-	$(CXX) $(LINK_PATH) $^ -o $@ -fPIC -l opencv_core \
+	$(CXX) -g $(LINK_PATH) $^ -o $@ -fPIC -l opencv_core \
 									   -l opencv_highgui \
 									   -l opencv_imgcodecs \
 									   -l opencv_imgproc \

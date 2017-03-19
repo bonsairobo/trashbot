@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
 
     VideoStream depth_stream, color_stream;
     if (try_start_rgbd_streams(
-        device, depth_stream, color_stream, log_stream) != 0)
+        device, depth_stream, color_stream, log_stream, true) != 0)
     {
         return 1;
     }
@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
     while (key != 27) { // escape
         // Block until new frame data is ready.
         Mat depth_mat, color_mat, webcolor_mat;
-        VideoFrameRef *depth_frame;
+        VideoFrameRef depth_frame;
         if (get_mat_from_stream(
             depth_stream, depth_mat, log_stream, 2, &depth_frame) != 0)
         {
@@ -86,19 +86,22 @@ int main(int argc, char **argv) {
         {
             return 1;
         }
-        webcam.read(webcolor_mat);
+        if (webcam.isOpened())
+            webcam.read(webcolor_mat);
+
+        // Save webcam frames parallel to the depth frame timestamps. There may
+        // be gaps in these timestamps compared to the ONI depth recording,
+        // since we are not using event-driven sampling of the video streams.
+        if (record_streams and webcam.isOpened()) {
+            imwrite(
+                "images/webcolor" +
+                    to_string(depth_frame.getTimestamp()) + ".png",
+                webcolor_mat);
+        }
 
         if (show_feeds) {
             Mat masked = draw_color_on_depth(color_mat, depth_mat);
             imshow("masked color", masked);
-        }
-
-        // Save webcam frames parallel to the depth frame timestamps.
-        if (record_streams) {
-            imwrite(
-                "images/webcolor" +
-                    to_string(depth_frame->getTimestamp()) + ".png",
-                webcolor_mat);
         }
 
         /*loc_model.update(depth_mat, color_mat);
@@ -140,9 +143,15 @@ int main(int argc, char **argv) {
                 (sockaddr*)&rex_addr,
                 sizeof(rex_addr));
         }
-        key = waitKey(5);*/
+        */
+        key = waitKey(5);
     }
 
+    color_stream.stop();
+    color_stream.destroy();
+    depth_stream.stop();
+    depth_stream.destroy();
+    device.close();
     OpenNI::shutdown();
     return 0;
 }

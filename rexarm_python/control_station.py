@@ -71,6 +71,12 @@ class Gui(QtGui.QMainWindow):
         self.ui.sldrMaxTorque.valueChanged.connect(functools.partial(self.sliderChange,6))
         self.ui.sldrSpeed.valueChanged.connect(functools.partial(self.sliderChange,7))
 
+        #Setting the poses
+        self.ui.btnUser2.clicked.connect(functools.partial(self.setPose,[-0.151,0.066,-1.65,0.164]))
+        self.ui.btnUser3.clicked.connect(functools.partial(self.setPose,[-0.841,0.800,0.263,1.125]))
+        self.ui.btnUser4.clicked.connect(functools.partial(self.setPose,[0.622,1.119,-0.069,1.125]))
+        self.ui.btnUser5.clicked.connect(functools.partial(self.setPose,[0,0,0,0]))
+
         """ Commands the arm as the arm initialize to 0,0,0,0 angles """
         self.sliderChange(0) 
         
@@ -135,7 +141,6 @@ class Gui(QtGui.QMainWindow):
             self.ui.rdoutStatus.setText("Playing Back - Waypoint %d"
                                     %(self.rex.wpt_number + 1))
 
-
     def sliderChange(self,selected_slider):
         """ 
         Function to change the slider labels when sliders are moved
@@ -175,6 +180,13 @@ class Gui(QtGui.QMainWindow):
         else:
             print "Error: Unrecognized slider index", selected_slider
 
+        self.rex.cmd_publish()
+
+    # angles is a list of floats, an angle for each joint
+    def setPose(self,angles):
+        #Sends motor command to rexarm
+        for i in range(len(angles)):
+            self.rex.joint_angles[i] = angles[i]
         self.rex.cmd_publish()
 
     def mousePressEvent(self, QMouseEvent):

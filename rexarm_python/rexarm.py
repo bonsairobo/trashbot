@@ -82,7 +82,7 @@ class Rexarm():
         self.DH_table = [DH_xform(0,.044,PI/2), #Joint 0's parameters (Used to form A_0). CORRECT
                          DH_xform(0.1,0,0), #Joint 1's parameters (Used to form A_1)
                          DH_xform(0.1,0,0), #Joint 3
-                         DH_xform(0.108,0,0) #Joint 4
+                         DH_xform(0.12,0,0) #Joint 4
         ]
 
         """ Joint offsets from rexarm frame assignments for FK """
@@ -166,7 +166,7 @@ class Rexarm():
         for i in range(len(self.DH_table)):
             self.DH_table[i].gen_xform(self.joint_angles_fb[i] + self.joint_offsets[i])
 
-        world_pose = self.rexarm_FK(self.DH_table,2)
+        world_pose = self.rexarm_FK(self.DH_table,3)
 
         #Update GUI with world_pose
         self.x_out.setText(str("%.3f" % world_pose[0][0]))

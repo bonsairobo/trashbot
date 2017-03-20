@@ -81,7 +81,7 @@ class Rexarm():
         self.DH_table = [DH_xform(0,.044,PI/2), #Joint 0's parameters (Used to form A_0)
                          DH_xform(0.1,0,0), #Joint 1's parameters (Used to form A_1)
                          DH_xform(0.1,0,0), #Joint 3
-                         DH_xform(0.108,0,0), #Joint 4
+                         DH_xform(0.108,0,0) #Joint 4
         ]
         
         """ References to GUI labels for FK """
@@ -157,12 +157,12 @@ class Rexarm():
         for i in range(len(self.DH_table)):
             self.DH_table[i].gen_xform(self.joint_angles_fb[i])
 
-        world_pose = self.rexarm_FK(self.DH_table,0)
+        world_pose = self.rexarm_FK(self.DH_table,1)
 
         #Update GUI with world_pose
-        self.x_out.setText(str(world_pose[0][0]))
-        self.y_out.setText(str(world_pose[1][0]))
-        self.z_out.setText(str(world_pose[2][0]))
+        self.x_out.setText(str("%.2f" % world_pose[0][0]))
+        self.y_out.setText(str("%.2f" % world_pose[1][0]))
+        self.z_out.setText(str("%.2f" % world_pose[2][0]))
         self.theta_out.setText("?")
 
     def clamp(self):
@@ -194,6 +194,9 @@ class Rexarm():
         returns a 4-tuple (x, y, z, phi) representing the pose of the 
         desired link
         """
+
+        import pdb
+        pdb.set_trace()
 
         #First multiply by +60 degree rotation about z axis to align coordinates with the rexarm board
         rot_60 = np.array([[np.cos(PI/3),-np.sin(PI/3),0,0],

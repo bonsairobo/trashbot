@@ -57,6 +57,7 @@ class DH_xform:
             [0,0,0,1]
         ])
 
+        self.theta = theta
         self.xform = np.dot(joint_angle,self.const_xform)
 
 
@@ -78,10 +79,17 @@ class Rexarm():
                              [-1.4,2.51]] #Joint 3
 
         """ DH Table """
-        self.DH_table = [DH_xform(0,.044,PI/2), #Joint 0's parameters (Used to form A_0)
+        self.DH_table = [DH_xform(0,.044,PI/2), #Joint 0's parameters (Used to form A_0). CORRECT
                          DH_xform(0.1,0,0), #Joint 1's parameters (Used to form A_1)
                          DH_xform(0.1,0,0), #Joint 3
                          DH_xform(0.108,0,0) #Joint 4
+        ]
+
+        """ Joint offsets from rexarm frame assignments for FK """
+        self.joint_offsets = [0,
+                              PI/2,
+                              0,
+                              -43 * D2R#TODO: Shift on a different rexarm
         ]
         
         """ References to GUI labels for FK """
@@ -153,16 +161,17 @@ class Rexarm():
         """
         Compute forward kinematics
         """
-        #Recompute DH Parameters
+        #Recompute DH Parameters. Add joint offset to account for fact that rexarm lcm angles
+        #don't naturally correspond to the theta w/r/t the DH x axis frame assignment
         for i in range(len(self.DH_table)):
-            self.DH_table[i].gen_xform(self.joint_angles_fb[i])
+            self.DH_table[i].gen_xform(self.joint_angles_fb[i] + self.joint_offsets[i])
 
-        world_pose = self.rexarm_FK(self.DH_table,1)
+        world_pose = self.rexarm_FK(self.DH_table,2)
 
         #Update GUI with world_pose
-        self.x_out.setText(str("%.2f" % world_pose[0][0]))
-        self.y_out.setText(str("%.2f" % world_pose[1][0]))
-        self.z_out.setText(str("%.2f" % world_pose[2][0]))
+        self.x_out.setText(str("%.3f" % world_pose[0][0]))
+        self.y_out.setText(str("%.3f" % world_pose[1][0]))
+        self.z_out.setText(str("%.3f" % world_pose[2][0]))
         self.theta_out.setText("?")
 
     def clamp(self):
@@ -195,8 +204,8 @@ class Rexarm():
         desired link
         """
 
-        import pdb
-        pdb.set_trace()
+        #import pdb
+        #pdb.set_trace()
 
         #First multiply by +60 degree rotation about z axis to align coordinates with the rexarm board
         rot_60 = np.array([[np.cos(PI/3),-np.sin(PI/3),0,0],
@@ -217,7 +226,7 @@ class Rexarm():
         final_xform = trans_base.copy()
         for i in range(link + 1):
             temp = np.dot(final_xform,dh_table[i].xform)
-            final_xform = temp
+            final_xform = temp.copy()
 
         #Multiply final_xform by endeffector position vector
         world_coords = np.dot(final_xform,self.endeffector_pos)

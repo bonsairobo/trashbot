@@ -5,8 +5,9 @@
 using namespace cv;
 using namespace std;
 
-// TODO: convert from value in meters
-static const uint16_t MIN_REX_DEPTH = 100;
+// TODO: get actual values for Rexarm
+static const uint16_t MIN_REX_DEPTH = 800.0;
+static const uint16_t MAX_REX_DEPTH = 1100.0;
 
 struct GraspFeature {
 
@@ -18,7 +19,7 @@ GraspingPoints GraspingModel::search_grasping_points(
     // Threshold and cull near-depth blobs. Blobs must be close enough to be
     // grabbed by the Rexarm (until MagicBot can drive itself).
     vector<vector<Point2i>> object_regions =
-        find_object_regions(depth, MIN_REX_DEPTH);
+        find_object_regions(depth, MIN_REX_DEPTH, MAX_REX_DEPTH);
 
     // Create feature vectors.
     vector<vector<GraspFeature>> features;

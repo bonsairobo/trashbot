@@ -2,6 +2,7 @@
 
 root_dir=$PWD
 sudo add-apt-repository ppa:george-edison55/cmake-3.x
+sudo add-apt-repository ppa:v-launchpad-jochen-sprickerhof-de/pcl
 sudo apt-get update
 sudo apt-get install build-essential \
 					 cmake \
@@ -17,7 +18,8 @@ sudo apt-get install build-essential \
 					 freeglut3-dev \
 					 libxmu-dev \
 					 libxi-dev \
-					 libboost-all-dev
+					 libboost-all-dev \
+					 libpcl-all
 
 git clone https://github.com/OpenKinect/libfreenect.git
 cd libfreenect

@@ -2,6 +2,7 @@
 #include "common.hpp"
 #include <boost/filesystem.hpp>
 #include <algorithm>
+#include <chrono>
 
 namespace fs = boost::filesystem;
 
@@ -37,7 +38,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    namedWindow("depth", 1);
+    namedWindow("world coordinates", 1);
     namedWindow("kinect_color", 1);
     namedWindow("webcam_color", 1);
 
@@ -85,11 +86,34 @@ int main(int argc, char **argv) {
 
         // Do image analysis.
         Mat masked = draw_color_on_depth(color_mat, depth_mat);
-        imshow("depth", 10 * depth_mat);
+        vector<vector<Point2i>> regions =
+            find_object_regions(depth_mat, 800.0, 1100.0);
+        cout << "Found " << regions.size() << " regions" << endl;
+        for (auto& region : regions) {
+            draw_pixels(masked, region, Vec3b(200, 0, 0));
+        }
         imshow("kinect_color", masked);
         if (webcolor_mat.data) {
             imshow("webcam_color", webcolor_mat);
         }
+
+        // Time how long it takes to create a world coordinate image.
+        auto start = chrono::system_clock::now();
+        Mat coord_mat = Mat::zeros(depth_mat.size(), CV_32FC3);
+        for (int u = 0; u < depth_mat.rows; ++u) {
+            for (int v = 0; v < depth_mat.cols; ++v) {
+                Vec3f& coord = coord_mat.at<Vec3f>(u,v);
+                CoordinateConverter::convertDepthToWorld(
+                    depth_stream, v, u, depth_mat.at<uint16_t>(u, v),
+                    &coord[0], &coord[1], &coord[2]);
+                coord *= 0.0005;
+            }
+        }
+        auto end = chrono::system_clock::now();
+        chrono::duration<double> diff = end - start;
+        cout << "Time to convert pixels: " << diff.count() << endl;
+        imshow("world coordinates", coord_mat);
+
         char key = waitKey(0);
         if (key == 27) {
             break;

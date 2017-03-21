@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 from PyQt4 import QtGui, QtCore, Qt
 from ui import Ui_MainWindow
-from rexarm import Rexarm
+from rexarm import Rexarm,joint_3_offset
 import functools #Let's us give parameters to callback functions for QT connect
 
 from video import Video
@@ -75,7 +75,7 @@ class Gui(QtGui.QMainWindow):
         self.ui.btnUser2.clicked.connect(functools.partial(self.setPose,[-0.151,0.066,-1.65,0.164]))
         self.ui.btnUser3.clicked.connect(functools.partial(self.setPose,[-0.841,0.800,0.263,1.125]))
         self.ui.btnUser4.clicked.connect(functools.partial(self.setPose,[0.622,1.119,-0.069,1.125]))
-        self.ui.btnUser5.clicked.connect(functools.partial(self.setPose,[0,0,0,43 * D2R]))
+        self.ui.btnUser5.clicked.connect(functools.partial(self.setPose,[0,0,0,joint_3_offset * D2R]))
 
         """ Commands the arm as the arm initialize to 0,0,0,0 angles """
         self.sliderChange(0) 

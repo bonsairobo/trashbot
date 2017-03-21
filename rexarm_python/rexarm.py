@@ -11,6 +11,8 @@ PI = np.pi
 D2R = PI/180.0
 ANGLE_TOL = 2*PI/180.0 
 
+joint_3_offset = 30 * D2R
+
 #Represents a transformation matrix for a link computed via DH parameters
 class DH_xform:
     def __init__(self,a,d,alph):
@@ -82,14 +84,14 @@ class Rexarm():
         self.DH_table = [DH_xform(0,.044,PI/2), #Joint 0's parameters (Used to form A_0). CORRECT
                          DH_xform(0.1,0,0), #Joint 1's parameters (Used to form A_1)
                          DH_xform(0.1,0,0), #Joint 3
-                         DH_xform(0.12,0,0) #Joint 4
+                         DH_xform(0.105,0,0) #Joint 4
         ]
 
         """ Joint offsets from rexarm frame assignments for FK """
         self.joint_offsets = [0,
                               PI/2,
                               0,
-                              -43 * D2R#TODO: Shift on a different rexarm
+                              -joint_3_offset * D2R#TODO: Shift on a different rexarm
         ]
         
         """ References to GUI labels for FK """
@@ -221,9 +223,10 @@ class Rexarm():
                                [0,0,0,1]
         ])
 
+        #Multiply transformations
+        final_xform = np.dot(rot_60,trans_base)
+
         #Multiply DH matrices
-        #final_xform = rot_60.copy()
-        final_xform = trans_base.copy()
         for i in range(link + 1):
             temp = np.dot(final_xform,dh_table[i].xform)
             final_xform = temp.copy()

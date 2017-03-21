@@ -12,7 +12,7 @@ D2R = PI/180.0
 R2D = 180.0/PI
 ANGLE_TOL = 2*PI/180.0 
 
-joint_3_offset = 30 * D2R
+#joint_3_offset = 31 * D2R
 
 #Represents a transformation matrix for a link computed via DH parameters
 class DH_xform:
@@ -79,20 +79,20 @@ class Rexarm():
         self.joint_limits = [[-PI,PI], #Joint 0
                              [-2.00,2.00], #Joint 1
                              [-1.87,1.87], #Joint 2
-                             [-1.4,2.51]] #Joint 3
+                             [-1.82,2.51]] #Joint 3
 
         """ DH Table """
         self.DH_table = [DH_xform(0,.044,PI/2), #Joint 0's parameters (Used to form A_0). CORRECT
                          DH_xform(0.1,0,0), #Joint 1's parameters (Used to form A_1)
                          DH_xform(0.1,0,0), #Joint 3
-                         DH_xform(0.105,0,0) #Joint 4
+                         DH_xform(0.11,0,0) #Joint 4
         ]
 
         """ Joint offsets from rexarm frame assignments for FK """
         self.joint_offsets = [0,
                               PI/2,
                               0,
-                              -joint_3_offset * D2R#TODO: Shift on a different rexarm
+                              0#TODO: Shift on a different rexarm
         ]
         
         """ References to GUI labels for FK """
@@ -172,11 +172,8 @@ class Rexarm():
         #phi is angle with respect to horizontal
         world_pose,phi = self.rexarm_FK(self.DH_table,3)
         phi = (phi % (2 * PI))
-        print "flattenend:", phi
         if phi > PI:
             phi -= 2 * PI
-
-        print "Mapped:", phi
 
         #Update GUI with world_pose
         self.x_out.setText(str("%.3f" % world_pose[0][0]))
@@ -259,8 +256,15 @@ class Rexarm():
         init_point = init_point[0:3]
         end_point = (world_coords[0:3]).copy()
 
+        #import pdb
+        #pdb.set_trace()
+        
+        print "End Point:", end_point
+        print "Initial Point:", init_point
+
         #Get vector to endeffector in global frame
         endeffector_vec = end_point - init_point
+        print "Endeffector Vec:", endeffector_vec
 
         horizontal_vec = endeffector_vec.copy()
         #Simple projection onto XY plane

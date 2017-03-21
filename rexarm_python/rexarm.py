@@ -9,6 +9,7 @@ from lcmtypes import dynamixel_status_list_t
 
 PI = np.pi
 D2R = PI/180.0
+R2D = 180.0/PI
 ANGLE_TOL = 2*PI/180.0 
 
 joint_3_offset = 30 * D2R
@@ -168,13 +169,20 @@ class Rexarm():
         for i in range(len(self.DH_table)):
             self.DH_table[i].gen_xform(self.joint_angles_fb[i] + self.joint_offsets[i])
 
-        world_pose = self.rexarm_FK(self.DH_table,3)
+        #phi is angle with respect to horizontal
+        world_pose,phi = self.rexarm_FK(self.DH_table,3)
+        phi = (phi % (2 * PI))
+        print "flattenend:", phi
+        if phi > PI:
+            phi -= 2 * PI
+
+        print "Mapped:", phi
 
         #Update GUI with world_pose
         self.x_out.setText(str("%.3f" % world_pose[0][0]))
         self.y_out.setText(str("%.3f" % world_pose[1][0]))
         self.z_out.setText(str("%.3f" % world_pose[2][0]))
-        self.theta_out.setText("?")
+        self.theta_out.setText(str("%.3f" % (phi * R2D)))
 
     def clamp(self):
         """
@@ -206,8 +214,8 @@ class Rexarm():
         desired link
         """
 
-        #import pdb
-        #pdb.set_trace()
+        #phi is angle of endeffector point w/r/t the vector <1,0> in world frame.
+        phi = 0
 
         #First multiply by +60 degree rotation about z axis to align coordinates with the rexarm board
         rot_60 = np.array([[np.cos(PI/3),-np.sin(PI/3),0,0],
@@ -226,15 +234,46 @@ class Rexarm():
         #Multiply transformations
         final_xform = np.dot(rot_60,trans_base)
 
+        #The world coordinates of the last motor
+        init_point = []
+
+        #The world coordinates of the endeffector position
+        end_point = []
+
         #Multiply DH matrices
+        #Compute phi by finding world vector between endeffector and motor joint 3.
+        #Do this by calculating difference between these points' world coordinates
         for i in range(link + 1):
             temp = np.dot(final_xform,dh_table[i].xform)
             final_xform = temp.copy()
+            if len(range(link+1)) > 1:
+                if i == (link - 1):
+                    init_point = np.dot(final_xform,np.transpose(np.array([[0,0,0,1]])))
+            else:#Length = 1. Need to only multiply rot_60, trans_base, and [0,0,0,1]
+                temp = np.dot(rot_60,trans_base)
+                init_point = np.dot(temp,np.transpose(np.array([[0,0,0,1]])))
 
         #Multiply final_xform by endeffector position vector
         world_coords = np.dot(final_xform,self.endeffector_pos)
+
+        init_point = init_point[0:3]
+        end_point = (world_coords[0:3]).copy()
+
+        #Get vector to endeffector in global frame
+        endeffector_vec = end_point - init_point
+
+        horizontal_vec = endeffector_vec.copy()
+        #Simple projection onto XY plane
+        horizontal_vec[2] = 0
+
+        #Get angle with the the x,y plane. Same as angle with the same vector but with the z coordinate flattened to zero. phi is in range 0 to +180
+        phi = np.arccos(np.dot(horizontal_vec.flatten(),endeffector_vec.flatten())/(np.linalg.norm(horizontal_vec) * np.linalg.norm(endeffector_vec)))
+        #Make angle negative if endeffector_vec z coordinate is below the ground
+        if endeffector_vec[2][0] < 0:
+            phi = -phi
+
         #Remove homogeneous coordinate
-        return world_coords[0:3]
+        return end_point,phi
 
     def rexarm_IK(pose, cfg):
         """

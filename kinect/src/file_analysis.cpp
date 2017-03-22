@@ -86,8 +86,10 @@ int main(int argc, char **argv) {
 
         // Do image analysis.
         Mat masked = draw_color_on_depth(color_mat, depth_mat);
+        Point3f btl(-300.0, 300.0, 1200.0);
+        Point3f bbr(300.0, -300.0, 1200.0);
         vector<vector<Point2i>> regions =
-            find_object_regions(depth_mat, 800.0, 1100.0);
+            find_object_regions(depth_stream, depth_mat, btl, bbr, 800.0);
         cout << "Found " << regions.size() << " regions" << endl;
         for (auto& region : regions) {
             draw_pixels(masked, region, Vec3b(200, 0, 0));
@@ -106,6 +108,8 @@ int main(int argc, char **argv) {
                 CoordinateConverter::convertDepthToWorld(
                     depth_stream, v, u, depth_mat.at<uint16_t>(u, v),
                     &coord[0], &coord[1], &coord[2]);
+
+                // TODO: remove, this is only for visualization
                 coord *= 0.0005;
             }
         }
@@ -113,6 +117,18 @@ int main(int argc, char **argv) {
         chrono::duration<double> diff = end - start;
         cout << "Time to convert pixels: " << diff.count() << endl;
         imshow("world coordinates", coord_mat);
+
+        // TODO: convert Rexarm workspace cube corners to image coordinates
+        // to select pixels within bounding rectangle.
+
+        // TODO: create PCL point cloud of the bounding rect for estimating
+        // normals with integral images
+
+        // TODO: Do PCL plane segmentation that also returns the outlier
+        // (non-plane) points
+
+        // TODO: for those outlier points, compute image features for logistic
+        // regression grasping point classifier
 
         char key = waitKey(0);
         if (key == 27) {

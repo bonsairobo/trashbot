@@ -2,15 +2,26 @@
 #define IMG_PROC_HPP
 
 #include <opencv2/opencv.hpp>
+#include <OpenNI.h>
 #include <vector>
 
 cv::Mat draw_color_on_depth(const cv::Mat& color, const cv::Mat& depth);
+
+// Assume that the Rexarm workspace is aligned with the camera, so we only need
+// the back plane of the workspace to determine the projection image.
 std::vector<std::vector<cv::Point2i>> find_object_regions(
-    const cv::Mat& depth, float near_thresh_depth, float far_thresh_depth);
+    const openni::VideoStream& depth_stream,
+    const cv::Mat& depth,
+    const cv::Point3f& btl,
+    const cv::Point3f& bbr,
+    float near_depth);
 
 template<typename T>
 std::vector<cv::Point2i> flood_select(
-    const cv::Mat& m, cv::Point2i seed, cv::Mat& visited)
+    const cv::Mat& m,
+    cv::Point2i seed,
+    cv::Mat& visited,
+    const cv::Point2i& tl_px)
 {
     std::vector<cv::Point2i> component;
     std::queue<cv::Point2i> search_queue;
@@ -20,7 +31,7 @@ std::vector<cv::Point2i> flood_select(
     while (!search_queue.empty()) {
         cv::Point2i p = search_queue.front();
         search_queue.pop();
-        component.push_back(p);
+        component.push_back(tl_px + p);
 
         // Spawn 4 neighbors.
         int dx = 1, dy = 0;
@@ -41,7 +52,8 @@ std::vector<cv::Point2i> flood_select(
 }
 
 template<typename T>
-std::vector<std::vector<cv::Point2i>> find_nonzero_components(const cv::Mat& m)
+std::vector<std::vector<cv::Point2i>> find_nonzero_components(
+    const cv::Mat& m, const cv::Point2i& tl_px)
 {
     cv::Mat visited = cv::Mat::zeros(m.size(), CV_8UC1);
     std::vector<std::vector<cv::Point2i>> components;
@@ -49,7 +61,7 @@ std::vector<std::vector<cv::Point2i>> find_nonzero_components(const cv::Mat& m)
         for (int x = 0; x < m.cols; ++x) {
             if (visited.at<uint8_t>(y,x) == 0 and m.at<T>(y,x) != 0) {
                 components.push_back(
-                    flood_select<T>(m, cv::Point2i(x,y), visited));
+                    flood_select<T>(m, cv::Point2i(x,y), visited, tl_px));
             }
         }
     }

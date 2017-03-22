@@ -18,8 +18,7 @@ GraspingPoints GraspingModel::search_grasping_points(
 {
     // Threshold and cull near-depth blobs. Blobs must be close enough to be
     // grabbed by the Rexarm (until MagicBot can drive itself).
-    vector<vector<Point2i>> object_regions =
-        find_object_regions(depth, MIN_REX_DEPTH, MAX_REX_DEPTH);
+    vector<vector<Point2i>> object_regions;
 
     // Create feature vectors.
     vector<vector<GraspFeature>> features;

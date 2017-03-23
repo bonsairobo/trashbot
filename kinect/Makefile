@@ -3,6 +3,7 @@ CXX_FLAGS = -g -Wall -pedantic -std=c++11 -c
 INCLUDE_PATH = -I libfreenect/include \
 			   -I OpenNI2/Include \
 			   -I /usr/include/pcl-1.7 \
+			   -I /usr/include/vtk-5.8 \
 			   -I ..
 LINK_PATH = -L opencv/build/lib \
 			-L libfreenect/build/lib \
@@ -32,7 +33,10 @@ kinect: obj/main.o $(KINECT_OBJS:%=obj/%)
 									   -l opencv_videoio \
 									   -l freenect \
 									   -l OpenNI2 \
-									   -l common
+									   -l common \
+									   -l pcl_common \
+									   -l pcl_features \
+									   -l pcl_search
 
 file_analysis: obj/file_analysis.o obj/img_proc.o obj/common.o
 	$(CXX) -g $(LINK_PATH) $^ -o $@ -fPIC -l opencv_core \
@@ -41,7 +45,14 @@ file_analysis: obj/file_analysis.o obj/img_proc.o obj/common.o
 									   -l opencv_imgproc \
 									   -l OpenNI2 \
 									   -l boost_system \
-									   -l boost_filesystem
+									   -l boost_filesystem \
+									   -l pcl_common \
+									   -l pcl_features \
+									   -l pcl_search \
+									   -l pcl_visualization \
+									   -l vtkCommon \
+									   -l vtkFiltering \
+									   -l vtkRendering
 
 clean:
 	rm obj/*.o

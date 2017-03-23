@@ -1,8 +1,10 @@
 #include "img_proc.hpp"
 #include "common.hpp"
+#include <pcl/visualization/cloud_viewer.h>
 #include <boost/filesystem.hpp>
 #include <algorithm>
 #include <chrono>
+#include <vector>
 
 namespace fs = boost::filesystem;
 
@@ -65,6 +67,9 @@ int main(int argc, char **argv) {
     cout << "# WEBCAM FRAMES = " << num_webcam_frames << endl;
     float web_per_depth = float(num_webcam_frames) / float(num_depth_frames);
 
+    visualization::PCLVisualizer viewer("PCL Viewer");
+    viewer.setBackgroundColor(0.0, 0.0, 0.5);
+
     for (int i = 0; i < num_depth_frames; ++i) {
         // This should set also set color stream to the same point in time.
         pbc->seek(depth_stream, i);
@@ -93,54 +98,56 @@ int main(int argc, char **argv) {
             get_workspace_pixels(depth_stream, depth_mat, ftl, bbr, &roi);
         cout << "Found " << workspc_px.size() << " workspace regions" << endl;
 
-        // Create a point cloud of ROI.
-        PointCloud<PointXYZ> pc = zero_cloud(roi.width, roi.height);
+        // Keep a copy of the coordinates in the original images for drawing.
+        Point2i tl_px = Point2i(roi.x, roi.y);
+        vector<Point2i> trans_workspc_px;
         for (const auto& region : workspc_px) {
             for (const auto& px : region) {
-                PointXYZ& pt = pc.at(px.x, px.y);
+                trans_workspc_px.push_back(px + tl_px);
+            }
+        }
+
+        // Create a point cloud of ROI.
+        PointCloud<PointXYZ>::Ptr pc = zero_cloud(roi.width, roi.height);
+        for (const auto& region : workspc_px) {
+            for (const auto& px : region) {
+                PointXYZ& pt = pc->at(px.x, px.y);
                 CoordinateConverter::convertDepthToWorld(
                     depth_stream,
                     px.x, px.y,
-                    depth_mat.at<uint16_t>(px.y, px.x),
+                    depth_mat.at<uint16_t>(px.y+roi.y, px.x+roi.x),
                     &pt.x, &pt.y, &pt.z);
+                pt.z *= -1.0;
             }
         }
+
+        viewer.addPointCloud(pc, "cloud");
 
         // Remove planes.
         PlaneInfo plane_info = remove_planes(pc);
 
         // Only draw the proposed object world coordinates.
         Mat coord_mat = Mat::zeros(depth_mat.size(), CV_32FC3);
-        for (const auto& region : workspc_px) {
-            for (const auto& px : region) {
-                Vec3f& coord = coord_mat.at<Vec3f>(px.y,px.x);
-                CoordinateConverter::convertDepthToWorld(
-                    depth_stream,
-                    px.x, px.y,
-                    depth_mat.at<uint16_t>(px.y, px.x),
-                    &coord[0], &coord[1], &coord[2]);
+        for (const auto& px : trans_workspc_px) {
+            Vec3f& coord = coord_mat.at<Vec3f>(px.y,px.x);
+            CoordinateConverter::convertDepthToWorld(
+                depth_stream,
+                px.x, px.y,
+                depth_mat.at<uint16_t>(px.y, px.x),
+                &coord[0], &coord[1], &coord[2]);
 
-                // TODO: remove, this is only for visualization
-                coord *= 0.0005;
-            }
+            // TODO: remove, this is only for visualization
+            coord *= 0.0005;
         }
         imshow("world coordinates", coord_mat);
 
         // Draw color and webcam.
         Mat masked = draw_color_on_depth(color_mat, depth_mat);
-        for (auto& region : workspc_px) {
-            draw_pixels(masked, region, Vec3b(200, 0, 0));
-        }
+        draw_pixels(masked, trans_workspc_px, Vec3b(200, 0, 0));
         imshow("kinect_color", masked);
         if (webcolor_mat.data) {
             imshow("webcam_color", webcolor_mat);
         }
-
-        // TODO: convert Rexarm workspace cube corners to image coordinates
-        // to select pixels within bounding rectangle.
-
-        // TODO: create PCL point cloud of the bounding rect for estimating
-        // normals with integral images
 
         // TODO: Do PCL plane segmentation that also returns the outlier
         // (non-plane) points
@@ -148,10 +155,12 @@ int main(int argc, char **argv) {
         // TODO: for those outlier points, compute image features for logistic
         // regression grasping point classifier
 
+        viewer.spinOnce();
         char key = waitKey(0);
         if (key == 27) {
             break;
         }
+        viewer.removePointCloud("cloud");
     }
 
     color_stream.stop();

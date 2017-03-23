@@ -8,15 +8,15 @@
 #include <pcl/point_types.h>
 
 struct PlaneInfo {
-    std::vector<cv::Vec3f> normals; // unit
+    pcl::PointCloud<pcl::Normal>::Ptr normals; // unit
     std::vector<cv::Point2i> nonplane_px;
 };
 
-PlaneInfo remove_planes(const pcl::PointCloud<pcl::PointXYZ>&);
+PlaneInfo remove_planes(pcl::PointCloud<pcl::PointXYZ>::ConstPtr);
 
 cv::Mat draw_color_on_depth(const cv::Mat& color, const cv::Mat& depth);
 
-pcl::PointCloud<pcl::PointXYZ> zero_cloud(int width, int height);
+pcl::PointCloud<pcl::PointXYZ>::Ptr zero_cloud(int width, int height);
 
 // Returns all pixels in the workspace of the Rexarm (bounding box).
 // Assumes that the Rexarm workspace is aligned with the camera.

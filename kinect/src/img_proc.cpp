@@ -1,9 +1,25 @@
 #include "img_proc.hpp"
 #include <queue>
+#include <cassert>
 
 using namespace cv;
 using namespace std;
 using namespace openni;
+using namespace pcl;
+
+PointCloud<PointXYZ> zero_cloud(int width, int height) {
+    PointCloud<PointXYZ> pc;
+    pc.width = width;
+    pc.height = height;
+    pc.resize(width * height);
+    pc.is_dense = true;
+    return pc;
+}
+
+PlaneInfo remove_planes(const PointCloud<PointXYZ>& pc) {
+    PlaneInfo info;
+    return info;
+}
 
 Mat draw_color_on_depth(const Mat& color, const Mat& depth) {
     Mat out = Mat::zeros(color.size(), CV_8UC3);
@@ -17,29 +33,64 @@ Mat draw_color_on_depth(const Mat& color, const Mat& depth) {
     return out;
 }
 
-vector<vector<Point2i>> find_object_regions(
+vector<vector<Point2i>> get_workspace_pixels(
     const VideoStream& depth_stream,
     const Mat& depth,
-    const Point3f& btl,
+    const Point3f& ftl,
     const Point3f& bbr,
-    float near_depth)
+    Rect* roi_out)
 {
-    // Convert Rexarm workspace back plane to pixel coordinates.
-    Point2i tl_px, br_px;
-    uint16_t far_depth;
-    CoordinateConverter::convertWorldToDepth(
-        depth_stream, btl.x, btl.y, btl.z, &tl_px.x, &tl_px.y, &far_depth);
-    CoordinateConverter::convertWorldToDepth(
-        depth_stream, bbr.x, bbr.y, bbr.z, &br_px.x, &br_px.y, &far_depth);
-    Mat crop = depth(
-        Rect(tl_px.x, tl_px.y, br_px.x-tl_px.x, br_px.y-tl_px.y));
+    // Convert Rexarm workspace vertices to pixel coordinates.
+    const vector<Point3f> workspc_corners = {
+        ftl,
+        bbr,
+        Point3f(bbr.x, ftl.y, ftl.z),
+        Point3f(ftl.x, bbr.y, ftl.z),
+        Point3f(ftl.x, ftl.y, bbr.z),
+        Point3f(bbr.x, bbr.y, ftl.z),
+        Point3f(ftl.x, bbr.y, bbr.z),
+        Point3f(bbr.x, ftl.y, bbr.z)
+    };
+    int min_x, max_x, min_y, max_y;
+    min_x = min_y = numeric_limits<int>::max();
+    max_x = max_y = 0;
+    for (const auto& c : workspc_corners) {
+        Point2i px;
+        uint16_t z;
+        CoordinateConverter::convertWorldToDepth(
+            depth_stream, c.x, c.y, c.z, &px.x, &px.y, &z);
+        if (px.x < min_x)
+            min_x = px.x;
+        if (px.x > max_x)
+            max_x = px.x;
+        if (px.y < min_y)
+            min_y = px.y;
+        if (px.y > max_y)
+            max_y = px.y;
+    }
+    Rect roi(0, 0, depth.cols, depth.rows);
+    if (min_x > 0 and min_x < depth.cols)
+        roi.x = min_x;
+    if (max_x > 0 and max_x < depth.cols)
+        roi.width = max_x - min_x;
+    if (min_y > 0 and min_y < depth.rows)
+        roi.y = min_y;
+    if (max_y > 0 and max_y < depth.rows)
+        roi.height = max_y - min_y;
 
-    Mat crop_f32;
-    crop.convertTo(crop_f32, CV_32F);
-    threshold(crop_f32, crop_f32, far_depth, 0, THRESH_TOZERO_INV);
-    threshold(crop_f32, crop_f32, near_depth, 0, THRESH_TOZERO);
+    // Select ROI from depth image.
+    Mat crop = depth(roi);
+
+    // Do depth thresholding.
+    Mat thresh;
+    crop.convertTo(thresh, CV_32F);
+    threshold(thresh, thresh, bbr.z, 0, THRESH_TOZERO_INV);
+    threshold(thresh, thresh, ftl.z, 0, THRESH_TOZERO);
+
+    // Extract regions as sets of pixels.
     vector<vector<Point2i>> object_regions =
-        find_nonzero_components<float>(crop_f32, tl_px);
+        find_nonzero_components<float>(thresh);
+
     // Reject small regions.
     const size_t min_region_size = 50;
     auto new_end = remove_if(object_regions.begin(), object_regions.end(),
@@ -48,6 +99,9 @@ vector<vector<Point2i>> find_object_regions(
         }
     );
     object_regions.erase(new_end, object_regions.end());
+
+    if (roi_out != nullptr)
+        *roi_out = roi;
 
     return object_regions;
 }

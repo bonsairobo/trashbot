@@ -41,7 +41,3 @@ cmake -DCMAKE_BUILD_TYPE=RELEASE ..
 make -j4
 sudo make install
 cd $root_dir
-mkdir joystickpp
-cd joystickpp
-git clone https://github.com/drewnoakes/joystick.git .
-cd $root_dir

@@ -1,6 +1,9 @@
 CXX = g++
 CXX_FLAGS = -g -Wall -pedantic -std=c++11 -c
-INCLUDE_PATH = -I libfreenect/include -I OpenNI2/Include
+INCLUDE_PATH = -I libfreenect/include \
+			   -I OpenNI2/Include \
+			   -I /usr/include/pcl-1.7 \
+			   -I ..
 LINK_PATH = -L opencv/build/lib \
 			-L libfreenect/build/lib \
 			-L OpenNI2/Bin/x64-Debug/OpenNI2/Drivers \
@@ -41,9 +44,9 @@ file_analysis: obj/file_analysis.o obj/img_proc.o obj/common.o
 									   -l boost_filesystem
 
 clean:
+	rm obj/*.o
 	rm kinect
 	rm file_analysis
-	rm obj/*.o
 
 obj/main.o: main.cpp
 	$(CXX) $(INCLUDE_PATH) $(CXX_FLAGS) $< -o $@

@@ -7,12 +7,11 @@
 #include <pcl/common/projection_matrix.h>
 #include <pcl/point_types.h>
 
-struct PlaneInfo {
-    pcl::PointCloud<pcl::Normal>::Ptr normals; // unit
-    std::vector<cv::Point2i> nonplane_px;
-};
+pcl::PointCloud<pcl::PointXYZ>::Ptr remove_planes(
+    pcl::PointCloud<pcl::PointXYZ>::ConstPtr);
 
-PlaneInfo remove_planes(pcl::PointCloud<pcl::PointXYZ>::ConstPtr);
+pcl::PointCloud<pcl::Normal>::Ptr estimate_normals(
+    pcl::PointCloud<pcl::PointXYZ>::ConstPtr);
 
 cv::Mat draw_color_on_depth(const cv::Mat& color, const cv::Mat& depth);
 

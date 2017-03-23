@@ -1,5 +1,10 @@
 #include "img_proc.hpp"
 #include <pcl/features/integral_image_normal.h>
+#include <pcl/sample_consensus/method_types.h>
+#include <pcl/sample_consensus/model_types.h>
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/ModelCoefficients.h>
 #include <queue>
 #include <cassert>
 
@@ -17,10 +22,7 @@ PointCloud<PointXYZ>::Ptr zero_cloud(int width, int height) {
     return pc;
 }
 
-PlaneInfo remove_planes(PointCloud<PointXYZ>::ConstPtr pc) {
-    PlaneInfo info;
-
-    // Estimate normals.
+PointCloud<Normal>::Ptr estimate_normals(PointCloud<PointXYZ>::ConstPtr pc) {
     PointCloud<Normal>::Ptr normals (new PointCloud<Normal>);
     IntegralImageNormalEstimation<PointXYZ, Normal> ne;
     ne.setNormalEstimationMethod(ne.AVERAGE_3D_GRADIENT);
@@ -28,12 +30,54 @@ PlaneInfo remove_planes(PointCloud<PointXYZ>::ConstPtr pc) {
     ne.setNormalSmoothingSize(10.0f);
     ne.setInputCloud(pc);
     ne.compute(*normals);
-    info.normals = normals;
+    return normals;
+}
+
+PointCloud<PointXYZ>::Ptr remove_planes(PointCloud<PointXYZ>::ConstPtr pc) {
+    PointCloud<pcl::PointXYZ>::Ptr filtered = pc->makeShared();
+    PointCloud<PointXYZ>::Ptr
+        cloud_p(new PointCloud<PointXYZ>),
+        cloud_f(new PointCloud<PointXYZ>);
 
     // Do plane segmentation.
+    ModelCoefficients::Ptr coefficients(new ModelCoefficients);
+    PointIndices::Ptr inliers(new PointIndices);
+    SACSegmentation<PointXYZ> seg;
+    seg.setOptimizeCoefficients(true);
+    seg.setModelType(SACMODEL_PLANE);
+    seg.setMethodType(SAC_RANSAC);
+    seg.setMaxIterations(1000);
+    seg.setDistanceThreshold(0.01);
+    ExtractIndices<PointXYZ> extract;
+    int i = 0, nr_points = (int) filtered->points.size();
+    // While 30% of the original cloud remains.
+    while (filtered->points.size() > 0.3 * nr_points) {
+        // Segment the largest planar component from the remaining cloud.
+        seg.setInputCloud(filtered);
+        seg.segment(*inliers, *coefficients);
+        if (inliers->indices.size() == 0) {
+            cerr << "Could not estimate a planar model for the given dataset."
+                 << endl;
+            break;
+        }
 
+        // Extract the inliers.
+        extract.setInputCloud(filtered);
+        extract.setIndices(inliers);
+        extract.setNegative(false);
+        extract.filter(*cloud_p);
+        cout << "PointCloud representing the planar component: "
+             << cloud_p->width * cloud_p->height
+             << " data points." << endl;
 
-    return info;
+        extract.setNegative(true);
+        extract.filter(*cloud_f);
+        filtered.swap(cloud_f);
+        ++i;
+    }
+
+    // Keep the non-plane pixels.
+    return filtered;
 }
 
 Mat draw_color_on_depth(const Mat& color, const Mat& depth) {

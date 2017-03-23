@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
     namedWindow("webcam_color", 1);
 
     vector<fs::path> webcam_img_paths;
-    fs::path p("images");
+    fs::path p("images/" + string(argv[1]));
     if (fs::is_directory(p)) {
         copy(fs::directory_iterator(p),
             fs::directory_iterator(),
@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
             }
         }
 
-        // Create a point cloud of ROI.
+        // Create a point cloud of ROI regions.
         PointCloud<PointXYZ>::Ptr pc = zero_cloud(roi.width, roi.height);
         for (const auto& region : workspc_px) {
             for (const auto& px : region) {
@@ -121,10 +121,16 @@ int main(int argc, char **argv) {
             }
         }
 
-        viewer.addPointCloud(pc, "cloud");
+        // Estimate normals.
+        PointCloud<Normal>::Ptr normals = estimate_normals(pc);
 
         // Remove planes.
-        PlaneInfo plane_info = remove_planes(pc);
+        PointCloud<PointXYZ>::Ptr nonplane_pc = remove_planes(pc);
+
+        viewer.addPointCloud<PointXYZ>(nonplane_pc, "pc");
+
+        // TODO: for plane outlier points, compute image features for logistic
+        // regression grasping point classifier
 
         // Only draw the proposed object world coordinates.
         Mat coord_mat = Mat::zeros(depth_mat.size(), CV_32FC3);
@@ -149,18 +155,12 @@ int main(int argc, char **argv) {
             imshow("webcam_color", webcolor_mat);
         }
 
-        // TODO: Do PCL plane segmentation that also returns the outlier
-        // (non-plane) points
-
-        // TODO: for those outlier points, compute image features for logistic
-        // regression grasping point classifier
-
         viewer.spinOnce();
         char key = waitKey(0);
         if (key == 27) {
             break;
         }
-        viewer.removePointCloud("cloud");
+        viewer.removePointCloud("pc");
     }
 
     color_stream.stop();

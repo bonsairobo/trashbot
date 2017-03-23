@@ -36,7 +36,9 @@ kinect: obj/main.o $(KINECT_OBJS:%=obj/%)
 									   -l common \
 									   -l pcl_common \
 									   -l pcl_features \
-									   -l pcl_search
+									   -l pcl_search \
+									   -l pcl_segmentation \
+									   -l pcl_filters
 
 file_analysis: obj/file_analysis.o obj/img_proc.o obj/common.o
 	$(CXX) -g $(LINK_PATH) $^ -o $@ -fPIC -l opencv_core \
@@ -49,6 +51,8 @@ file_analysis: obj/file_analysis.o obj/img_proc.o obj/common.o
 									   -l pcl_common \
 									   -l pcl_features \
 									   -l pcl_search \
+									   -l pcl_segmentation \
+									   -l pcl_filters \
 									   -l pcl_visualization \
 									   -l vtkCommon \
 									   -l vtkFiltering \

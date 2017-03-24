@@ -67,9 +67,6 @@ int main(int argc, char **argv) {
     cout << "# WEBCAM FRAMES = " << num_webcam_frames << endl;
     float web_per_depth = float(num_webcam_frames) / float(num_depth_frames);
 
-    visualization::PCLVisualizer viewer("PCL Viewer");
-    viewer.setBackgroundColor(0.0, 0.0, 0.5);
-
     for (int i = 0; i < num_depth_frames; ++i) {
         // This should set also set color stream to the same point in time.
         pbc->seek(depth_stream, i);
@@ -96,16 +93,7 @@ int main(int argc, char **argv) {
         Rect roi;
         vector<vector<Point2i>> workspc_px =
             get_workspace_pixels(depth_stream, depth_mat, ftl, bbr, &roi);
-        cout << "Found " << workspc_px.size() << " workspace regions" << endl;
-
-        // Keep a copy of the coordinates in the original images for drawing.
         Point2i tl_px = Point2i(roi.x, roi.y);
-        vector<Point2i> trans_workspc_px;
-        for (const auto& region : workspc_px) {
-            for (const auto& px : region) {
-                trans_workspc_px.push_back(px + tl_px);
-            }
-        }
 
         // Create a point cloud of ROI regions.
         PointCloud<PointXYZ>::Ptr pc = zero_cloud(roi.width, roi.height);
@@ -114,7 +102,7 @@ int main(int argc, char **argv) {
                 PointXYZ& pt = pc->at(px.x, px.y);
                 CoordinateConverter::convertDepthToWorld(
                     depth_stream,
-                    px.x, px.y,
+                    px.x+roi.x, px.y+roi.y,
                     depth_mat.at<uint16_t>(px.y+roi.y, px.x+roi.x),
                     &pt.x, &pt.y, &pt.z);
                 pt.z *= -1.0;
@@ -125,22 +113,24 @@ int main(int argc, char **argv) {
         PointCloud<Normal>::Ptr normals = estimate_normals(pc);
 
         // Remove planes.
-        PointCloud<PointXYZ>::Ptr nonplane_pc = remove_planes(pc);
-
-        viewer.addPointCloud<PointXYZ>(nonplane_pc, "pc");
+        vector<int> indices;
+        PointCloud<PointXYZ>::Ptr object_pc = remove_planes(pc, &indices);
+        vector<Point2i> object_px;
+        for (int i : indices) {
+            object_px.push_back(tl_px + Point2i(i % roi.width, i / roi.width));
+        }
 
         // TODO: for plane outlier points, compute image features for logistic
         // regression grasping point classifier
 
         // Only draw the proposed object world coordinates.
         Mat coord_mat = Mat::zeros(depth_mat.size(), CV_32FC3);
-        for (const auto& px : trans_workspc_px) {
-            Vec3f& coord = coord_mat.at<Vec3f>(px.y,px.x);
-            CoordinateConverter::convertDepthToWorld(
-                depth_stream,
-                px.x, px.y,
-                depth_mat.at<uint16_t>(px.y, px.x),
-                &coord[0], &coord[1], &coord[2]);
+        for (size_t i = 0; i < object_pc->size(); ++i) {
+            PointXYZ pt = object_pc->at(i);
+            Vec3f& coord = coord_mat.at<Vec3f>(object_px[i]);
+            coord[0] = pt.x;
+            coord[1] = pt.y;
+            coord[2] = -pt.z;
 
             // TODO: remove, this is only for visualization
             coord *= 0.0005;
@@ -149,18 +139,16 @@ int main(int argc, char **argv) {
 
         // Draw color and webcam.
         Mat masked = draw_color_on_depth(color_mat, depth_mat);
-        draw_pixels(masked, trans_workspc_px, Vec3b(200, 0, 0));
+        draw_pixels(masked, object_px, Vec3b(200, 0, 0));
         imshow("kinect_color", masked);
         if (webcolor_mat.data) {
             imshow("webcam_color", webcolor_mat);
         }
 
-        viewer.spinOnce();
         char key = waitKey(0);
         if (key == 27) {
             break;
         }
-        viewer.removePointCloud("pc");
     }
 
     color_stream.stop();

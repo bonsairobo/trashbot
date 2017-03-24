@@ -33,25 +33,25 @@ PointCloud<Normal>::Ptr estimate_normals(PointCloud<PointXYZ>::ConstPtr pc) {
     return normals;
 }
 
-PointCloud<PointXYZ>::Ptr remove_planes(PointCloud<PointXYZ>::ConstPtr pc) {
-    PointCloud<pcl::PointXYZ>::Ptr filtered = pc->makeShared();
-    PointCloud<PointXYZ>::Ptr
-        cloud_p(new PointCloud<PointXYZ>),
-        cloud_f(new PointCloud<PointXYZ>);
-
+PointCloud<PointXYZ>::Ptr remove_planes(
+    PointCloud<PointXYZ>::ConstPtr pc,
+    vector<int> *indices_out)
+{
     // Do plane segmentation.
+    PointCloud<pcl::PointXYZ>::Ptr filtered = pc->makeShared();
+    vector<int> keep_idx;
+    bool first_time = true;
     ModelCoefficients::Ptr coefficients(new ModelCoefficients);
     PointIndices::Ptr inliers(new PointIndices);
     SACSegmentation<PointXYZ> seg;
     seg.setOptimizeCoefficients(true);
     seg.setModelType(SACMODEL_PLANE);
     seg.setMethodType(SAC_RANSAC);
-    seg.setMaxIterations(1000);
-    seg.setDistanceThreshold(0.01);
+    seg.setMaxIterations(500);
+    seg.setDistanceThreshold(5);
     ExtractIndices<PointXYZ> extract;
-    int i = 0, nr_points = (int) filtered->points.size();
-    // While 30% of the original cloud remains.
-    while (filtered->points.size() > 0.3 * nr_points) {
+    int nr_points = (int) filtered->points.size();
+    while (true) {
         // Segment the largest planar component from the remaining cloud.
         seg.setInputCloud(filtered);
         seg.segment(*inliers, *coefficients);
@@ -64,19 +64,36 @@ PointCloud<PointXYZ>::Ptr remove_planes(PointCloud<PointXYZ>::ConstPtr pc) {
         // Extract the inliers.
         extract.setInputCloud(filtered);
         extract.setIndices(inliers);
-        extract.setNegative(false);
-        extract.filter(*cloud_p);
-        cout << "PointCloud representing the planar component: "
-             << cloud_p->width * cloud_p->height
-             << " data points." << endl;
-
         extract.setNegative(true);
-        extract.filter(*cloud_f);
-        filtered.swap(cloud_f);
-        ++i;
+        vector<int> filtered_idx;
+        extract.filter(filtered_idx);
+        int num_before = filtered->size();
+        extract.filter(*filtered);
+        int num_after = filtered->size();
+
+        // Extraction creates unorganized point clouds, so track the index
+        // mapping to preserve pixel coordinates.
+        if (first_time) {
+            first_time = false;
+            keep_idx = filtered_idx;
+        } else {
+            vector<int> filt;
+            for (int j : filtered_idx) {
+                filt.push_back(keep_idx[j]);
+            }
+            swap(keep_idx, filt);
+        }
+
+        // Stop when the planes being removed become small.
+        if (num_before - num_after < 10000) {
+            break;
+        }
     }
 
-    // Keep the non-plane pixels.
+    if (indices_out != nullptr) {
+        swap(*indices_out, keep_idx);
+    }
+
     return filtered;
 }
 

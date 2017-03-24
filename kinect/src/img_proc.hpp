@@ -8,7 +8,8 @@
 #include <pcl/point_types.h>
 
 pcl::PointCloud<pcl::PointXYZ>::Ptr remove_planes(
-    pcl::PointCloud<pcl::PointXYZ>::ConstPtr);
+    pcl::PointCloud<pcl::PointXYZ>::ConstPtr,
+    std::vector<int> *indices_out);
 
 pcl::PointCloud<pcl::Normal>::Ptr estimate_normals(
     pcl::PointCloud<pcl::PointXYZ>::ConstPtr);

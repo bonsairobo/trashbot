@@ -72,10 +72,12 @@ class Gui(QtGui.QMainWindow):
         self.ui.sldrSpeed.valueChanged.connect(functools.partial(self.sliderChange,7))
 
         #Setting the poses
-        self.ui.btnUser2.clicked.connect(functools.partial(self.setPose,[-0.151,0.066,-1.65,0.164]))
-        self.ui.btnUser3.clicked.connect(functools.partial(self.setPose,[-0.841,0.800,0.263,1.125]))
-        self.ui.btnUser4.clicked.connect(functools.partial(self.setPose,[0.622,1.119,-0.069,1.125]))
-        self.ui.btnUser5.clicked.connect(functools.partial(self.setPose,[0,0,0,0]))
+        #Pick up position
+        self.ui.btnUser2.clicked.connect(functools.partial(self.setPose,[-0.063,0.203,-.605,-1.493,-0.107,1.702]))
+        #Home position (Outside kinect view)
+        self.ui.btnUser3.clicked.connect(functools.partial(self.setPose,[-2.015,-1.89,0.318,-1.135,-0.47,1.723]))
+        #self.ui.btnUser4.clicked.connect(functools.partial(self.setPose,[0.622,1.119,-0.069,1.125]))
+        #self.ui.btnUser5.clicked.connect(functools.partial(self.setPose,[0,0,0,0]))
 
         """ Commands the arm as the arm initialize to 0,0,0,0 angles """
         self.sliderChange(0) 

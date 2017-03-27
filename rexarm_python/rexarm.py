@@ -1,6 +1,7 @@
 import lcm
 import time
 import numpy as np
+import math.pow as power
 
 from lcmtypes import dynamixel_command_t
 from lcmtypes import dynamixel_command_list_t
@@ -74,6 +75,15 @@ class Rexarm():
         # you must change this to control each joint speed separately 
         self.speed = 0.5                         # 0 to 1
         self.max_torque = 0.5                    # 0 to 1
+
+        """ Link Lengths """
+        #Index 0 is length for link 1
+        #TODO: Insert the actual link lengths
+        self.link_lengths = [.1,
+                             .1,
+                             .1,
+                             .1]
+
 
         """ Joint Limits """
         self.joint_limits = [[-PI,PI], #Joint 0
@@ -287,7 +297,68 @@ class Rexarm():
         cfg describe elbow down (0) or elbow up (1) configuration
         returns a 4-tuple of joint angles or NONE if configuration is impossible
         """
-        pass
+        
+        #Shorthand
+        x = pose[0]
+        y = pose[1]
+        z = pose[2]
+        phi = pose[3]
+
+        #Shorthand
+        l1 = self.link_lengths[0]
+        l2 = self.link_lengths[1]
+        l3 = self.link_lengths[2]
+        l4 = self.link_lengths[3]
+
+        theta1 = 0
+        theta2 = 0
+        theta3 = 0
+        theta4 = 0
+
+        #TODO: Check this because a tan returns angle between -pi/2 and pi/2
+        #-------------------------------------------------------------------
+        theta1 = math.atan(y/x)
+        #-------------------------------------------------------------------
+
+        zGoal = z
+        rGoal = math.sqrt(x * x + y * y)
+
+        zGoalp = zGoal + l4 * math.sin(phi)
+        #TODO: Verify rGoalp + or -
+        rGoalp = rGoal - l4 * math.cos(phi)
+
+        delt_z = zGoalp - l1
+        delf_r = rGoalp
+
+        #TODO: Check range of acos
+        #-------------------------------------------------------------------
+        theta3 = math.acos((power(delt_z,2) + power(delt_r,2) - power(l2,2) - power(l3,2))/(2 * l2 * l3))
+        #-------------------------------------------------------------------
+
+        #Get beta and psi
+        beta = math.atan(delt_z/delt_r)
+        psi = math.acos(
+            ( power(l3,2) - (power(delt_z,2) + power(delt_r,2)) - power(l2,2) )
+                        /
+            (-2 * math.sqrt(pow(delt_z,2) + pow(delt_r,2)) * l2)
+        )
+
+        #-------------------------------------------------------------------
+        #Elbow up or elbow down
+        #Elbow down
+        if cfg == 0:
+            theta2 = PI/2 - beta + psi
+        #Elbow up
+        else:
+            theta2 = PI/2 - beta - psi
+        #-------------------------------------------------------------------
+
+        #-------------------------------------------------------------------
+        theta4 = phi - theta2 - theta3 + PI/2
+        #-------------------------------------------------------------------
+
+        return [theta1,theta2,theta3,theta4]
+
 
     def rexarm_collision_check(q):
         """

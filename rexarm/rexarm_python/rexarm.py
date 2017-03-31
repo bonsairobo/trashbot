@@ -1,7 +1,6 @@
 import lcm
 import time
 import numpy as np
-import math.pow as power
 
 from lcmtypes import dynamixel_command_t
 from lcmtypes import dynamixel_command_list_t
@@ -224,12 +223,28 @@ class Rexarm():
         #phi is angle of endeffector point w/r/t the vector <1,0> in world frame.
         phi = 0
 
-        #First multiply by +60 degree rotation about z axis to align coordinates with the rexarm board
-        rot_60 = np.array([[np.cos(PI/3),-np.sin(PI/3),0,0],
-                           [np.sin(PI/3),np.cos(PI/3),0,0],
+        #multiply by -18 degree rotation about x axis
+        radian18 = -18 * D2R
+
+        trans_magicbase = np.array([[1,0,0,0],
+                                    [0,1,0,.101],
+                                    [0,0,1,.082],
+                               [0,0,0,1]
+        ])
+
+        rot_18 = np.array([[1,0,0,0],
+                           [0,np.cos(radian18),-np.sin(radian18),0],
+                           [0,np.sin(radian18),np.cos(radian18),0],
+                           [0,0,0,1]
+        ])
+
+        #multiply by +90 degree rotation about z axis
+        rot_90 = np.array([[np.cos(PI/2),-np.sin(PI/2),0,0],
+                           [np.sin(PI/2),np.cos(PI/2),0,0],
                            [0,0,1,0],
                            [0,0,0,1]
         ])
+
 
         #Then apply transformation to frame of the first motor
         trans_base = np.array([[1,0,0,0.013],
@@ -239,7 +254,9 @@ class Rexarm():
         ])
 
         #Multiply transformations
-        final_xform = np.dot(rot_60,trans_base)
+        final_xform = np.dot(trans_magicbase,rot_18)
+        final_xform = np.dot(final_xform,rot_90)
+        final_xform = np.dot(final_xform,trans_base)
 
         #The world coordinates of the last motor
         init_point = []
@@ -332,13 +349,13 @@ class Rexarm():
 
         #TODO: Check range of acos
         #-------------------------------------------------------------------
-        theta3 = math.acos((power(delt_z,2) + power(delt_r,2) - power(l2,2) - power(l3,2))/(2 * l2 * l3))
+        theta3 = math.acos((math.pow(delt_z,2) + math.pow(delt_r,2) - math.pow(l2,2) - math.pow(l3,2))/(2 * l2 * l3))
         #-------------------------------------------------------------------
 
         #Get beta and psi
         beta = math.atan(delt_z/delt_r)
         psi = math.acos(
-            ( power(l3,2) - (power(delt_z,2) + power(delt_r,2)) - power(l2,2) )
+            ( math.pow(l3,2) - (math.pow(delt_z,2) + math.pow(delt_r,2)) - math.pow (l2,2) )
                         /
             (-2 * math.sqrt(pow(delt_z,2) + pow(delt_r,2)) * l2)
         )

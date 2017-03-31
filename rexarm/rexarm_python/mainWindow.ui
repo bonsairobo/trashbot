@@ -1,0 +1,946 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1000</width>
+    <height>810</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Rexarm GUI</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QLabel" name="videoFrame">
+    <property name="geometry">
+     <rect>
+      <x>310</x>
+      <y>30</y>
+      <width>640</width>
+      <height>480</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>TextLabel</string>
+    </property>
+   </widget>
+   <widget class="QGroupBox" name="SliderFrame">
+    <property name="geometry">
+     <rect>
+      <x>310</x>
+      <y>570</y>
+      <width>531</width>
+      <height>201</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>Joint Sliders</string>
+    </property>
+    <widget class="QWidget" name="layoutWidget">
+     <property name="geometry">
+      <rect>
+       <x>0</x>
+       <y>20</y>
+       <width>65</width>
+       <height>136</height>
+      </rect>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item alignment="Qt::AlignRight">
+       <widget class="QLabel" name="BLabelS">
+        <property name="text">
+         <string>Base</string>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignRight">
+       <widget class="QLabel" name="SLabelS">
+        <property name="text">
+         <string>Shoulder</string>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignRight">
+       <widget class="QLabel" name="ELabelS">
+        <property name="text">
+         <string>Elbow</string>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignRight">
+       <widget class="QLabel" name="WLabelS">
+        <property name="text">
+         <string>Wrist</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+    <widget class="QWidget" name="layoutWidget">
+     <property name="geometry">
+      <rect>
+       <x>70</x>
+       <y>20</y>
+       <width>371</width>
+       <height>136</height>
+      </rect>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <widget class="QSlider" name="sldrBase">
+        <property name="minimum">
+         <number>-179</number>
+        </property>
+        <property name="maximum">
+         <number>180</number>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSlider" name="sldrShoulder">
+        <property name="minimum">
+         <number>-179</number>
+        </property>
+        <property name="maximum">
+         <number>180</number>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSlider" name="sldrElbow">
+        <property name="minimum">
+         <number>-179</number>
+        </property>
+        <property name="maximum">
+         <number>180</number>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSlider" name="sldrWrist">
+        <property name="minimum">
+         <number>-179</number>
+        </property>
+        <property name="maximum">
+         <number>180</number>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+    <widget class="QWidget" name="layoutWidget">
+     <property name="geometry">
+      <rect>
+       <x>462</x>
+       <y>20</y>
+       <width>51</width>
+       <height>137</height>
+      </rect>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_6">
+      <item>
+       <widget class="QLabel" name="rdoutBase">
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="rdoutShoulder">
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="rdoutElbow">
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="rdoutWrist">
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+    <widget class="QSlider" name="sldrGrip1">
+     <property name="geometry">
+      <rect>
+       <x>78</x>
+       <y>160</y>
+       <width>133</width>
+       <height>29</height>
+      </rect>
+     </property>
+     <property name="minimum">
+      <number>-179</number>
+     </property>
+     <property name="maximum">
+      <number>180</number>
+     </property>
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
+    <widget class="QSlider" name="sldrGrip2">
+     <property name="geometry">
+      <rect>
+       <x>300</x>
+       <y>160</y>
+       <width>130</width>
+       <height>29</height>
+      </rect>
+     </property>
+     <property name="minimum">
+      <number>-179</number>
+     </property>
+     <property name="maximum">
+      <number>180</number>
+     </property>
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
+    <widget class="QLabel" name="G1LableS">
+     <property name="geometry">
+      <rect>
+       <x>25</x>
+       <y>165</y>
+       <width>41</width>
+       <height>17</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Grip 1</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="rdoutGrip1">
+     <property name="geometry">
+      <rect>
+       <x>216</x>
+       <y>160</y>
+       <width>49</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>0</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="rdoutGrip2">
+     <property name="geometry">
+      <rect>
+       <x>436</x>
+       <y>160</y>
+       <width>49</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>0</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QSlider" name="sldrMaxTorque">
+    <property name="geometry">
+     <rect>
+      <x>850</x>
+      <y>610</y>
+      <width>30</width>
+      <height>115</height>
+     </rect>
+    </property>
+    <property name="maximum">
+     <number>100</number>
+    </property>
+    <property name="value">
+     <number>25</number>
+    </property>
+    <property name="orientation">
+     <enum>Qt::Vertical</enum>
+    </property>
+   </widget>
+   <widget class="QLabel" name="TqLabel">
+    <property name="geometry">
+     <rect>
+      <x>840</x>
+      <y>580</y>
+      <width>52</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Torque</string>
+    </property>
+   </widget>
+   <widget class="QSlider" name="sldrSpeed">
+    <property name="geometry">
+     <rect>
+      <x>920</x>
+      <y>610</y>
+      <width>29</width>
+      <height>115</height>
+     </rect>
+    </property>
+    <property name="maximum">
+     <number>100</number>
+    </property>
+    <property name="value">
+     <number>10</number>
+    </property>
+    <property name="orientation">
+     <enum>Qt::Vertical</enum>
+    </property>
+   </widget>
+   <widget class="QLabel" name="SpLabel">
+    <property name="geometry">
+     <rect>
+      <x>910</x>
+      <y>580</y>
+      <width>41</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Speed</string>
+    </property>
+   </widget>
+   <widget class="QFrame" name="OutputFrame">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>10</y>
+      <width>221</width>
+      <height>311</height>
+     </rect>
+    </property>
+    <property name="frameShape">
+     <enum>QFrame::StyledPanel</enum>
+    </property>
+    <property name="frameShadow">
+     <enum>QFrame::Raised</enum>
+    </property>
+    <widget class="QLabel" name="JointCoordLabel">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>10</y>
+       <width>141</width>
+       <height>17</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="text">
+      <string>Joint Coordinates</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="WorldCoordLabel">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>160</y>
+       <width>161</width>
+       <height>17</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="text">
+      <string>End Effector Location</string>
+     </property>
+    </widget>
+    <widget class="QWidget" name="layoutWidget_2">
+     <property name="geometry">
+      <rect>
+       <x>80</x>
+       <y>30</y>
+       <width>131</width>
+       <height>120</height>
+      </rect>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_8">
+      <item alignment="Qt::AlignLeft">
+       <widget class="QLabel" name="rdoutBaseJC">
+        <property name="font">
+         <font>
+          <family>Ubuntu Mono</family>
+          <pointsize>18</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignLeft">
+       <widget class="QLabel" name="rdoutShoulderJC">
+        <property name="font">
+         <font>
+          <family>Ubuntu Mono</family>
+          <pointsize>18</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignLeft">
+       <widget class="QLabel" name="rdoutElbowJC">
+        <property name="font">
+         <font>
+          <family>Ubuntu Mono</family>
+          <pointsize>18</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignLeft">
+       <widget class="QLabel" name="rdoutWristJC">
+        <property name="font">
+         <font>
+          <family>Ubuntu Mono</family>
+          <pointsize>18</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+    <widget class="QWidget" name="layoutWidget_3">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>30</y>
+       <width>66</width>
+       <height>120</height>
+      </rect>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_9">
+      <item alignment="Qt::AlignRight">
+       <widget class="QLabel" name="BLabel">
+        <property name="font">
+         <font>
+          <family>Ubuntu Mono</family>
+          <pointsize>18</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>B:</string>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignRight">
+       <widget class="QLabel" name="SLabel">
+        <property name="font">
+         <font>
+          <family>Ubuntu Mono</family>
+          <pointsize>18</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>S:</string>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignRight">
+       <widget class="QLabel" name="ELabel">
+        <property name="font">
+         <font>
+          <family>Ubuntu Mono</family>
+          <pointsize>18</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>E:</string>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignRight">
+       <widget class="QLabel" name="WLabel">
+        <property name="font">
+         <font>
+          <family>Ubuntu Mono</family>
+          <pointsize>18</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>W:</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+    <widget class="QWidget" name="layoutWidget_4">
+     <property name="geometry">
+      <rect>
+       <x>80</x>
+       <y>179</y>
+       <width>131</width>
+       <height>121</height>
+      </rect>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_12">
+      <item alignment="Qt::AlignLeft">
+       <widget class="QLabel" name="rdoutX">
+        <property name="font">
+         <font>
+          <family>Ubuntu Mono</family>
+          <pointsize>18</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignLeft">
+       <widget class="QLabel" name="rdoutY">
+        <property name="font">
+         <font>
+          <family>Ubuntu Mono</family>
+          <pointsize>18</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignLeft">
+       <widget class="QLabel" name="rdoutZ">
+        <property name="font">
+         <font>
+          <family>Ubuntu Mono</family>
+          <pointsize>18</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignLeft">
+       <widget class="QLabel" name="rdoutT">
+        <property name="font">
+         <font>
+          <family>Ubuntu Mono</family>
+          <pointsize>18</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+    <widget class="QWidget" name="layoutWidget_5">
+     <property name="geometry">
+      <rect>
+       <x>11</x>
+       <y>180</y>
+       <width>66</width>
+       <height>121</height>
+      </rect>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_13">
+      <item alignment="Qt::AlignRight">
+       <widget class="QLabel" name="XLabel">
+        <property name="font">
+         <font>
+          <family>Ubuntu Mono</family>
+          <pointsize>18</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>X:</string>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignRight">
+       <widget class="QLabel" name="YLabel">
+        <property name="font">
+         <font>
+          <family>Ubuntu Mono</family>
+          <pointsize>18</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>Y:</string>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignRight">
+       <widget class="QLabel" name="ZLabel">
+        <property name="font">
+         <font>
+          <family>Ubuntu Mono</family>
+          <pointsize>18</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>Z:</string>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignRight">
+       <widget class="QLabel" name="TLabel">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="font">
+         <font>
+          <family>Ubuntu Mono</family>
+          <pointsize>18</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>Phi:</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </widget>
+   <widget class="QLabel" name="rdoutTorq">
+    <property name="geometry">
+     <rect>
+      <x>854</x>
+      <y>732</y>
+      <width>50</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>0</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="rdoutSpeed">
+    <property name="geometry">
+     <rect>
+      <x>924</x>
+      <y>732</y>
+      <width>49</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>0</string>
+    </property>
+   </widget>
+   <widget class="QWidget" name="layoutWidget">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>330</y>
+      <width>221</width>
+      <height>410</height>
+     </rect>
+    </property>
+    <layout class="QVBoxLayout" name="Group2">
+     <property name="margin">
+      <number>10</number>
+     </property>
+     <item>
+      <widget class="QPushButton" name="btnUser1">
+       <property name="text">
+        <string>USER 1</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnUser2">
+       <property name="text">
+        <string>USER 2</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnUser3">
+       <property name="text">
+        <string>USER 3</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnUser4">
+       <property name="text">
+        <string>USER 4</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnUser5">
+       <property name="text">
+        <string>USER 5</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnUser6">
+       <property name="text">
+        <string>USER 6</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnUser7">
+       <property name="text">
+        <string>USER 7</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnUser8">
+       <property name="text">
+        <string>USER 8</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnUser9">
+       <property name="text">
+        <string>USER 9</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnUser10">
+       <property name="text">
+        <string>USER 10</string>
+       </property>
+       <property name="autoRepeatDelay">
+        <number>300</number>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnUser11">
+       <property name="text">
+        <string>USER 11</string>
+       </property>
+       <property name="autoRepeatDelay">
+        <number>300</number>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnUser12">
+       <property name="text">
+        <string>USER 12</string>
+       </property>
+       <property name="autoRepeatDelay">
+        <number>300</number>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+   <widget class="QFrame" name="VidFrame">
+    <property name="geometry">
+     <rect>
+      <x>310</x>
+      <y>30</y>
+      <width>640</width>
+      <height>480</height>
+     </rect>
+    </property>
+    <property name="frameShape">
+     <enum>QFrame::StyledPanel</enum>
+    </property>
+    <property name="frameShadow">
+     <enum>QFrame::Raised</enum>
+    </property>
+   </widget>
+   <widget class="QLabel" name="PixelCoordLabel">
+    <property name="geometry">
+     <rect>
+      <x>310</x>
+      <y>520</y>
+      <width>181</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="text">
+     <string>Pixel Mouse Coordinates</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="PixelCoordLabel_2">
+    <property name="geometry">
+     <rect>
+      <x>610</x>
+      <y>520</y>
+      <width>231</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="text">
+     <string>World Mouse Coordinates [mm]</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="rdoutMousePixels">
+    <property name="geometry">
+     <rect>
+      <x>500</x>
+      <y>516</y>
+      <width>101</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Ubuntu Mono</family>
+      <pointsize>12</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="text">
+     <string>(-,-)</string>
+    </property>
+    <property name="textFormat">
+     <enum>Qt::AutoText</enum>
+    </property>
+   </widget>
+   <widget class="QLabel" name="rdoutMouseWorld">
+    <property name="geometry">
+     <rect>
+      <x>848</x>
+      <y>516</y>
+      <width>101</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Ubuntu Mono</family>
+      <pointsize>12</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="text">
+     <string>(-,-)</string>
+    </property>
+    <property name="textFormat">
+     <enum>Qt::AutoText</enum>
+    </property>
+   </widget>
+   <widget class="QGroupBox" name="groupBox">
+    <property name="geometry">
+     <rect>
+      <x>2</x>
+      <y>760</y>
+      <width>971</width>
+      <height>26</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>STATUS: </string>
+    </property>
+    <widget class="QLabel" name="rdoutStatus">
+     <property name="geometry">
+      <rect>
+       <x>70</x>
+       <y>0</y>
+       <width>905</width>
+       <height>18</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>12</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>Waiting for Inputs</string>
+     </property>
+     <property name="textFormat">
+      <enum>Qt::AutoText</enum>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QLabel" name="G2lableS">
+    <property name="geometry">
+     <rect>
+      <x>565</x>
+      <y>735</y>
+      <width>41</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Grip 2</string>
+    </property>
+   </widget>
+   <zorder>videoFrame</zorder>
+   <zorder>SliderFrame</zorder>
+   <zorder>sldrMaxTorque</zorder>
+   <zorder>TqLabel</zorder>
+   <zorder>sldrSpeed</zorder>
+   <zorder>SpLabel</zorder>
+   <zorder>OutputFrame</zorder>
+   <zorder>rdoutTorq</zorder>
+   <zorder>rdoutSpeed</zorder>
+   <zorder>layoutWidget</zorder>
+   <zorder>VidFrame</zorder>
+   <zorder>PixelCoordLabel</zorder>
+   <zorder>PixelCoordLabel_2</zorder>
+   <zorder>rdoutMousePixels</zorder>
+   <zorder>rdoutMouseWorld</zorder>
+   <zorder>G2lableS</zorder>
+   <zorder>groupBox</zorder>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

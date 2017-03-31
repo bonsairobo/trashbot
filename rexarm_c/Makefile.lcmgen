@@ -1,0 +1,18 @@
+LCM = lcm-gen
+
+LCMTYPES_NAMES := $(shell cd ../lcmtypes && ls *.lcm)
+
+# Construct the pathnames to the C types
+LCMTYPES_C := $(LCMTYPES_NAMES:%.lcm=%.c)
+LCMTYPES_C := $(addprefix lcmtypes/,$(LCMTYPES_C))
+
+all: | lcmtypes $(LCMTYPES_C)
+
+lcmtypes/%.c: ../lcmtypes/%.lcm
+	@$(LCM) -c --c-typeinfo --c-cpath lcmtypes --c-hpath lcmtypes $<
+
+lcmtypes:
+	mkdir -p lcmtypes
+
+clean:
+	rm -rf *~ lcmtypes/*

@@ -113,10 +113,10 @@ int main(int argc, char **argv) {
         PointCloud<Normal>::Ptr normals = estimate_normals(pc);
 
         // Remove planes.
-        vector<int> indices;
-        PointCloud<PointXYZ>::Ptr object_pc = remove_planes(pc, &indices);
+        vector<int> obj_idx;
+        PointCloud<PointXYZ>::Ptr object_pc = remove_planes(pc, &obj_idx);
         vector<Point2i> object_px;
-        for (int i : indices) {
+        for (int i : obj_idx) {
             object_px.push_back(tl_px + Point2i(i % roi.width, i / roi.width));
         }
 
@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
             imshow("webcam_color", webcolor_mat);
         }
 
-        char key = waitKey(0);
+        char key = waitKey(1);
         if (key == 27) {
             break;
         }

@@ -55,11 +55,7 @@ file_analysis: obj/file_analysis.o obj/img_proc.o obj/common.o
 									   -l pcl_features \
 									   -l pcl_search \
 									   -l pcl_segmentation \
-									   -l pcl_filters \
-									   -l pcl_visualization \
-									   -l vtkCommon \
-									   -l vtkFiltering \
-									   -l vtkRendering
+									   -l pcl_filters
 
 clean:
 	rm obj/*.o

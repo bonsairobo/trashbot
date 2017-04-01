@@ -13,7 +13,7 @@ struct GraspFeature {
 
 };
 
-GraspingPoints GraspingModel::search_grasping_points(
+GraspingPoint GraspingModel::search_grasping_points(
     const Mat& depth, const Mat& color)
 {
     // Threshold and cull near-depth blobs. Blobs must be close enough to be
@@ -36,6 +36,6 @@ GraspingPoints GraspingModel::search_grasping_points(
 
     // Tranform into camera space.
 
-    GraspingPoints points;
-    return points;
+    GraspingPoint point;
+    return point;
 }

@@ -14,12 +14,17 @@ struct PickupCommand {
     uint32_t time_ms;
 };
 
-// Points are in Camera coordinates. The outer vector is sorted, with highest
-// probability grasping points at the front. The inner vector contains a cluster
-// of points for a single grasp.
-struct GraspingPoints {
+// Just make a simple POD type so we don't have to use some library's type for
+// serialization.
+struct Vec3f {
+    float x, y, z;
+};
+
+// Vectors are in Kinect coordinates.
+struct GraspingPoint {
     uint32_t time_ms;
-    std::vector<std::vector<cv::Point3f>> points;
+    Vec3f point;
+    Vec3f normal;
 };
 
 sockaddr_un create_udp_addr(const char *path);

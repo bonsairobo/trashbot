@@ -16,6 +16,12 @@ inline Vec3f vec3f_from_normal(const pcl::Normal& p) {
     return { p.normal_x, p.normal_y, p.normal_z };
 }
 
+cv::Point2i region_centroid(const std::vector<cv::Point2i>&);
+
+std::vector<cv::Point2i> translate_px_coords(
+    const std::vector<cv::Point2i>&,
+    const cv::Point2i&);
+
 struct ObjectInfo {
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
     std::vector<std::vector<cv::Point2i>> object_pixels;

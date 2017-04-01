@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <chrono>
 #include <vector>
+#include <random>
 
 namespace fs = boost::filesystem;
 
@@ -41,9 +42,13 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    namedWindow("world coordinates", 1);
-    namedWindow("kinect_color", 1);
-    namedWindow("webcam_color", 1);
+    // Create RNG for RGB values.
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<uint8_t> dis(0, 100);
+
+    namedWindow("kinect", 1);
+    namedWindow("webcam", 1);
 
     vector<fs::path> webcam_img_paths;
     fs::path p("images/" + string(argv[1]));
@@ -87,62 +92,46 @@ int main(int argc, char **argv) {
         Mat webcolor_mat = imread(
             webcam_img_paths[round(i * web_per_depth)].string());
 
-        // Do workspace pixel culling.
-        Point3f ftl(-300.0, 300.0, 800.0);
-        Point3f bbr(300.0, -300.0, 1200.0);
-        Rect roi;
-        vector<vector<Point2i>> workspc_px =
-            get_workspace_pixels(depth_stream, depth_mat, ftl, bbr, &roi);
-        Point2i tl_px = Point2i(roi.x, roi.y);
+        // Get pixels, points, normals, and ROI for workspace objects.
+        ObjectInfo obj_info =
+            get_workspace_objects(depth_stream, depth_mat);
+        Point2i tl_px(obj_info.roi.x, obj_info.roi.y);
 
-        // Create a point cloud of ROI regions.
-        PointCloud<PointXYZ>::Ptr pc = zero_cloud(roi.width, roi.height);
-        for (const auto& region : workspc_px) {
-            for (const auto& px : region) {
-                PointXYZ& pt = pc->at(px.x, px.y);
-                CoordinateConverter::convertDepthToWorld(
-                    depth_stream,
-                    px.x+roi.x, px.y+roi.y,
-                    depth_mat.at<uint16_t>(px.y+roi.y, px.x+roi.x),
-                    &pt.x, &pt.y, &pt.z);
-                pt.z *= -1.0;
+        // TODO: see if normal estimation would benefit from an optimization
+        // that cuts the cloud image into sub-images, one for each object.
+        auto normal_cloud = estimate_normals(obj_info.cloud);
+
+        // Choose the "best" object.
+        // TODO: make this smarter.
+        float min_depth = numeric_limits<float>::max();
+        int best_obj_idx = -1;
+        int j = 0;
+        for (const auto& object : obj_info.object_pixels) {
+            auto px = object[0];
+            float z = obj_info.cloud->at(px.x, px.y).z;
+            if (z < min_depth) {
+                min_depth = z;
+                best_obj_idx = j;
             }
+            ++j;
         }
 
-        // Estimate normals.
-        PointCloud<Normal>::Ptr normals = estimate_normals(pc);
-
-        // Remove planes.
-        vector<int> obj_idx;
-        PointCloud<PointXYZ>::Ptr object_pc = remove_planes(pc, &obj_idx);
-        vector<Point2i> object_px;
-        for (int i : obj_idx) {
-            object_px.push_back(tl_px + Point2i(i % roi.width, i / roi.width));
-        }
-
-        // TODO: for plane outlier points, compute image features for logistic
+        // TODO: for object pixels, compute image features for logistic
         // regression grasping point classifier
-
-        // Only draw the proposed object world coordinates.
-        Mat coord_mat = Mat::zeros(depth_mat.size(), CV_32FC3);
-        for (size_t i = 0; i < object_pc->size(); ++i) {
-            PointXYZ pt = object_pc->at(i);
-            Vec3f& coord = coord_mat.at<Vec3f>(object_px[i]);
-            coord[0] = pt.x;
-            coord[1] = pt.y;
-            coord[2] = -pt.z;
-
-            // TODO: remove, this is only for visualization
-            coord *= 0.0005;
-        }
-        imshow("world coordinates", coord_mat);
 
         // Draw color and webcam.
         Mat masked = draw_color_on_depth(color_mat, depth_mat);
-        draw_pixels(masked, object_px, Vec3b(200, 0, 0));
-        imshow("kinect_color", masked);
+        j = 0;
+        for (const auto& object : obj_info.object_pixels) {
+            Vec3b color = j == best_obj_idx ?
+                Vec3b(0, 0, 255) :
+                Vec3b(dis(gen), dis(gen), dis(gen));
+            draw_pixels(masked, translate_px_coords(object, tl_px), color);
+            ++j;
+        }
+        imshow("kinect", masked);
         if (webcolor_mat.data) {
-            imshow("webcam_color", webcolor_mat);
+            imshow("webcam", webcolor_mat);
         }
 
         char key = waitKey(1);

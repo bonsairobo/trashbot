@@ -17,6 +17,24 @@ using namespace pcl;
 
 static const size_t MIN_REGION_SIZE = 50;
 
+Point2i region_centroid(const vector<Point2i>& region) {
+    Point2i c;
+    for (const auto& px : region) {
+        c += px;
+    }
+    return c / float(region.size());
+}
+
+vector<Point2i> translate_px_coords(
+    const vector<Point2i>& coords, const Point2i& t)
+{
+    vector<Point2i> out;
+    for (const auto& px : coords) {
+        out.push_back(px + t);
+    }
+    return out;
+}
+
 ObjectInfo get_workspace_objects(
     const VideoStream& depth_stream, const Mat& depth_mat)
 {
@@ -38,7 +56,6 @@ ObjectInfo get_workspace_objects(
                 px.x+roi.x, px.y+roi.y,
                 depth_mat.at<uint16_t>(px + tl_px),
                 &pt.x, &pt.y, &pt.z);
-            pt.z *= -1.0;
         }
     }
 
@@ -51,7 +68,7 @@ ObjectInfo get_workspace_objects(
     search::KdTree<PointXYZ>::Ptr tree(new search::KdTree<PointXYZ>);
     tree->setInputCloud(object_pc);
     EuclideanClusterExtraction<PointXYZ> ec;
-    ec.setClusterTolerance(0.02); // 2cm
+    ec.setClusterTolerance(10.0);
     ec.setMinClusterSize(MIN_REGION_SIZE);
     ec.setMaxClusterSize(25000);
     ec.setSearchMethod(tree);
@@ -64,7 +81,6 @@ ObjectInfo get_workspace_objects(
         vector<Point2i> px_coords;
         for (const auto& i : cluster.indices) {
             px_coords.push_back(
-                tl_px +
                 Point2i(idx_px_map[i] % roi.width, idx_px_map[i] / roi.width));
         }
         object_px.push_back(px_coords);

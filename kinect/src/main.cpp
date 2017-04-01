@@ -135,30 +135,34 @@ int main(int argc, char **argv) {
             ObjectInfo obj_info =
                 get_workspace_objects(depth_stream, depth_mat);
 
-            // Choose the "best" object.
-            // TODO: make this smarter.
-            float min_depth = numeric_limits<float>::max();
-            Point2i best_px;
-            for (const auto& object : obj_info.object_pixels) {
-                for (const auto& px : object) {
-                    float z = obj_info.cloud->at(px.x, px.y).z;
-                    if (z < min_depth) {
-                        min_depth = z;
-                        best_px = px;
-                    }
-                }
-            }
-
             // TODO: see if normal estimation would benefit from an optimization
             // that cuts the cloud image into sub-images, one for each object.
             auto normal_cloud = estimate_normals(obj_info.cloud);
 
+            // Choose the "best" object.
+            // TODO: make this smarter.
+            float min_depth = numeric_limits<float>::max();
+            int best_obj_idx = -1;
+            int j = 0;
+            for (const auto& object : obj_info.object_pixels) {
+                auto px = object[0];
+                float z = obj_info.cloud->at(px.x, px.y).z;
+                if (z < min_depth) {
+                    min_depth = z;
+                    best_obj_idx = j;
+                }
+                ++j;
+            }
+
+            Point2i centroid =
+                region_centroid(obj_info.object_pixels[best_obj_idx]);
+
             // Send grasping point to the Rexarm.
             GraspingPoint gp;
             gp.point = vec3f_from_pointxyz(
-                obj_info.cloud->at(best_px.x, best_px.y));
+                obj_info.cloud->at(centroid.x, centroid.y));
             gp.normal = vec3f_from_normal(
-                normal_cloud->at(best_px.x, best_px.y));
+                normal_cloud->at(centroid.x, centroid.y));
             gp.time_ms = depth_frame.getTimestamp();
             sendto(
                 sock,

@@ -230,7 +230,7 @@ class Rexarm():
         ])
 
         #multiply by 72 degree rotation about x axis
-        radian72 = 72 * D2R
+        radian72 = -72 * D2R
 
         rot_72 = np.array([[1,0,0,0],
                            [0,np.cos(radian72),-np.sin(radian72),0],
@@ -238,7 +238,7 @@ class Rexarm():
                            [0,0,0,1]
         ])
 
-        radian90 = -PI/2
+        radian90 = PI/2
         #multiply by 90 degree rotation about z axis
         rot_90 = np.array([[np.cos(radian90),-np.sin(radian90),0,0],
                            [np.sin(radian90),np.cos(radian90),0,0],

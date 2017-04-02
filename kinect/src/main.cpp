@@ -8,6 +8,7 @@
 using namespace std;
 using namespace openni;
 using namespace cv;
+using namespace pcl;
 
 int main(int argc, char **argv) {
     // Open windows for drawing streams realtime.
@@ -57,22 +58,22 @@ int main(int argc, char **argv) {
     }
 
     if (show_feeds) {
-        namedWindow("masked color", 1);
+        namedWindow("kinect_feed", 1);
     }
 
     // Set up UDP socket for receiving command from joystick and sending data
     // to Rexarm.
-    /*sockaddr_un js_addr = create_udp_addr("/tmp/joystick_endpoint");
+    //sockaddr_un js_addr = create_udp_addr("/tmp/joystick_endpoint");
     sockaddr_un kin_addr = create_udp_addr("/tmp/kinect_endpoint");
     sockaddr_un rex_addr = create_udp_addr("/tmp/rexarm_endpoint");
     int sock = try_create_udp_socket();
     try_bind_path(sock, kin_addr);
 
-    LocalizationModel loc_model;
-    GraspingModel grasp_model;*/
+    //LocalizationModel loc_model;
+    //GraspingModel grasp_model;
 
     char key = 0;
-    while (key != 27) { // escape
+    while (key != 27) { // ESC
         // Block until new frame data is ready.
         Mat depth_mat, color_mat, webcolor_mat;
         VideoFrameRef depth_frame;
@@ -89,10 +90,9 @@ int main(int argc, char **argv) {
         if (webcam.isOpened())
             webcam.read(webcolor_mat);
 
-        // Save webcam frames parallel to the depth frame timestamps. There may
-        // be gaps in these timestamps compared to the ONI depth recording,
-        // since we are not using event-driven sampling of the video streams.
         if (record_streams and webcam.isOpened()) {
+            // Use depth frame timestamp for relative ordering, but timestamps
+            // don't get saved to ONI.
             imwrite(
                 "images/webcolor" +
                     to_string(depth_frame.getTimestamp()) + ".png",
@@ -101,17 +101,15 @@ int main(int argc, char **argv) {
 
         if (show_feeds) {
             Mat masked = draw_color_on_depth(color_mat, depth_mat);
-            imshow("masked color", masked);
+            imshow("kinect_feed", masked);
         }
 
-        /*loc_model.update(depth_mat, color_mat);
-
         // Check for command to search for grasping points.
-        PickupCommand cmd;
+        /*PickupCommand cmd;
         socklen_t len = sizeof(js_addr);
-        ssize_t bytes_read = 1;
-        bool do_search = false;
-        while (bytes_read > 0) {
+        ssize_t bytes_read = 1;*/
+        bool do_search = true; // TODO: make false when using joystick
+        /*while (bytes_read > 0) {
             bytes_read = recvfrom(
                 sock,
                 &cmd,
@@ -130,20 +128,51 @@ int main(int argc, char **argv) {
 
             // Consume all commands and only do a single search.
             do_search = true;
-        }
+        }*/
 
         if (do_search) {
-            GraspingPoints points = grasp_model.search_grasping_points(
-                depth_mat, color_mat);
+            // Get pixels, points, normals, and ROI for workspace objects.
+            ObjectInfo obj_info =
+                get_workspace_objects(depth_stream, depth_mat);
+
+            // TODO: see if normal estimation would benefit from an optimization
+            // that cuts the cloud image into sub-images, one for each object.
+            auto normal_cloud = estimate_normals(obj_info.cloud);
+
+            // Choose the "best" object.
+            // TODO: make this smarter.
+            float min_depth = numeric_limits<float>::max();
+            int best_obj_idx = -1;
+            int j = 0;
+            for (const auto& object : obj_info.object_pixels) {
+                auto px = object[0];
+                float z = obj_info.cloud->at(px.x, px.y).z;
+                if (z < min_depth) {
+                    min_depth = z;
+                    best_obj_idx = j;
+                }
+                ++j;
+            }
+
+            Point2i centroid =
+                region_centroid(obj_info.object_pixels[best_obj_idx]);
+
+            // Send grasping point to the Rexarm.
+            GraspingPoint gp;
+            gp.point = vec3f_from_pointxyz(
+                obj_info.cloud->at(centroid.x, centroid.y));
+            gp.normal = vec3f_from_normal(
+                normal_cloud->at(centroid.x, centroid.y));
+            gp.time_ms = depth_frame.getTimestamp();
             sendto(
                 sock,
-                &points,
-                sizeof(points),
+                &gp,
+                sizeof(gp),
                 0,
                 (sockaddr*)&rex_addr,
                 sizeof(rex_addr));
         }
-        */
+
         key = waitKey(5);
     }
 

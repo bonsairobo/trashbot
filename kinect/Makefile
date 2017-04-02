@@ -2,14 +2,17 @@ CXX = g++
 CXX_FLAGS = -g -Wall -pedantic -std=c++11 -c
 INCLUDE_PATH = -I libfreenect/include \
 			   -I OpenNI2/Include \
-			   -I /usr/include/pcl-1.7 \
+			   -I ./pcl/build/include \
 			   -I /usr/include/vtk-5.8 \
-			   -I ..
+			   -I .. \
+			   -I /usr/local/include/pcl-1.8 \
+
 LINK_PATH = -L opencv/build/lib \
 			-L libfreenect/build/lib \
 			-L OpenNI2/Bin/x64-Debug/OpenNI2/Drivers \
 			-L OpenNI2/Bin/x64-Debug \
-			-L ../common
+			-L ../common \
+			-L /usr/local/lib
 
 VPATH = src \
 		obj
@@ -52,11 +55,7 @@ file_analysis: obj/file_analysis.o obj/img_proc.o obj/common.o
 									   -l pcl_features \
 									   -l pcl_search \
 									   -l pcl_segmentation \
-									   -l pcl_filters \
-									   -l pcl_visualization \
-									   -l vtkCommon \
-									   -l vtkFiltering \
-									   -l vtkRendering
+									   -l pcl_filters
 
 clean:
 	rm obj/*.o

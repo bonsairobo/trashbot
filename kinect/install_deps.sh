@@ -41,3 +41,13 @@ cmake -DCMAKE_BUILD_TYPE=RELEASE ..
 make -j4
 sudo make install
 cd $root_dir
+wget https://github.com/PointCloudLibrary/pcl/archive/pcl-1.8.0.tar.gz
+tar -xzf pcl-pcl-1.8.0.tar.gz
+rm pcl-pcl-1.8.0.tar.gz
+cp CMakelists.txt pcl
+cd pcl-pcl-1.8.0
+mkdir build
+cd build
+cmake ..
+make
+sudo make install

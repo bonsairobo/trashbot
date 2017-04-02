@@ -6,9 +6,37 @@
 #include <vector>
 #include <pcl/common/projection_matrix.h>
 #include <pcl/point_types.h>
+#include <common/socket_types.hpp>
 
+inline Vec3f vec3f_from_pointxyz(const pcl::PointXYZ& p) {
+    return { p.x, p.y, p.z };
+}
+
+inline Vec3f vec3f_from_normal(const pcl::Normal& p) {
+    return { p.normal_x, p.normal_y, p.normal_z };
+}
+
+cv::Point2i region_centroid(const std::vector<cv::Point2i>&);
+
+std::vector<cv::Point2i> translate_px_coords(
+    const std::vector<cv::Point2i>&,
+    const cv::Point2i&);
+
+struct ObjectInfo {
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
+    std::vector<std::vector<cv::Point2i>> object_pixels;
+    cv::Rect roi;
+};
+
+ObjectInfo get_workspace_objects(
+    const openni::VideoStream& depth_stream, const cv::Mat& depth_mat);
+
+// `indices_out` returns the original pixel coordinates as indices.
+// I.e. for *returned* cloud point i,
+//   px_coord[i] = (indices_out[i] % img_width, indices_out[i] / img_width)
 pcl::PointCloud<pcl::PointXYZ>::Ptr remove_planes(
-    pcl::PointCloud<pcl::PointXYZ>::ConstPtr);
+    pcl::PointCloud<pcl::PointXYZ>::ConstPtr,
+    std::vector<int> *indices_out);
 
 pcl::PointCloud<pcl::Normal>::Ptr estimate_normals(
     pcl::PointCloud<pcl::PointXYZ>::ConstPtr);

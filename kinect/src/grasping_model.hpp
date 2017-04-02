@@ -7,7 +7,7 @@
 class GraspingModel {
 
 public:
-	GraspingPoints search_grasping_points(
+	GraspingPoint search_grasping_points(
 		const cv::Mat& depth, const cv::Mat& color);
 };
 

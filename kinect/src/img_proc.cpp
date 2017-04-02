@@ -2,9 +2,11 @@
 #include <pcl/features/integral_image_normal.h>
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
+#include <pcl/segmentation/extract_clusters.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/ModelCoefficients.h>
+#include <pcl/kdtree/kdtree.h>
 #include <queue>
 #include <cassert>
 
@@ -12,6 +14,80 @@ using namespace cv;
 using namespace std;
 using namespace openni;
 using namespace pcl;
+
+static const size_t MIN_REGION_SIZE = 50;
+
+Point2i region_centroid(const vector<Point2i>& region) {
+    Point2i c;
+    for (const auto& px : region) {
+        c += px;
+    }
+    return c / float(region.size());
+}
+
+vector<Point2i> translate_px_coords(
+    const vector<Point2i>& coords, const Point2i& t)
+{
+    vector<Point2i> out;
+    for (const auto& px : coords) {
+        out.push_back(px + t);
+    }
+    return out;
+}
+
+ObjectInfo get_workspace_objects(
+    const VideoStream& depth_stream, const Mat& depth_mat)
+{
+    // Do workspace pixel culling.
+    Point3f ftl(-300.0, 300.0, 800.0);
+    Point3f bbr(300.0, -300.0, 1200.0);
+    Rect roi;
+    vector<vector<Point2i>> workspc_px =
+        get_workspace_pixels(depth_stream, depth_mat, ftl, bbr, &roi);
+    Point2i tl_px = Point2i(roi.x, roi.y);
+
+    // Create a point cloud of ROI regions.
+    PointCloud<PointXYZ>::Ptr pc = zero_cloud(roi.width, roi.height);
+    for (const auto& region : workspc_px) {
+        for (const auto& px : region) {
+            PointXYZ& pt = pc->at(px.x, px.y);
+            CoordinateConverter::convertDepthToWorld(
+                depth_stream,
+                px.x+roi.x, px.y+roi.y,
+                depth_mat.at<uint16_t>(px + tl_px),
+                &pt.x, &pt.y, &pt.z);
+        }
+    }
+
+    // Remove planes.
+    vector<int> idx_px_map;
+    PointCloud<PointXYZ>::Ptr object_pc = remove_planes(pc, &idx_px_map);
+
+    // Cluster remaining points.
+    vector<PointIndices> cluster_idx;
+    search::KdTree<PointXYZ>::Ptr tree(new search::KdTree<PointXYZ>);
+    tree->setInputCloud(object_pc);
+    EuclideanClusterExtraction<PointXYZ> ec;
+    ec.setClusterTolerance(10.0);
+    ec.setMinClusterSize(MIN_REGION_SIZE);
+    ec.setMaxClusterSize(25000);
+    ec.setSearchMethod(tree);
+    ec.setInputCloud(object_pc);
+    ec.extract(cluster_idx);
+
+    // Convert clusters back into pixel coordinates.
+    vector<vector<Point2i>> object_px;
+    for (const auto& cluster : cluster_idx) {
+        vector<Point2i> px_coords;
+        for (const auto& i : cluster.indices) {
+            px_coords.push_back(
+                Point2i(idx_px_map[i] % roi.width, idx_px_map[i] / roi.width));
+        }
+        object_px.push_back(px_coords);
+    }
+
+    return { pc, object_px, roi };
+}
 
 PointCloud<PointXYZ>::Ptr zero_cloud(int width, int height) {
     PointCloud<PointXYZ>::Ptr pc(new PointCloud<PointXYZ>);
@@ -33,25 +109,25 @@ PointCloud<Normal>::Ptr estimate_normals(PointCloud<PointXYZ>::ConstPtr pc) {
     return normals;
 }
 
-PointCloud<PointXYZ>::Ptr remove_planes(PointCloud<PointXYZ>::ConstPtr pc) {
-    PointCloud<pcl::PointXYZ>::Ptr filtered = pc->makeShared();
-    PointCloud<PointXYZ>::Ptr
-        cloud_p(new PointCloud<PointXYZ>),
-        cloud_f(new PointCloud<PointXYZ>);
-
+PointCloud<PointXYZ>::Ptr remove_planes(
+    PointCloud<PointXYZ>::ConstPtr pc,
+    vector<int> *indices_out)
+{
     // Do plane segmentation.
+    PointCloud<pcl::PointXYZ>::Ptr filtered = pc->makeShared();
+    vector<int> keep_idx;
+    bool first_time = true;
     ModelCoefficients::Ptr coefficients(new ModelCoefficients);
     PointIndices::Ptr inliers(new PointIndices);
     SACSegmentation<PointXYZ> seg;
     seg.setOptimizeCoefficients(true);
     seg.setModelType(SACMODEL_PLANE);
     seg.setMethodType(SAC_RANSAC);
-    seg.setMaxIterations(1000);
-    seg.setDistanceThreshold(0.01);
+    seg.setMaxIterations(500);
+    seg.setDistanceThreshold(5);
     ExtractIndices<PointXYZ> extract;
-    int i = 0, nr_points = (int) filtered->points.size();
-    // While 30% of the original cloud remains.
-    while (filtered->points.size() > 0.3 * nr_points) {
+    int nr_points = (int) filtered->points.size();
+    while (true) {
         // Segment the largest planar component from the remaining cloud.
         seg.setInputCloud(filtered);
         seg.segment(*inliers, *coefficients);
@@ -64,19 +140,36 @@ PointCloud<PointXYZ>::Ptr remove_planes(PointCloud<PointXYZ>::ConstPtr pc) {
         // Extract the inliers.
         extract.setInputCloud(filtered);
         extract.setIndices(inliers);
-        extract.setNegative(false);
-        extract.filter(*cloud_p);
-        cout << "PointCloud representing the planar component: "
-             << cloud_p->width * cloud_p->height
-             << " data points." << endl;
-
         extract.setNegative(true);
-        extract.filter(*cloud_f);
-        filtered.swap(cloud_f);
-        ++i;
+        vector<int> filtered_idx;
+        extract.filter(filtered_idx);
+        int num_before = filtered->size();
+        extract.filter(*filtered);
+        int num_after = filtered->size();
+
+        // Extraction creates unorganized point clouds, so track the index
+        // mapping to preserve pixel coordinates.
+        if (first_time) {
+            first_time = false;
+            keep_idx = filtered_idx;
+        } else {
+            vector<int> filt;
+            for (int j : filtered_idx) {
+                filt.push_back(keep_idx[j]);
+            }
+            swap(keep_idx, filt);
+        }
+
+        // Stop when the planes being removed become small.
+        if (num_before - num_after < 20000) {
+            break;
+        }
     }
 
-    // Keep the non-plane pixels.
+    if (indices_out != nullptr) {
+        swap(*indices_out, keep_idx);
+    }
+
     return filtered;
 }
 
@@ -151,10 +244,9 @@ vector<vector<Point2i>> get_workspace_pixels(
         find_nonzero_components<float>(thresh);
 
     // Reject small regions.
-    const size_t min_region_size = 50;
     auto new_end = remove_if(object_regions.begin(), object_regions.end(),
         [](const vector<Point2i>& region) {
-            return region.size() < min_region_size;
+            return region.size() < MIN_REGION_SIZE;
         }
     );
     object_regions.erase(new_end, object_regions.end());

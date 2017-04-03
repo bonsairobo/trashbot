@@ -40,10 +40,14 @@ ObjectInfo get_workspace_objects(
 {
     // Do workspace pixel culling.
     Point3f ftl(-300.0, 300.0, 800.0);
-    Point3f bbr(300.0, -300.0, 1200.0);
+    Point3f bbr(300.0, -300.0, 1500.0);
     Rect roi;
     vector<vector<Point2i>> workspc_px =
         get_workspace_pixels(depth_stream, depth_mat, ftl, bbr, &roi);
+    cout << "# workspace regions = " << workspc_px.size() << endl;
+    if (workspc_px.empty()) {
+        return ObjectInfo();
+    }
     Point2i tl_px = Point2i(roi.x, roi.y);
 
     // Create a point cloud of ROI regions.
@@ -56,19 +60,23 @@ ObjectInfo get_workspace_objects(
                 px.x+roi.x, px.y+roi.y,
                 depth_mat.at<uint16_t>(px + tl_px),
                 &pt.x, &pt.y, &pt.z);
+            pt.z *= -1.0;
         }
     }
 
     // Remove planes.
     vector<int> idx_px_map;
     PointCloud<PointXYZ>::Ptr object_pc = remove_planes(pc, &idx_px_map);
+    if (idx_px_map.empty()) {
+        return ObjectInfo();
+    }
 
     // Cluster remaining points.
     vector<PointIndices> cluster_idx;
     search::KdTree<PointXYZ>::Ptr tree(new search::KdTree<PointXYZ>);
     tree->setInputCloud(object_pc);
     EuclideanClusterExtraction<PointXYZ> ec;
-    ec.setClusterTolerance(10.0);
+    ec.setClusterTolerance(5.0);
     ec.setMinClusterSize(MIN_REGION_SIZE);
     ec.setMaxClusterSize(25000);
     ec.setSearchMethod(tree);
@@ -80,8 +88,8 @@ ObjectInfo get_workspace_objects(
     for (const auto& cluster : cluster_idx) {
         vector<Point2i> px_coords;
         for (const auto& i : cluster.indices) {
-            px_coords.push_back(
-                Point2i(idx_px_map[i] % roi.width, idx_px_map[i] / roi.width));
+            px_coords.push_back(Point2i(
+                idx_px_map[i] % roi.width, idx_px_map[i] / roi.width));
         }
         object_px.push_back(px_coords);
     }
@@ -161,7 +169,7 @@ PointCloud<PointXYZ>::Ptr remove_planes(
         }
 
         // Stop when the planes being removed become small.
-        if (num_before - num_after < 20000) {
+        if (num_before - num_after < 75000) {
             break;
         }
     }

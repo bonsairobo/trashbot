@@ -4,14 +4,17 @@
 #include "img_proc.hpp"
 #include "common.hpp"
 #include <fstream>
+#include <random>
 
 using namespace std;
 using namespace openni;
 using namespace cv;
 using namespace pcl;
 
+static const uint8_t ESC_KEYCODE = 27;
+
 int main(int argc, char **argv) {
-    // Open windows for drawing streams realtime.
+    // Open windows for drawing streams.
     bool show_feeds = !(argc > 1 and *(argv[1]) == '0');
 
     // Saves all frames from depth and color streams in ONI files.
@@ -61,6 +64,11 @@ int main(int argc, char **argv) {
         namedWindow("kinect_feed", 1);
     }
 
+    // Create RNG for RGB values.
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<uint8_t> dis(100, 200);
+
     // Set up UDP socket for receiving command from joystick and sending data
     // to Rexarm.
     //sockaddr_un js_addr = create_udp_addr("/tmp/joystick_endpoint");
@@ -72,8 +80,8 @@ int main(int argc, char **argv) {
     //LocalizationModel loc_model;
     //GraspingModel grasp_model;
 
-    char key = 0;
-    while (key != 27) { // ESC
+    uint8_t key = 0;
+    while (key != ESC_KEYCODE) {
         // Block until new frame data is ready.
         Mat depth_mat, color_mat, webcolor_mat;
         VideoFrameRef depth_frame;
@@ -97,11 +105,6 @@ int main(int argc, char **argv) {
                 "images/webcolor" +
                     to_string(depth_frame.getTimestamp()) + ".png",
                 webcolor_mat);
-        }
-
-        if (show_feeds) {
-            Mat masked = draw_color_on_depth(color_mat, depth_mat);
-            imshow("kinect_feed", masked);
         }
 
         // Check for command to search for grasping points.
@@ -134,46 +137,64 @@ int main(int argc, char **argv) {
             // Get pixels, points, normals, and ROI for workspace objects.
             ObjectInfo obj_info =
                 get_workspace_objects(depth_stream, depth_mat);
+            if (!obj_info.object_pixels.empty()) {
+                Point2i tl_px(obj_info.roi.x, obj_info.roi.y);
 
-            // TODO: see if normal estimation would benefit from an optimization
-            // that cuts the cloud image into sub-images, one for each object.
-            auto normal_cloud = estimate_normals(obj_info.cloud);
+                // TODO: see if normal estimation would benefit from an
+                // optimization that cuts the cloud image into sub-images, one
+                // for each object.
+                auto normal_cloud = estimate_normals(obj_info.cloud);
 
-            // Choose the "best" object.
-            // TODO: make this smarter.
-            float min_depth = numeric_limits<float>::max();
-            int best_obj_idx = -1;
-            int j = 0;
-            for (const auto& object : obj_info.object_pixels) {
-                auto px = object[0];
-                float z = obj_info.cloud->at(px.x, px.y).z;
-                if (z < min_depth) {
-                    min_depth = z;
-                    best_obj_idx = j;
+                // Choose the "best" object.
+                // TODO: make this smarter.
+                float min_depth = numeric_limits<float>::max();
+                int best_obj_idx = -1;
+                int j = 0;
+                for (const auto& object : obj_info.object_pixels) {
+                    auto px = object[0];
+                    float z = -obj_info.cloud->at(px.x, px.y).z;
+                    if (z < min_depth) {
+                        min_depth = z;
+                        best_obj_idx = j;
+                    }
+                    ++j;
                 }
-                ++j;
+
+                if (show_feeds) {
+                    Mat masked = draw_color_on_depth(color_mat, depth_mat);
+                    int j = 0;
+                    for (const auto& object : obj_info.object_pixels) {
+                        Vec3b color = j == best_obj_idx ?
+                            Vec3b(0, 0, 255) :
+                            Vec3b(dis(gen), dis(gen), dis(gen));
+                        draw_pixels(
+                            masked, translate_px_coords(object, tl_px), color);
+                        ++j;
+                    }
+                    imshow("kinect_feed", masked);
+                }
+
+                Point2i centroid =
+                    region_centroid(obj_info.object_pixels[best_obj_idx]);
+
+                // Send grasping point to the Rexarm.
+                GraspingPoint gp;
+                gp.point = vec3f_from_pointxyz(
+                    obj_info.cloud->at(centroid.x, centroid.y));
+                gp.normal = vec3f_from_normal(
+                    normal_cloud->at(centroid.x, centroid.y));
+                gp.time_ms = depth_frame.getTimestamp();
+                sendto(
+                    sock,
+                    &gp,
+                    sizeof(gp),
+                    0,
+                    (sockaddr*)&rex_addr,
+                    sizeof(rex_addr));
             }
-
-            Point2i centroid =
-                region_centroid(obj_info.object_pixels[best_obj_idx]);
-
-            // Send grasping point to the Rexarm.
-            GraspingPoint gp;
-            gp.point = vec3f_from_pointxyz(
-                obj_info.cloud->at(centroid.x, centroid.y));
-            gp.normal = vec3f_from_normal(
-                normal_cloud->at(centroid.x, centroid.y));
-            gp.time_ms = depth_frame.getTimestamp();
-            sendto(
-                sock,
-                &gp,
-                sizeof(gp),
-                0,
-                (sockaddr*)&rex_addr,
-                sizeof(rex_addr));
         }
 
-        key = waitKey(5);
+        key = waitKey(1);
     }
 
     color_stream.stop();

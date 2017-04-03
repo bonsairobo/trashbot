@@ -223,24 +223,25 @@ class Rexarm():
         #phi is angle of endeffector point w/r/t the vector <1,0> in world frame.
         phi = 0
 
-        #multiply by -18 degree rotation about x axis
-        radian18 = -18 * D2R
-
         trans_magicbase = np.array([[1,0,0,0],
-                                    [0,1,0,.101],
+                                    [0,1,0,.05],
                                     [0,0,1,.082],
                                [0,0,0,1]
         ])
 
-        rot_18 = np.array([[1,0,0,0],
-                           [0,np.cos(radian18),-np.sin(radian18),0],
-                           [0,np.sin(radian18),np.cos(radian18),0],
+        #multiply by 72 degree rotation about x axis
+        radian72 = -72 * D2R
+
+        rot_72 = np.array([[1,0,0,0],
+                           [0,np.cos(radian72),-np.sin(radian72),0],
+                           [0,np.sin(radian72),np.cos(radian72),0],
                            [0,0,0,1]
         ])
 
-        #multiply by +90 degree rotation about z axis
-        rot_90 = np.array([[np.cos(PI/2),-np.sin(PI/2),0,0],
-                           [np.sin(PI/2),np.cos(PI/2),0,0],
+        radian90 = PI/2
+        #multiply by 90 degree rotation about z axis
+        rot_90 = np.array([[np.cos(radian90),-np.sin(radian90),0,0],
+                           [np.sin(radian90),np.cos(radian90),0,0],
                            [0,0,1,0],
                            [0,0,0,1]
         ])
@@ -254,10 +255,13 @@ class Rexarm():
         ])
 
         #Multiply transformations
-        final_xform = np.dot(trans_magicbase,rot_18)
-        final_xform = np.dot(final_xform,rot_90)
-        final_xform = np.dot(final_xform,trans_base)
+        final_xform = np.dot(trans_magicbase,rot_72)
+        temp = np.dot(final_xform,rot_90)
+        final_xform = np.dot(temp,trans_base)
 
+        #TODO: Remove this
+        #final_xform = trans_base
+        
         #The world coordinates of the last motor
         init_point = []
 

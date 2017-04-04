@@ -42,18 +42,13 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Create RNG for RGB values.
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<uint8_t> dis(0, 100);
-
     namedWindow("kinect", 1);
     namedWindow("webcam", 1);
 
     vector<fs::path> webcam_img_paths;
-    fs::path p("images/" + string(argv[1]));
-    if (fs::is_directory(p)) {
-        copy(fs::directory_iterator(p),
+    fs::path path("images/" + string(argv[1]));
+    if (fs::is_directory(path)) {
+        copy(fs::directory_iterator(path),
             fs::directory_iterator(),
             back_inserter(webcam_img_paths));
     }
@@ -71,6 +66,11 @@ int main(int argc, char **argv) {
     cout << "# COLOR FRAMES = " << num_color_frames << endl;
     cout << "# WEBCAM FRAMES = " << num_webcam_frames << endl;
     float web_per_depth = float(num_webcam_frames) / float(num_depth_frames);
+
+    // Create RNG for RGB values.
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<uint8_t> dis(100, 200);
 
     for (int i = 0; i < num_depth_frames; ++i) {
         // This should set also set color stream to the same point in time.
@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
         int j = 0;
         for (const auto& object : obj_info.object_pixels) {
             auto px = object[0];
-            float z = obj_info.cloud->at(px.x, px.y).z;
+            float z = -obj_info.cloud->at(px.x, px.y).z;
             if (z < min_depth) {
                 min_depth = z;
                 best_obj_idx = j;

@@ -79,6 +79,12 @@ class Gui(QtGui.QMainWindow):
         #self.ui.btnUser4.clicked.connect(functools.partial(self.setPose,[0.622,1.119,-0.069,1.125]))
         #self.ui.btnUser5.clicked.connect(functools.partial(self.setPose,[0,0,0,0]))
 
+
+        #Robot frame points. Index 3 is phi, the grasping angle.
+        point = [0,0.30,0.06, 18 * D2R]
+        self.ui.btnUser6.setText("IK on " + str(point))
+        self.ui.btnUser6.clicked.connect(functools.partial(self.runIK,np.transpose(point)))
+
         """ Commands the arm as the arm initialize to 0,0,0,0 angles """
         self.sliderChange(0) 
         
@@ -88,7 +94,28 @@ class Gui(QtGui.QMainWindow):
         self.ui.btnUser1.setText("Affine Calibration")
         self.ui.btnUser1.clicked.connect(self.affine_cal)
 
+    #Runs inverse kinematics on xyz
+    def runIK(self,xyz_phi):
+        xyz = xyz_phi[0:3]
 
+        print "World Coords:", xyz
+
+        #Homogeneous coordinates
+        xyz = np.append(xyz,1)
+        #print "Shape:", xyz.shape
+        xyz = np.transpose(xyz)
+
+        #print "Shape:", xyz.shape
+        #Convert xyz to rexarm coordinates
+        rex_coords = np.dot(np.dot(np.dot(self.rex.trans_magicbase,self.rex.rot_72),self.rex.rot_90),xyz)
+        print "Rexarm Coords:",rex_coords
+
+        rex_coords = np.append(rex_coords,[xyz_phi[3]])
+
+        #Run Inverse kinematics
+        arm_thetas = self.rex.rexarm_IK(rex_coords,0)
+
+        print arm_thetas
 
     def play(self):
         """ 

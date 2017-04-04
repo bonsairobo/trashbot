@@ -1,7 +1,7 @@
 import lcm
 import time
 import numpy as np
-
+import math
 from lcmtypes import dynamixel_command_t
 from lcmtypes import dynamixel_command_list_t
 from lcmtypes import dynamixel_status_t
@@ -78,10 +78,10 @@ class Rexarm():
         """ Link Lengths """
         #Index 0 is length for link 1
         #TODO: Insert the actual link lengths
-        self.link_lengths = [.1,
+        self.link_lengths = [.044,
                              .1,
                              .1,
-                             .1]
+                             .11]
 
 
         """ Joint Limits """
@@ -103,6 +103,39 @@ class Rexarm():
                               0,
                               0#TODO: Shift on a different rexarm
         ]
+
+
+        self.trans_magicbase = np.array([[1,0,0,0],
+                                    [0,1,0,.05],
+                                    [0,0,1,.082],
+                               [0,0,0,1]
+        ])
+
+        #multiply by 72 degree rotation about x axis
+        radian72 = -72 * D2R
+
+        self.rot_72 = np.array([[1,0,0,0],
+                           [0,np.cos(radian72),-np.sin(radian72),0],
+                           [0,np.sin(radian72),np.cos(radian72),0],
+                           [0,0,0,1]
+        ])
+
+        radian90 = PI/2
+        #multiply by 90 degree rotation about z axis
+        self.rot_90 = np.array([[np.cos(radian90),-np.sin(radian90),0,0],
+                           [np.sin(radian90),np.cos(radian90),0,0],
+                           [0,0,1,0],
+                           [0,0,0,1]
+        ])
+
+
+        #Then apply transformation to frame of the first motor
+        self.trans_base = np.array([[1,0,0,0.013],
+                               [0,1,0,0],
+                               [0,0,1,0.066],
+                               [0,0,0,1]
+        ])
+
         
         """ References to GUI labels for FK """
         self.x_out = x_out
@@ -223,41 +256,10 @@ class Rexarm():
         #phi is angle of endeffector point w/r/t the vector <1,0> in world frame.
         phi = 0
 
-        trans_magicbase = np.array([[1,0,0,0],
-                                    [0,1,0,.05],
-                                    [0,0,1,.082],
-                               [0,0,0,1]
-        ])
-
-        #multiply by 72 degree rotation about x axis
-        radian72 = -72 * D2R
-
-        rot_72 = np.array([[1,0,0,0],
-                           [0,np.cos(radian72),-np.sin(radian72),0],
-                           [0,np.sin(radian72),np.cos(radian72),0],
-                           [0,0,0,1]
-        ])
-
-        radian90 = PI/2
-        #multiply by 90 degree rotation about z axis
-        rot_90 = np.array([[np.cos(radian90),-np.sin(radian90),0,0],
-                           [np.sin(radian90),np.cos(radian90),0,0],
-                           [0,0,1,0],
-                           [0,0,0,1]
-        ])
-
-
-        #Then apply transformation to frame of the first motor
-        trans_base = np.array([[1,0,0,0.013],
-                               [0,1,0,0],
-                               [0,0,1,0.066],
-                               [0,0,0,1]
-        ])
-
         #Multiply transformations
-        final_xform = np.dot(trans_magicbase,rot_72)
-        temp = np.dot(final_xform,rot_90)
-        final_xform = np.dot(temp,trans_base)
+        final_xform = np.dot(self.trans_magicbase,rot_72)
+        temp = np.dot(self.final_xform,rot_90)
+        final_xform = np.dot(temp,self.trans_base)
 
         #TODO: Remove this
         #final_xform = trans_base
@@ -269,7 +271,7 @@ class Rexarm():
         end_point = []
 
         #xform used to compute phi, which is in the robot's frame
-        phi_mat = trans_base.copy();
+        phi_mat = self.trans_base.copy();
 
         #Multiply DH matrices
         #Compute phi by finding world vector between endeffector and motor joint 3.
@@ -285,9 +287,9 @@ class Rexarm():
                 if i == link:
                     end_point = np.dot(phi_mat,np.transpose(np.array([[0,0,0,1]])))
             else:#Length = 1. Need to only multiply trans_base, and [0,0,0,1]
-                temp = np.dot(trans_base,np.transpose(np.array([[0,0,0,1]])))
+                temp = np.dot(self.trans_base,np.transpose(np.array([[0,0,0,1]])))
                 init_point = temp.copy()
-                end_point = np.dot(np.dot(trans_base,dh_table[0].xform),np.transpose(np.array([[0,0,0,1]])))
+                end_point = np.dot(np.dot(self.trans_base,dh_table[0].xform),np.transpose(np.array([[0,0,0,1]])))
 
         #Multiply final_xform by endeffector position vector
         world_coords = np.dot(final_xform,self.endeffector_pos)
@@ -318,7 +320,7 @@ class Rexarm():
         #Remove homogeneous coordinate
         return world_coords[0:3],phi
 
-    def rexarm_IK(pose, cfg):
+    def rexarm_IK(self,pose, cfg):
         """
         Calculates inverse kinematics for the rexarm
         pose is a tuple (x, y, z, phi) which describes the desired
@@ -357,11 +359,14 @@ class Rexarm():
         rGoalp = rGoal - l4 * math.cos(phi)
 
         delt_z = zGoalp - l1
-        delf_r = rGoalp
+        delt_r = rGoalp
 
         #TODO: Check range of acos
         #-------------------------------------------------------------------
-        theta3 = math.acos((math.pow(delt_z,2) + math.pow(delt_r,2) - math.pow(l2,2) - math.pow(l3,2))/(2 * l2 * l3))
+
+        temp = (math.pow(delt_z,2) + math.pow(delt_r,2) - math.pow(l2,2) - math.pow(l3,2))/(2 * l2 * l3)
+        print "Take arc cosine:",temp
+        theta3 = math.acos(temp)
         #-------------------------------------------------------------------
 
         #Get beta and psi

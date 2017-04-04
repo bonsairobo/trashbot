@@ -268,24 +268,32 @@ class Rexarm():
         #The world coordinates of the endeffector position
         end_point = []
 
+        #xform used to compute phi, which is in the robot's frame
+        phi_mat = trans_base.copy();
+
         #Multiply DH matrices
         #Compute phi by finding world vector between endeffector and motor joint 3.
         #Do this by calculating difference between these points' world coordinates
         for i in range(link + 1):
             temp = np.dot(final_xform,dh_table[i].xform)
+            temp2 = np.dot(phi_mat,dh_table[i].xform)
             final_xform = temp.copy()
+            phi_mat = temp2.copy()
             if len(range(link+1)) > 1:
                 if i == (link - 1):
-                    init_point = np.dot(final_xform,np.transpose(np.array([[0,0,0,1]])))
-            else:#Length = 1. Need to only multiply rot_60, trans_base, and [0,0,0,1]
-                temp = np.dot(rot_60,trans_base)
-                init_point = np.dot(temp,np.transpose(np.array([[0,0,0,1]])))
+                    init_point = np.dot(phi_mat,np.transpose(np.array([[0,0,0,1]])))
+                if i == link:
+                    end_point = np.dot(phi_mat,np.transpose(np.array([[0,0,0,1]])))
+            else:#Length = 1. Need to only multiply trans_base, and [0,0,0,1]
+                temp = np.dot(trans_base,np.transpose(np.array([[0,0,0,1]])))
+                init_point = temp.copy()
+                end_point = np.dot(np.dot(trans_base,dh_table[0].xform),np.transpose(np.array([[0,0,0,1]])))
 
         #Multiply final_xform by endeffector position vector
         world_coords = np.dot(final_xform,self.endeffector_pos)
 
         init_point = init_point[0:3]
-        end_point = (world_coords[0:3]).copy()
+        end_point = end_point[0:3]
 
         #import pdb
         #pdb.set_trace()
@@ -308,7 +316,7 @@ class Rexarm():
             phi = -phi
 
         #Remove homogeneous coordinate
-        return end_point,phi
+        return world_coords[0:3],phi
 
     def rexarm_IK(pose, cfg):
         """

@@ -1,4 +1,5 @@
 import sys
+import time
 import cv2
 import numpy as np
 import numpy.linalg
@@ -86,6 +87,7 @@ class Gui(QtGui.QMainWindow):
         point = [0.002,0.189,-0.056,(90+72)*D2R]
         point = [0.004,0.388,-0.008,(90)*D2R]
         point = [-0.002,0.361,0,90 * D2R]
+        point = [0,0.24,-0,02,90*D2R]
         self.ui.btnUser6.setText("IK on " + str(point))
         self.ui.btnUser6.clicked.connect(functools.partial(self.runIK,point))
 
@@ -252,11 +254,27 @@ class Gui(QtGui.QMainWindow):
         self.rex.cmd_publish()
 
     # angles is a list of floats, an angle for each joint
-    def setPose(self,angles):
-        #Sends motor command to rexarm
-        for i in range(len(angles)):
-            self.rex.joint_angles[i] = angles[i]
-        self.rex.cmd_publish()
+    def setPose(self,desired_angles):
+        #Use the linear motion plan that the professor explained
+        step_size = 0.05
+        t_range = list(np.arange(0,1 + step_size,step_size))
+
+        desired_angles = np.array([desired_angles[i] for i in range(4)])
+        initial_angles = np.array([self.rex.joint_angles_fb[i] for i in range(4)])
+
+        for t in t_range:
+            new_pose = desired_angles * t + initial_angles * (1-t)
+            #Sends motor command to rexarm
+            for i in range(len(new_pose)):
+                #Obey joint_limits to prevent breaking motors
+                if new_pose[i] < self.rex.joint_limits[i][0]:
+                    new_pose[i] = self.rex.joint_limits[i][0]
+                if new_pose[i] > self.rex.joint_limits[i][1]:
+                    new_pose[i] = self.rex.joint_limits[i][1]:                    
+
+                self.rex.joint_angles[i] = new_pose[i]
+            self.rex.cmd_publish()
+            time.sleep(0.1)
 
     def mousePressEvent(self, QMouseEvent):
         """ 

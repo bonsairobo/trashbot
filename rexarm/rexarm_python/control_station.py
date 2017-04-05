@@ -80,11 +80,10 @@ class Gui(QtGui.QMainWindow):
         #self.ui.btnUser4.clicked.connect(functools.partial(self.setPose,[0.622,1.119,-0.069,1.125]))
         #self.ui.btnUser5.clicked.connect(functools.partial(self.setPose,[0,0,0,0]))
 
-
         #Robot frame points. Index 3 is phi, the grasping angle with respect to the world frame
         point = [0,0.30,0.06, 90 * D2R]
         self.ui.btnUser6.setText("IK on " + str(point))
-        self.ui.btnUser6.clicked.connect(functools.partial(self.runIK,np.transpose(point)))
+        self.ui.btnUser6.clicked.connect(functools.partial(self.runIK,point))
 
         #point = [0,0.05,0.082, 90 * D2R]
         #self.ui.btnUser7.setText("IK on " + str(point))
@@ -103,12 +102,10 @@ class Gui(QtGui.QMainWindow):
     def runIK(self,xyz_phi_world):
         #In the robot frame
         xyz_world = xyz_phi_world[0:3]
-        xyz_world = xyz_world.reshape(3,1)
         phi_world = xyz_phi_world[3]
 
         #In the rexarm frame
         xyz_rexarm = None #To be computed
-        phi_rexarm = phi_world - 72 * D2R #Converts grasping angle in world frame to angle in rexarm frame.
 
         print "World Coords:", xyz_world
 
@@ -127,14 +124,16 @@ class Gui(QtGui.QMainWindow):
 
         print "Rexarm Frame Coords:", xyz_rexarm
 
-        xyz_rexarm = np.append(xyz_rexarm,[phi_rexarm])
-        xyz_rexarm = xyz_rexarm.reshape(4,1)
+        phi_rexarm = phi_world - 72 * D2R #Converts grasping angle in world frame to angle in rexarm frame.
+        xyz_rexarm = np.append(xyz_rexarm,phi_rexarm)
 
-        #Run Inverse kinematics
-        DH_thetas = self.rex.rexarm_IK(xyz_rexarm,0)
+        xyz_rexarm = xyz_rexarm.reshape(4,1)
 
         import pdb
         pdb.set_trace()
+
+        #Run Inverse kinematics
+        DH_thetas = self.rex.rexarm_IK(xyz_rexarm,0)
 
         #Send arm_thetas to the rexarm
         #First convert from DH parameter angle to hardware servo angle

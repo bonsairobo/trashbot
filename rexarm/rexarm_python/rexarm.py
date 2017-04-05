@@ -327,10 +327,10 @@ class Rexarm():
         """
         
         #Shorthand
-        x = pose[0]
-        y = pose[1]
-        z = pose[2]
-        phi = pose[3]
+        x = pose[0][0]
+        y = pose[1][0]
+        z = pose[2][0]
+        phi = pose[3][0]
 
         #Shorthand
         l1 = self.link_lengths[0]
@@ -353,6 +353,7 @@ class Rexarm():
 
         zGoalp = zGoal + l4 * math.sin(phi)
         #TODO: Verify rGoalp + or -
+        #BUG here: Why is l4*cos(phi) > rGoal?
         rGoalp = rGoal - l4 * math.cos(phi)
 
         delt_z = zGoalp - l1

@@ -130,13 +130,22 @@ class Gui(QtGui.QMainWindow):
         xyz_rexarm = np.append(xyz_rexarm,[phi_rexarm])
         xyz_rexarm = xyz_rexarm.reshape(4,1)
 
+        #Run Inverse kinematics
+        DH_thetas = self.rex.rexarm_IK(xyz_rexarm,0)
+
         import pdb
         pdb.set_trace()
 
-        #Run Inverse kinematics
-        arm_thetas = self.rex.rexarm_IK(xyz_rexarm,0)
+        #Send arm_thetas to the rexarm
+        #First convert from DH parameter angle to hardware servo angle
+        hardware_thetas = list(DH_thetas.copy())
+        for i in range(len(hardware_thetas)):
+            hardware_thetas[i] -= self.rex.joint_offsets[i]
 
-        print arm_thetas
+        print "Send thetas:", hardware_thetas
+
+        #Send pose to Rexarm
+        self.setPose(hardware_thetas)
 
     def play(self):
         """ 

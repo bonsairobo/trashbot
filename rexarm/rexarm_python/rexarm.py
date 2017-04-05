@@ -297,9 +297,6 @@ class Rexarm():
         init_point = init_point[0:3]
         end_point = end_point[0:3]
 
-        #import pdb
-        #pdb.set_trace()
-        
         print "End Point:", end_point
         print "Initial Point:", init_point
 
@@ -389,9 +386,18 @@ class Rexarm():
 
         #-------------------------------------------------------------------
         theta4 = phi - theta2 - theta3 + PI/2
+        #Currently a 1 dimenional array i.e. a scalar
+        theta4=theta4[0]
         #-------------------------------------------------------------------
 
-        return [theta1,theta2,theta3,theta4]
+        # Given theta1 to theta4, convert to angles with respect to DH frame
+        # assignments
+        DH_theta1 = theta1
+        DH_theta2 = PI/2 - theta2
+        DH_theta3 = -theta3
+        DH_theta4 = -theta4
+
+        return np.array([DH_theta1,DH_theta2,DH_theta3,DH_theta4])
 
 
     def rexarm_collision_check(q):

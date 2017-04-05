@@ -81,7 +81,11 @@ class Gui(QtGui.QMainWindow):
         #self.ui.btnUser5.clicked.connect(functools.partial(self.setPose,[0,0,0,0]))
 
         #Robot frame points. Index 3 is phi, the grasping angle with respect to the world frame
-        point = [0,0.25,0, 90 * D2R]
+        point = [0,0.44,0, 90 * D2R]
+        #Regular rexarm position
+        point = [0.002,0.189,-0.056,(90+72)*D2R]
+        point = [0.004,0.388,-0.008,(90)*D2R]
+        point = [-0.002,0.361,0,90 * D2R]
         self.ui.btnUser6.setText("IK on " + str(point))
         self.ui.btnUser6.clicked.connect(functools.partial(self.runIK,point))
 
@@ -114,8 +118,15 @@ class Gui(QtGui.QMainWindow):
         xyz_world = xyz_world.reshape(4,1)
 
         #print "Shape:", xyz.shape
-        #Convert xyz to rexarm coordinates (with respect to frame of joint 1) by using inverse matrix
-        transformation = np.dot(np.dot(np.dot(self.rex.trans_magicbase,self.rex.rot_72),self.rex.rot_90),self.rex.trans_base)
+        #Convert xyz to rexarm coordinates (with respect to frame of point right below joint 1) by using inverse matrix
+
+        shift_horizontal_only = self.rex.trans_base.copy()
+        #Don't shift along z axis. Only shift along x
+        shift_horizontal_only[2][3] = 0
+        #import pdb
+        #pdb.set_trace()
+
+        transformation = np.dot(np.dot(np.dot(self.rex.trans_magicbase,self.rex.rot_72),self.rex.rot_90),shift_horizontal_only)
         inv_transformation = np.linalg.inv(transformation)
 
         #Convert desired IK coordinates from world frame to robot frame
@@ -129,8 +140,8 @@ class Gui(QtGui.QMainWindow):
 
         xyz_rexarm = xyz_rexarm.reshape(4,1)
 
-        import pdb
-        pdb.set_trace()
+        #import pdb
+        #pdb.set_trace()
 
         #Run Inverse kinematics
         DH_thetas = self.rex.rexarm_IK(xyz_rexarm,0)

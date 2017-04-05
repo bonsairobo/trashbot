@@ -78,7 +78,7 @@ class Rexarm():
         """ Link Lengths """
         #Index 0 is length for link 1
         #TODO: Insert the actual link lengths
-        self.link_lengths = [.044,
+        self.link_lengths = [.11,
                              .1,
                              .1,
                              .11]
@@ -257,8 +257,8 @@ class Rexarm():
         phi = 0
 
         #Multiply transformations
-        final_xform = np.dot(self.trans_magicbase,rot_72)
-        temp = np.dot(self.final_xform,rot_90)
+        final_xform = np.dot(self.trans_magicbase,self.rot_72)
+        temp = np.dot(final_xform,self.rot_90)
         final_xform = np.dot(temp,self.trans_base)
 
         #TODO: Remove this
@@ -363,17 +363,25 @@ class Rexarm():
         #-------------------------------------------------------------------
 
         temp = (math.pow(delt_z,2) + math.pow(delt_r,2) - math.pow(l2,2) - math.pow(l3,2))/(2 * l2 * l3)
+        #Clamping
+        if temp > 1:
+            temp = 1
+        if temp < -1:
+            temp = -1
+
         print "Take arc cosine:",temp
         theta3 = math.acos(temp)
         #-------------------------------------------------------------------
 
         #Get beta and psi
         beta = math.atan(delt_z/delt_r)
-        psi = math.acos(
-            ( math.pow(l3,2) - (math.pow(delt_z,2) + math.pow(delt_r,2)) - math.pow (l2,2) )
-                        /
-            (-2 * math.sqrt(pow(delt_z,2) + pow(delt_r,2)) * l2)
-        )
+
+        temp = ( math.pow(l3,2) - (math.pow(delt_z,2) + math.pow(delt_r,2)) - math.pow (l2,2) )/( -2 * math.sqrt(pow(delt_z,2) + pow(delt_r,2)) * l2 )
+        if temp > 1:
+            temp = 1
+        if temp < -1:
+            temp = -1
+        psi = math.acos(temp)
 
         #-------------------------------------------------------------------
         #Elbow up or elbow down

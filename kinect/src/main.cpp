@@ -12,6 +12,7 @@ using namespace cv;
 using namespace pcl;
 
 static const uint8_t ESC_KEYCODE = 27;
+static const int NUM_SAMPLES = 5;
 
 int main(int argc, char **argv) {
     // Open windows for drawing streams.
@@ -45,6 +46,8 @@ int main(int argc, char **argv) {
     {
         return 1;
     }
+
+    VideoMode vm = depth_stream.getVideoMode();
 
     Recorder recorder;
     if (record_streams) {
@@ -80,13 +83,17 @@ int main(int argc, char **argv) {
     //LocalizationModel loc_model;
     //GraspingModel grasp_model;
 
+    Mat mean_depth_img(
+        vm.getResolutionY(), vm.getResolutionX(), CV_32F, Scalar(0.0));
+    int n_samp = 0;
+
     uint8_t key = 0;
     while (key != ESC_KEYCODE) {
         // Block until new frame data is ready.
-        Mat depth_mat, color_mat, webcolor_mat;
+        Mat depth_u16_mat, color_mat, webcolor_mat;
         VideoFrameRef depth_frame;
         if (get_mat_from_stream(
-            depth_stream, depth_mat, log_stream, 2, &depth_frame) != 0)
+            depth_stream, depth_u16_mat, log_stream, 2, &depth_frame) != 0)
         {
             return 1;
         }
@@ -107,11 +114,16 @@ int main(int argc, char **argv) {
                 webcolor_mat);
         }
 
+        Mat depth_f32_mat;
+        depth_u16_mat.convertTo(depth_f32_mat, CV_32F);
+        mean_depth_img += (1.0 / NUM_SAMPLES) * depth_f32_mat;
+        ++n_samp;
+
         // Check for command to search for grasping points.
         /*PickupCommand cmd;
         socklen_t len = sizeof(js_addr);
         ssize_t bytes_read = 1;*/
-        bool do_search = true; // TODO: make false when using joystick
+        bool do_search = n_samp == NUM_SAMPLES;
         /*while (bytes_read > 0) {
             bytes_read = recvfrom(
                 sock,
@@ -136,7 +148,7 @@ int main(int argc, char **argv) {
         if (do_search) {
             // Get pixels, points, normals, and ROI for workspace objects.
             ObjectInfo obj_info =
-                get_workspace_objects(depth_stream, depth_mat);
+                get_workspace_objects(depth_stream, depth_f32_mat);
             if (!obj_info.object_pixels.empty()) {
                 Point2i tl_px(obj_info.roi.x, obj_info.roi.y);
 
@@ -152,7 +164,7 @@ int main(int argc, char **argv) {
                 int j = 0;
                 for (const auto& object : obj_info.object_pixels) {
                     auto px = object[0];
-                    float z = -obj_info.cloud->at(px.x, px.y).z;
+                    float z = obj_info.cloud->at(px.x, px.y).z;
                     if (z < min_depth) {
                         min_depth = z;
                         best_obj_idx = j;
@@ -161,7 +173,7 @@ int main(int argc, char **argv) {
                 }
 
                 if (show_feeds) {
-                    Mat masked = draw_color_on_depth(color_mat, depth_mat);
+                    Mat masked = draw_color_on_depth(color_mat, depth_u16_mat);
                     int j = 0;
                     for (const auto& object : obj_info.object_pixels) {
                         Vec3b color = j == best_obj_idx ?
@@ -192,6 +204,10 @@ int main(int argc, char **argv) {
                     (sockaddr*)&rex_addr,
                     sizeof(rex_addr));
             }
+
+            // Reset sampling counter and mean image.
+            n_samp = 0;
+            mean_depth_img = Scalar(0.0);
         }
 
         key = waitKey(1);

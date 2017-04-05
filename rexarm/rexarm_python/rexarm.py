@@ -387,8 +387,6 @@ class Rexarm():
 
         #-------------------------------------------------------------------
         theta4 = phi - theta2 - theta3 + PI/2
-        #Currently a 1 dimenional array i.e. a scalar
-        theta4=theta4[0]
         #-------------------------------------------------------------------
 
         # Given theta1 to theta4, convert to angles with respect to DH frame

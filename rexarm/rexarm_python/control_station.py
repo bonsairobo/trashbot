@@ -81,7 +81,7 @@ class Gui(QtGui.QMainWindow):
         #self.ui.btnUser5.clicked.connect(functools.partial(self.setPose,[0,0,0,0]))
 
         #Robot frame points. Index 3 is phi, the grasping angle with respect to the world frame
-        point = [0,0.30,0.06, 90 * D2R]
+        point = [0,0.25,0, 90 * D2R]
         self.ui.btnUser6.setText("IK on " + str(point))
         self.ui.btnUser6.clicked.connect(functools.partial(self.runIK,point))
 

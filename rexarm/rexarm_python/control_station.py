@@ -1,6 +1,7 @@
 import sys
 import cv2
 import numpy as np
+import numpy.linalg
 from PyQt4 import QtGui, QtCore, Qt
 from ui import Ui_MainWindow
 from rexarm import Rexarm
@@ -80,10 +81,14 @@ class Gui(QtGui.QMainWindow):
         #self.ui.btnUser5.clicked.connect(functools.partial(self.setPose,[0,0,0,0]))
 
 
-        #Robot frame points. Index 3 is phi, the grasping angle.
-        point = [0,0.30,0.06, 18 * D2R]
+        #Robot frame points. Index 3 is phi, the grasping angle with respect to the world frame
+        point = [0,0.30,0.06, 90 * D2R]
         self.ui.btnUser6.setText("IK on " + str(point))
         self.ui.btnUser6.clicked.connect(functools.partial(self.runIK,np.transpose(point)))
+
+        #point = [0,0.05,0.082, 90 * D2R]
+        #self.ui.btnUser7.setText("IK on " + str(point))
+        #self.ui.btnUser7.clicked.connect(functools.partial(self.runIK,np.transpose(point)))
 
         """ Commands the arm as the arm initialize to 0,0,0,0 angles """
         self.sliderChange(0) 
@@ -95,25 +100,41 @@ class Gui(QtGui.QMainWindow):
         self.ui.btnUser1.clicked.connect(self.affine_cal)
 
     #Runs inverse kinematics on xyz
-    def runIK(self,xyz_phi):
-        xyz = xyz_phi[0:3]
+    def runIK(self,xyz_phi_world):
+        #In the robot frame
+        xyz_world = xyz_phi_world[0:3]
+        xyz_world = xyz_world.reshape(3,1)
+        phi_world = xyz_phi_world[3]
 
-        print "World Coords:", xyz
+        #In the rexarm frame
+        xyz_rexarm = None #To be computed
+        phi_rexarm = phi_world - 72 * D2R #Converts grasping angle in world frame to angle in rexarm frame.
+
+        print "World Coords:", xyz_world
 
         #Homogeneous coordinates
-        xyz = np.append(xyz,1)
-        #print "Shape:", xyz.shape
-        xyz = np.transpose(xyz)
+        xyz_world = np.append(xyz_world,1)
+        xyz_world = xyz_world.reshape(4,1)
 
         #print "Shape:", xyz.shape
-        #Convert xyz to rexarm coordinates
-        rex_coords = np.dot(np.dot(np.dot(self.rex.trans_magicbase,self.rex.rot_72),self.rex.rot_90),xyz)
-        print "Rexarm Coords:",rex_coords
+        #Convert xyz to rexarm coordinates (with respect to frame of joint 1) by using inverse matrix
+        transformation = np.dot(np.dot(np.dot(self.rex.trans_magicbase,self.rex.rot_72),self.rex.rot_90),self.rex.trans_base)
+        inv_transformation = np.linalg.inv(transformation)
 
-        rex_coords = np.append(rex_coords,[xyz_phi[3]])
+        #Convert desired IK coordinates from world frame to robot frame
+        xyz_rexarm = np.dot(inv_transformation,xyz_world)
+        xyz_rexarm = xyz_rexarm[0:3]
+
+        print "Rexarm Frame Coords:", xyz_rexarm
+
+        xyz_rexarm = np.append(xyz_rexarm,[phi_rexarm])
+        xyz_rexarm = xyz_rexarm.reshape(4,1)
+
+        import pdb
+        pdb.set_trace()
 
         #Run Inverse kinematics
-        arm_thetas = self.rex.rexarm_IK(rex_coords,0)
+        arm_thetas = self.rex.rexarm_IK(xyz_rexarm,0)
 
         print arm_thetas
 

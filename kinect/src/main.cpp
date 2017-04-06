@@ -3,6 +3,7 @@
 #include "localization_model.hpp"
 #include "img_proc.hpp"
 #include "common.hpp"
+#include "occupancy_grid.hpp"
 #include <fstream>
 #include <random>
 
@@ -12,7 +13,6 @@ using namespace cv;
 using namespace pcl;
 
 static const uint8_t ESC_KEYCODE = 27;
-static const int NUM_SAMPLES = 5;
 
 int main(int argc, char **argv) {
     // Open windows for drawing streams.
@@ -47,8 +47,6 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    VideoMode vm = depth_stream.getVideoMode();
-
     Recorder recorder;
     if (record_streams) {
         recorder.create("./rgbd_stream.ONI");
@@ -65,6 +63,7 @@ int main(int argc, char **argv) {
 
     if (show_feeds) {
         namedWindow("kinect_feed", 1);
+        namedWindow("objects", 1);
     }
 
     // Create RNG for RGB values.
@@ -83,9 +82,8 @@ int main(int argc, char **argv) {
     //LocalizationModel loc_model;
     //GraspingModel grasp_model;
 
-    Mat mean_depth_img(
-        vm.getResolutionY(), vm.getResolutionX(), CV_32F, Scalar(0.0));
-    int n_samp = 0;
+    VideoMode vm = depth_stream.getVideoMode();
+    OccupancyGrid object_grid(vm.getResolutionX(), vm.getResolutionY());
 
     uint8_t key = 0;
     while (key != ESC_KEYCODE) {
@@ -116,14 +114,12 @@ int main(int argc, char **argv) {
 
         Mat depth_f32_mat;
         depth_u16_mat.convertTo(depth_f32_mat, CV_32F);
-        mean_depth_img += (1.0 / NUM_SAMPLES) * depth_f32_mat;
-        ++n_samp;
 
         // Check for command to search for grasping points.
         /*PickupCommand cmd;
         socklen_t len = sizeof(js_addr);
         ssize_t bytes_read = 1;*/
-        bool do_search = n_samp == NUM_SAMPLES;
+        bool do_search = true;
         /*while (bytes_read > 0) {
             bytes_read = recvfrom(
                 sock,
@@ -172,18 +168,29 @@ int main(int argc, char **argv) {
                     ++j;
                 }
 
+                // Translate pixel coordinates back to original image from ROI.
+                vector<vector<Point2i>> trans_object_px;
+                for (const auto& object : obj_info.object_pixels) {
+                    trans_object_px.push_back(
+                        translate_px_coords(object, tl_px));
+                }
+
                 if (show_feeds) {
                     Mat masked = draw_color_on_depth(color_mat, depth_u16_mat);
                     int j = 0;
-                    for (const auto& object : obj_info.object_pixels) {
+                    for (const auto& object : trans_object_px) {
                         Vec3b color = j == best_obj_idx ?
                             Vec3b(0, 0, 255) :
                             Vec3b(dis(gen), dis(gen), dis(gen));
-                        draw_pixels(
-                            masked, translate_px_coords(object, tl_px), color);
+                        draw_pixels(masked, object, color);
                         ++j;
                     }
                     imshow("kinect_feed", masked);
+
+                    object_grid.update(trans_object_px);
+                    Mat weights = object_grid.get_weights();
+                    threshold(weights, weights, 0.9, 0, THRESH_TOZERO);
+                    imshow("objects", weights);
                 }
 
                 Point2i centroid =
@@ -204,10 +211,6 @@ int main(int argc, char **argv) {
                     (sockaddr*)&rex_addr,
                     sizeof(rex_addr));
             }
-
-            // Reset sampling counter and mean image.
-            n_samp = 0;
-            mean_depth_img = Scalar(0.0);
         }
 
         key = waitKey(1);

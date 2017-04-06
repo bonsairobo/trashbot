@@ -15,7 +15,7 @@ using namespace std;
 using namespace openni;
 using namespace pcl;
 
-static const size_t MIN_REGION_SIZE = 50;
+static const size_t MIN_REGION_SIZE = 150;
 
 Point2i region_centroid(const vector<Point2i>& region) {
     Point2i c;
@@ -140,7 +140,7 @@ PointCloud<PointXYZ>::Ptr remove_planes(
     seg.setOptimizeCoefficients(true);
     seg.setModelType(SACMODEL_PLANE);
     seg.setMethodType(SAC_RANSAC);
-    seg.setMaxIterations(200);
+    seg.setMaxIterations(500);
     seg.setDistanceThreshold(3.0);
     ExtractIndices<PointXYZ> extract;
     int nr_points = (int) filtered->points.size();

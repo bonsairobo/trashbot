@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
         int j = 0;
         for (const auto& object : obj_info.object_pixels) {
             auto px = object[0];
-            float z = -obj_info.cloud->at(px.x, px.y).z;
+            float z = obj_info.cloud->at(px.x, px.y).z;
             if (z < min_depth) {
                 min_depth = z;
                 best_obj_idx = j;

@@ -56,21 +56,18 @@ void OccupancyGrid::update(const vector<vector<Point2i>>& objects) {
             mask.at<uint8_t>(px+Point(1,1)) = 1;
         }
     }
-
     // Hit object pixels.
-    Mat touched(odds.cols, odds.rows, CV_8U, Scalar(0));
     for (const auto& obj : objects) {
         float prob = roi_object_score(obj, mask);
         for (const auto& px : obj) {
             uint8_t& px_odds = odds.at<uint8_t>(px);
             px_odds = clamp_odds((int)px_odds + round(prob * hit_odds));
-            touched.at<uint8_t>(px) = 1;
         }
     }
     // Miss non-object pixels.
     for (int i = 0; i < odds.rows; ++i) {
         for (int j = 0; j < odds.cols; ++j) {
-            if (touched.at<uint8_t>(i,j) == 0) {
+            if (mask.at<uint8_t>(i+1,j+1) == 0) {
                 uint8_t& px_odds = odds.at<uint8_t>(i,j);
                 px_odds = clamp_odds((int)px_odds - miss_odds);
             }

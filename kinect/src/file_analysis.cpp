@@ -1,5 +1,6 @@
 #include "img_proc.hpp"
 #include "common.hpp"
+#include "occupancy_grid.hpp"
 #include <pcl/visualization/cloud_viewer.h>
 #include <boost/filesystem.hpp>
 #include <algorithm>
@@ -43,6 +44,7 @@ int main(int argc, char **argv) {
     }
 
     namedWindow("kinect", 1);
+    namedWindow("object_grid", 1);
     //namedWindow("webcam", 1);
 
     /*vector<fs::path> webcam_img_paths;
@@ -71,6 +73,9 @@ int main(int argc, char **argv) {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<uint8_t> dis(100, 200);
+
+    VideoMode vm = depth_stream.getVideoMode();
+    OccupancyGrid object_grid(vm.getResolutionX(), vm.getResolutionY());
 
     for (int i = 0; i < num_depth_frames; ++i) {
         // This should set also set color stream to the same point in time.
@@ -122,17 +127,34 @@ int main(int argc, char **argv) {
         // TODO: for object pixels, compute image features for logistic
         // regression grasping point classifier
 
+        // Translate pixel coordinates back to original image from ROI.
+        vector<vector<Point2i>> trans_object_px;
+        for (const auto& object : obj_info.object_pixels) {
+            trans_object_px.push_back(translate_px_coords(object, tl_px));
+        }
+
         // Draw color and webcam.
         Mat masked = draw_color_on_depth(color_mat, depth_u16_mat);
         j = 0;
-        for (const auto& object : obj_info.object_pixels) {
+        for (const auto& object : trans_object_px) {
             Vec3b color = j == best_obj_idx ?
                 Vec3b(0, 0, 255) :
                 Vec3b(dis(gen), dis(gen), dis(gen));
-            draw_pixels(masked, translate_px_coords(object, tl_px), color);
+            draw_pixels(masked, object, color);
             ++j;
         }
         imshow("kinect", masked);
+
+        object_grid.update(trans_object_px);
+        Mat weights = object_grid.get_weights();
+        threshold(weights, weights, 0.8, 0, THRESH_TOZERO);
+        imshow("object_grid", weights);
+
+        // Finally, now that transients are removed, do one final clustering
+        // of object points.
+        vector<vector<Point2i>> object_regions =
+            find_nonzero_components<float>(weights);
+
         /*if (webcolor_mat.data) {
             imshow("webcam", webcolor_mat);
         }*/

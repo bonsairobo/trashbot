@@ -22,54 +22,19 @@ uint8_t OccupancyGrid::clamp_odds(int odds) {
 
 // Returns a score in [0,1] of how much the set of pixels resembles a blob
 // rather than a noisy "ghost."
-static float roi_object_score(
-    const vector<Point2i>& region, Rect *roi_out)
+static float roi_object_score(const vector<Point2i>& region, const Mat& mask)
 {
-    // TODO: refactor copy pasta from img_proc!
-    int max_x = 0,
-        max_y = 0,
-        min_x = numeric_limits<int>::max(),
-        min_y = numeric_limits<int>::max();
-    for (const auto& px : region) {
-        if (px.x < min_x) {
-            min_x = px.x;
-        }
-        if (px.x > max_x) {
-            max_x = px.x;
-        }
-        if (px.y < min_y) {
-            min_y = px.y;
-        }
-        if (px.y > max_y) {
-            max_y = px.y;
-        }
-    }
-    int width = max_x - min_x;
-    int height = max_y - min_y;
-    if (roi_out != nullptr) {
-        roi_out->x = min_x;
-        roi_out->y = max_y;
-        roi_out->width = width;
-        roi_out->height = height;
-    }
-
-    // Draw padded region image.
-    Mat img(height+2, width+2, CV_8U, Scalar(0));
-    for (const auto& px : region) {
-        img.at<uint8_t>(px - Point2i(min_x-1, min_y-1)) = 1;
-    }
-
     // Calculate percentage of pixels touching an empty pixel.
     int num_adjacent_empty = 0;
+    bool stop = false;
     for (const auto& px : region) {
-        bool stop = false;
         for (int i = -1; i <= 1; ++i) {
             for (int j = -1; j <= 1; ++j) {
                 if (i == 0 and j == 0)
                     continue;
 
-                if (img.at<uint8_t>(
-                    px - Point2i(min_x-1, min_y-1) + Point2i(i,j)) == 0)
+                if (mask.at<uint8_t>(
+                    px + Point2i(i+1,j+1)) == 0)
                 {
                     ++num_adjacent_empty;
                     stop = true;
@@ -84,10 +49,18 @@ static float roi_object_score(
 }
 
 void OccupancyGrid::update(const vector<vector<Point2i>>& objects) {
+    // Make padded object mask.
+    Mat mask(odds.cols+2, odds.rows+2, CV_8U, Scalar(0));
+    for (const auto& obj : objects) {
+        for (const auto& px : obj) {
+            mask.at<uint8_t>(px+Point(1,1)) = 1;
+        }
+    }
+
     // Hit object pixels.
     Mat touched(odds.cols, odds.rows, CV_8U, Scalar(0));
     for (const auto& obj : objects) {
-        float prob = roi_object_score(obj, nullptr);
+        float prob = roi_object_score(obj, mask);
         for (const auto& px : obj) {
             uint8_t& px_odds = odds.at<uint8_t>(px);
             px_odds = clamp_odds((int)px_odds + round(prob * hit_odds));

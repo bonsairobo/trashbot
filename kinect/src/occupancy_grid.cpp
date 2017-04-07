@@ -1,4 +1,5 @@
 #include "occupancy_grid.hpp"
+#include "img_proc.hpp"
 #include <limits>
 
 using namespace cv;
@@ -7,8 +8,8 @@ using namespace std;
 OccupancyGrid::OccupancyGrid(int width, int height):
     max_odds(numeric_limits<uint8_t>::max()),
     min_odds(numeric_limits<uint8_t>::lowest()),
-    hit_odds(10),
-    miss_odds(3),
+    hit_odds(25),
+    miss_odds(5),
     odds(height, width, CV_8U, Scalar(max_odds / 2))
 {}
 
@@ -57,12 +58,22 @@ void OccupancyGrid::update(const vector<vector<Point2i>>& objects) {
         }
     }
     // Hit object pixels.
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dis(0, 100000);
+    cv::Mat visited = cv::Mat::zeros(mask.size(), CV_8UC1);
     for (const auto& obj : objects) {
+        // Only look at a random connected component. Most objects of interest
+        // should be path connected. This also has the effect of limiting the
+        // influence of ghost objects.
+        auto component = flood_select<uint8_t>(
+            mask, obj[dis(gen) % obj.size()]+Point(1,1), visited);
         float prob = roi_object_score(obj, mask);
-        for (const auto& px : obj) {
+        for (const auto& px : component) {
             uint8_t& px_odds = odds.at<uint8_t>(px);
             px_odds = clamp_odds((int)px_odds + round(prob * hit_odds));
         }
+        visited = Scalar(0);
     }
     // Miss non-object pixels.
     for (int i = 0; i < odds.rows; ++i) {

@@ -93,6 +93,7 @@ class Gui(QtGui.QMainWindow):
         point = [.22,0,.22,18*D2R]
         #Different
         point = [.12,0.22,0.1,90*D2R]
+        point = [-0.03,-0.17,0.074,90*D2R]
         self.ui.btnUser6.setText("IK on " + str(point))
         self.ui.btnUser6.clicked.connect(functools.partial(self.runIK,point))
 

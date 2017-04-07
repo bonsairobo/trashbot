@@ -187,7 +187,19 @@ int main(int argc, char **argv) {
                     }
                     imshow("kinect_feed", masked);
 
-                    object_grid.update(trans_object_px);
+                    Mat gray_mat, edges;
+                    cvtColor(color_mat, gray_mat, CV_BGR2GRAY);
+                    blur(gray_mat, edges, Size(3,3));
+                    Canny(edges, edges, 50, 150, 3);
+                    int dilation_size = 1;
+                    Mat element = getStructuringElement(
+                        MORPH_RECT,
+                        Size(2 * dilation_size + 1, 2 * dilation_size + 1),
+                        Point(dilation_size, dilation_size));
+                    dilate(edges, edges, element);
+                    imshow("edges", edges);
+
+                    object_grid.update(trans_object_px, edges);
                     Mat weights = object_grid.get_weights();
                     threshold(weights, weights, 0.9, 0, THRESH_TOZERO);
                     imshow("objects", weights);

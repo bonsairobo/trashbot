@@ -75,9 +75,10 @@ class Gui(QtGui.QMainWindow):
 
         #Setting the poses
         #Pick up position
+        self.ui.btnUser2.setText("Pick Up Position")
         self.ui.btnUser2.clicked.connect(functools.partial(self.setPose,[-0.063,0.203,-.605,-1.493,-0.107,1.702]))
         #Home position (Outside kinect view)
-        self.ui.btnUser3.clicked.connect(functools.partial(self.setPose,[-2.015,-1.89,0.318,-1.135,-0.47,1.723]))
+        self.ui.btnUser4.clicked.connect(functools.partial(self.setPose,[-2.015,-1.89,0.318,-1.135,-0.47,1.723]))
         #self.ui.btnUser4.clicked.connect(functools.partial(self.setPose,[0.622,1.119,-0.069,1.125]))
         #self.ui.btnUser5.clicked.connect(functools.partial(self.setPose,[0,0,0,0]))
 
@@ -96,12 +97,16 @@ class Gui(QtGui.QMainWindow):
         point = [-0.03,-0.17,0.074,90*D2R]
         #Testing a pick up position (Waterbottle)
         point = [0.039,-0.002,0.35,37*D2R]
+        point = [0.18,0,0.294,(352 * D2R)]
         self.ui.btnUser6.setText("IK on " + str(point))
         self.ui.btnUser6.clicked.connect(functools.partial(self.runIK,point))
 
         #point = [0,0.05,0.082, 90 * D2R]
         #self.ui.btnUser7.setText("IK on " + str(point))
         #self.ui.btnUser7.clicked.connect(functools.partial(self.runIK,np.transpose(point)))
+
+        self.ui.btnUser3.setText("Straight Position")
+        self.ui.btnUser3.clicked.connect(functools.partial(self.setPose,[0,0,0,0,0,0]))
 
         self.ui.btnUser11.setText("Recall Position")
         self.ui.btnUser11.clicked.connect(self.recall_pose)
@@ -120,7 +125,7 @@ class Gui(QtGui.QMainWindow):
 
     #Holds the current rexarm position when torque has been set to zero
     def save_pose(self):
-        self.saved_angles = self.rex.joint_angles_fb[:4]
+        self.saved_angles = self.rex.joint_angles_fb[:]
 
     def recall_pose(self):
         self.setPose(self.saved_angles)
@@ -175,6 +180,10 @@ class Gui(QtGui.QMainWindow):
         hardware_thetas = list(DH_thetas.copy())
         for i in range(len(hardware_thetas)):
             hardware_thetas[i] -= self.rex.joint_offsets[i]
+
+        # Append 0,0 for now for the remaining two joints
+        hardware_thetas.append(0)
+        hardware_thetas.append(0)
 
         print "Send thetas:", hardware_thetas
 
@@ -281,8 +290,8 @@ class Gui(QtGui.QMainWindow):
         step_size = 0.05
         t_range = list(np.arange(0,1 + step_size,step_size))
 
-        desired_angles = np.array([desired_angles[i] for i in range(4)])
-        initial_angles = np.array([self.rex.joint_angles_fb[i] for i in range(4)])
+        desired_angles = np.array(desired_angles)
+        initial_angles = np.array(self.rex.joint_angles_fb)
 
         for t in t_range:
             new_pose = desired_angles * t + initial_angles * (1-t)

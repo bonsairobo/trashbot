@@ -88,6 +88,11 @@ class Gui(QtGui.QMainWindow):
         point = [0.004,0.388,-0.008,(90)*D2R]
         point = [-0.002,0.361,0,90 * D2R]
         point = [0,0.24,-0,02,90*D2R]
+        point = [0.14,0.04,0.14,90*D2R]
+        #Test Case
+        point = [.22,0,.22,18*D2R]
+        #Different
+        point = [.12,0.22,0.1,90*D2R]
         self.ui.btnUser6.setText("IK on " + str(point))
         self.ui.btnUser6.clicked.connect(functools.partial(self.runIK,point))
 
@@ -122,22 +127,23 @@ class Gui(QtGui.QMainWindow):
         #print "Shape:", xyz.shape
         #Convert xyz to rexarm coordinates (with respect to frame of point right below joint 1) by using inverse matrix
 
-        shift_horizontal_only = self.rex.trans_base.copy()
+        #shift_horizontal_only = self.rex.trans_base.copy()
         #Don't shift along z axis. Only shift along x
-        shift_horizontal_only[2][3] = 0
+        #shift_horizontal_only[2][3] = 0
         #import pdb
         #pdb.set_trace()
 
-        transformation = np.dot(np.dot(np.dot(self.rex.trans_magicbase,self.rex.rot_72),self.rex.rot_90),shift_horizontal_only)
-        inv_transformation = np.linalg.inv(transformation)
+        #transformation = np.dot(np.dot(np.dot(self.rex.trans_magicbase,self.rex.rot_72),self.rex.rot_90),shift_horizontal_only)
+        #inv_transformation = np.linalg.inv(transformation)
 
         #Convert desired IK coordinates from world frame to robot frame
-        xyz_rexarm = np.dot(inv_transformation,xyz_world)
+        #xyz_rexarm = np.dot(inv_transformation,xyz_world)
+        xyz_rexarm = xyz_world.copy()
         xyz_rexarm = xyz_rexarm[0:3]
 
         print "Rexarm Frame Coords:", xyz_rexarm
 
-        phi_rexarm = phi_world - 72 * D2R #Converts grasping angle in world frame to angle in rexarm frame.
+        phi_rexarm = phi_world# - 72 * D2R #Converts grasping angle in world frame to angle in rexarm frame.
         xyz_rexarm = np.append(xyz_rexarm,phi_rexarm)
 
         xyz_rexarm = xyz_rexarm.reshape(4,1)
@@ -146,7 +152,7 @@ class Gui(QtGui.QMainWindow):
         #pdb.set_trace()
 
         #Run Inverse kinematics
-        DH_thetas = self.rex.rexarm_IK(xyz_rexarm,0)
+        DH_thetas = self.rex.rexarm_IK(xyz_rexarm,1)
 
         #Send arm_thetas to the rexarm
         #First convert from DH parameter angle to hardware servo angle
@@ -270,7 +276,7 @@ class Gui(QtGui.QMainWindow):
                 if new_pose[i] < self.rex.joint_limits[i][0]:
                     new_pose[i] = self.rex.joint_limits[i][0]
                 if new_pose[i] > self.rex.joint_limits[i][1]:
-                    new_pose[i] = self.rex.joint_limits[i][1]:                    
+                    new_pose[i] = self.rex.joint_limits[i][1]                    
 
                 self.rex.joint_angles[i] = new_pose[i]
             self.rex.cmd_publish()

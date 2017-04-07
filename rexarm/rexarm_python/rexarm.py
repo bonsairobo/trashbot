@@ -257,9 +257,11 @@ class Rexarm():
         phi = 0
 
         #Multiply transformations
-        final_xform = np.dot(self.trans_magicbase,self.rot_72)
-        temp = np.dot(final_xform,self.rot_90)
-        final_xform = np.dot(temp,self.trans_base)
+        #final_xform = np.dot(self.trans_magicbase,self.rot_72)
+        #temp = np.dot(final_xform,self.rot_90)
+        #final_xform = np.dot(temp,self.trans_base)
+
+        final_xform = self.trans_base.copy()
 
         #TODO: Remove this
         #final_xform = trans_base
@@ -325,6 +327,9 @@ class Rexarm():
         cfg describe elbow down (0) or elbow up (1) configuration
         returns a 4-tuple of joint angles or NONE if configuration is impossible
         """
+
+        #import pdb
+        #pdb.set_trace()
         
         #Shorthand
         x = pose[0][0]
@@ -345,7 +350,7 @@ class Rexarm():
 
         #TODO: Check this because a tan returns angle between -pi/2 and pi/2
         #-------------------------------------------------------------------
-        theta1 = math.atan(y/x)
+        theta1 = math.atan2(y,x)
         #-------------------------------------------------------------------
 
         zGoal = z
@@ -362,7 +367,7 @@ class Rexarm():
         #TODO: Check range of acos
         #-------------------------------------------------------------------
 
-        temp = (math.pow(delt_z,2) + math.pow(delt_r,2) - math.pow(l2,2) - math.pow(l3,2))/(2 * l2 * l3)
+        temp = (math.pow(l2,2) + math.pow(l3,2) - math.pow(delt_z,2) - math.pow(delt_r,2))/(2 * l2 * l3)
         #Clamping
         if temp > 1:
             temp = 1
@@ -370,13 +375,18 @@ class Rexarm():
             temp = -1
 
         print "Take arc cosine:",temp
-        theta3 = math.acos(temp)
+
+        gamma = math.acos(temp)
+        theta3 = PI - gamma
         #-------------------------------------------------------------------
 
         #Get beta and psi
         beta = math.atan(delt_z/delt_r)
 
-        temp = ( math.pow(l3,2) - (math.pow(delt_z,2) + math.pow(delt_r,2)) - math.pow (l2,2) )/( -2 * math.sqrt(pow(delt_z,2) + pow(delt_r,2)) * l2 )
+        assert (-PI/2 < beta)
+        assert (beta < PI/2)
+
+        temp = ( math.pow (l2,2) - math.pow(l3,2) + (math.pow(delt_z,2) + math.pow(delt_r,2)))/( 2 * l2 * math.sqrt(pow(delt_z,2) + pow(delt_r,2)))
         if temp > 1:
             temp = 1
         if temp < -1:
@@ -388,7 +398,7 @@ class Rexarm():
         #Elbow down
         if cfg == 0:
             theta2 = PI/2 - beta + psi
-        #Elbow up
+        #Elbow up (What we want)
         else:
             theta2 = PI/2 - beta - psi
         #-------------------------------------------------------------------

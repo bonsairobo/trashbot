@@ -75,9 +75,10 @@ class Gui(QtGui.QMainWindow):
 
         #Setting the poses
         #Pick up position
+        self.ui.btnUser2.setText("Pick Up Position")
         self.ui.btnUser2.clicked.connect(functools.partial(self.setPose,[-0.063,0.203,-.605,-1.493,-0.107,1.702]))
         #Home position (Outside kinect view)
-        self.ui.btnUser3.clicked.connect(functools.partial(self.setPose,[-2.015,-1.89,0.318,-1.135,-0.47,1.723]))
+        self.ui.btnUser4.clicked.connect(functools.partial(self.setPose,[-2.015,-1.89,0.318,-1.135,-0.47,1.723]))
         #self.ui.btnUser4.clicked.connect(functools.partial(self.setPose,[0.622,1.119,-0.069,1.125]))
         #self.ui.btnUser5.clicked.connect(functools.partial(self.setPose,[0,0,0,0]))
 
@@ -88,12 +89,30 @@ class Gui(QtGui.QMainWindow):
         point = [0.004,0.388,-0.008,(90)*D2R]
         point = [-0.002,0.361,0,90 * D2R]
         point = [0,0.24,-0,02,90*D2R]
+        point = [0.14,0.04,0.14,90*D2R]
+        #Test Case
+        point = [.22,0,.22,18*D2R]
+        #Different test cases
+        point = [.12,0.22,0.1,90*D2R]
+        point = [-0.03,-0.17,0.074,90*D2R]
+        #Testing a pick up position (Waterbottle)
+        point = [0.039,-0.002,0.35,37*D2R]
+        point = [0.18,0,0.294,(352 * D2R)]
         self.ui.btnUser6.setText("IK on " + str(point))
         self.ui.btnUser6.clicked.connect(functools.partial(self.runIK,point))
 
         #point = [0,0.05,0.082, 90 * D2R]
         #self.ui.btnUser7.setText("IK on " + str(point))
         #self.ui.btnUser7.clicked.connect(functools.partial(self.runIK,np.transpose(point)))
+
+        self.ui.btnUser3.setText("Straight Position")
+        self.ui.btnUser3.clicked.connect(functools.partial(self.setPose,[0,0,0,0,0,0]))
+
+        self.ui.btnUser11.setText("Recall Position")
+        self.ui.btnUser11.clicked.connect(self.recall_pose)
+
+        self.ui.btnUser12.setText("Save Position")
+        self.ui.btnUser12.clicked.connect(self.save_pose)
 
         """ Commands the arm as the arm initialize to 0,0,0,0 angles """
         self.sliderChange(0) 
@@ -103,6 +122,13 @@ class Gui(QtGui.QMainWindow):
         """
         self.ui.btnUser1.setText("Affine Calibration")
         self.ui.btnUser1.clicked.connect(self.affine_cal)
+
+    #Holds the current rexarm position when torque has been set to zero
+    def save_pose(self):
+        self.saved_angles = self.rex.joint_angles_fb[:]
+
+    def recall_pose(self):
+        self.setPose(self.saved_angles)
 
     #Runs inverse kinematics on xyz
     def runIK(self,xyz_phi_world):
@@ -122,22 +148,23 @@ class Gui(QtGui.QMainWindow):
         #print "Shape:", xyz.shape
         #Convert xyz to rexarm coordinates (with respect to frame of point right below joint 1) by using inverse matrix
 
-        shift_horizontal_only = self.rex.trans_base.copy()
+        #shift_horizontal_only = self.rex.trans_base.copy()
         #Don't shift along z axis. Only shift along x
-        shift_horizontal_only[2][3] = 0
+        #shift_horizontal_only[2][3] = 0
         #import pdb
         #pdb.set_trace()
 
-        transformation = np.dot(np.dot(np.dot(self.rex.trans_magicbase,self.rex.rot_72),self.rex.rot_90),shift_horizontal_only)
-        inv_transformation = np.linalg.inv(transformation)
+        #transformation = np.dot(np.dot(np.dot(self.rex.trans_magicbase,self.rex.rot_72),self.rex.rot_90),shift_horizontal_only)
+        #inv_transformation = np.linalg.inv(transformation)
 
         #Convert desired IK coordinates from world frame to robot frame
-        xyz_rexarm = np.dot(inv_transformation,xyz_world)
+        #xyz_rexarm = np.dot(inv_transformation,xyz_world)
+        xyz_rexarm = xyz_world.copy()
         xyz_rexarm = xyz_rexarm[0:3]
 
         print "Rexarm Frame Coords:", xyz_rexarm
 
-        phi_rexarm = phi_world - 72 * D2R #Converts grasping angle in world frame to angle in rexarm frame.
+        phi_rexarm = phi_world# - 72 * D2R #Converts grasping angle in world frame to angle in rexarm frame.
         xyz_rexarm = np.append(xyz_rexarm,phi_rexarm)
 
         xyz_rexarm = xyz_rexarm.reshape(4,1)
@@ -146,13 +173,17 @@ class Gui(QtGui.QMainWindow):
         #pdb.set_trace()
 
         #Run Inverse kinematics
-        DH_thetas = self.rex.rexarm_IK(xyz_rexarm,0)
+        DH_thetas = self.rex.rexarm_IK(xyz_rexarm,1)
 
         #Send arm_thetas to the rexarm
         #First convert from DH parameter angle to hardware servo angle
         hardware_thetas = list(DH_thetas.copy())
         for i in range(len(hardware_thetas)):
             hardware_thetas[i] -= self.rex.joint_offsets[i]
+
+        # Append 0,0 for now for the remaining two joints
+        hardware_thetas.append(0)
+        hardware_thetas.append(0)
 
         print "Send thetas:", hardware_thetas
 
@@ -259,8 +290,8 @@ class Gui(QtGui.QMainWindow):
         step_size = 0.05
         t_range = list(np.arange(0,1 + step_size,step_size))
 
-        desired_angles = np.array([desired_angles[i] for i in range(4)])
-        initial_angles = np.array([self.rex.joint_angles_fb[i] for i in range(4)])
+        desired_angles = np.array(desired_angles)
+        initial_angles = np.array(self.rex.joint_angles_fb)
 
         for t in t_range:
             new_pose = desired_angles * t + initial_angles * (1-t)
@@ -270,7 +301,7 @@ class Gui(QtGui.QMainWindow):
                 if new_pose[i] < self.rex.joint_limits[i][0]:
                     new_pose[i] = self.rex.joint_limits[i][0]
                 if new_pose[i] > self.rex.joint_limits[i][1]:
-                    new_pose[i] = self.rex.joint_limits[i][1]:                    
+                    new_pose[i] = self.rex.joint_limits[i][1]                    
 
                 self.rex.joint_angles[i] = new_pose[i]
             self.rex.cmd_publish()

@@ -88,7 +88,9 @@ class Rexarm():
         self.joint_limits = [[-PI,PI], #Joint 0
                              [-2.00,2.00], #Joint 1
                              [-1.87,1.87], #Joint 2
-                             [-1.82,2.51]] #Joint 3
+                             [-1.82,2.51],
+                             [-PI,PI],
+                             [-0.37,2.15]] #Joint 3
 
         """ DH Table """
         self.DH_table = [DH_xform(0,.044,PI/2), #Joint 0's parameters (Used to form A_0). CORRECT
@@ -136,6 +138,13 @@ class Rexarm():
                                [0,0,0,1]
         ])
 
+        #Use this for testing with Inverse kinematics. Only does vertical
+        #Shift
+        self.trans_base_vert_only = np.array([[1,0,0,0],
+                                              [0,1,0,0],
+                                              [0,0,1,0.066],
+                                              [0,0,0,1]
+                                          ])
         
         """ References to GUI labels for FK """
         self.x_out = x_out
@@ -257,9 +266,11 @@ class Rexarm():
         phi = 0
 
         #Multiply transformations
-        final_xform = np.dot(self.trans_magicbase,self.rot_72)
-        temp = np.dot(final_xform,self.rot_90)
-        final_xform = np.dot(temp,self.trans_base)
+        #final_xform = np.dot(self.trans_magicbase,self.rot_72)
+        #temp = np.dot(final_xform,self.rot_90)
+        #final_xform = np.dot(temp,self.trans_base)
+
+        final_xform = self.trans_base_vert_only.copy()
 
         #TODO: Remove this
         #final_xform = trans_base
@@ -271,7 +282,7 @@ class Rexarm():
         end_point = []
 
         #xform used to compute phi, which is in the robot's frame
-        phi_mat = self.trans_base.copy();
+        phi_mat = self.trans_base_vert_only.copy();
 
         #Multiply DH matrices
         #Compute phi by finding world vector between endeffector and motor joint 3.
@@ -287,9 +298,9 @@ class Rexarm():
                 if i == link:
                     end_point = np.dot(phi_mat,np.transpose(np.array([[0,0,0,1]])))
             else:#Length = 1. Need to only multiply trans_base, and [0,0,0,1]
-                temp = np.dot(self.trans_base,np.transpose(np.array([[0,0,0,1]])))
+                temp = np.dot(self.trans_base_vert_only,np.transpose(np.array([[0,0,0,1]])))
                 init_point = temp.copy()
-                end_point = np.dot(np.dot(self.trans_base,dh_table[0].xform),np.transpose(np.array([[0,0,0,1]])))
+                end_point = np.dot(np.dot(self.trans_base_vert_only,dh_table[0].xform),np.transpose(np.array([[0,0,0,1]])))
 
         #Multiply final_xform by endeffector position vector
         world_coords = np.dot(final_xform,self.endeffector_pos)
@@ -325,6 +336,9 @@ class Rexarm():
         cfg describe elbow down (0) or elbow up (1) configuration
         returns a 4-tuple of joint angles or NONE if configuration is impossible
         """
+
+        #import pdb
+        #pdb.set_trace()
         
         #Shorthand
         x = pose[0][0]
@@ -345,7 +359,7 @@ class Rexarm():
 
         #TODO: Check this because a tan returns angle between -pi/2 and pi/2
         #-------------------------------------------------------------------
-        theta1 = math.atan(y/x)
+        theta1 = math.atan2(y,x)
         #-------------------------------------------------------------------
 
         zGoal = z
@@ -362,7 +376,7 @@ class Rexarm():
         #TODO: Check range of acos
         #-------------------------------------------------------------------
 
-        temp = (math.pow(delt_z,2) + math.pow(delt_r,2) - math.pow(l2,2) - math.pow(l3,2))/(2 * l2 * l3)
+        temp = (math.pow(l2,2) + math.pow(l3,2) - math.pow(delt_z,2) - math.pow(delt_r,2))/(2 * l2 * l3)
         #Clamping
         if temp > 1:
             temp = 1
@@ -370,13 +384,18 @@ class Rexarm():
             temp = -1
 
         print "Take arc cosine:",temp
-        theta3 = math.acos(temp)
+
+        gamma = math.acos(temp)
+        theta3 = PI - gamma
         #-------------------------------------------------------------------
 
         #Get beta and psi
         beta = math.atan(delt_z/delt_r)
 
-        temp = ( math.pow(l3,2) - (math.pow(delt_z,2) + math.pow(delt_r,2)) - math.pow (l2,2) )/( -2 * math.sqrt(pow(delt_z,2) + pow(delt_r,2)) * l2 )
+        assert (-PI/2 < beta)
+        assert (beta < PI/2)
+
+        temp = ( math.pow (l2,2) - math.pow(l3,2) + (math.pow(delt_z,2) + math.pow(delt_r,2)))/( 2 * l2 * math.sqrt(pow(delt_z,2) + pow(delt_r,2)))
         if temp > 1:
             temp = 1
         if temp < -1:
@@ -388,7 +407,7 @@ class Rexarm():
         #Elbow down
         if cfg == 0:
             theta2 = PI/2 - beta + psi
-        #Elbow up
+        #Elbow up (What we want)
         else:
             theta2 = PI/2 - beta - psi
         #-------------------------------------------------------------------

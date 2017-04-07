@@ -29,7 +29,8 @@ struct ObjectInfo {
 };
 
 ObjectInfo get_workspace_objects(
-    const openni::VideoStream& depth_stream, const cv::Mat& depth_mat);
+    const openni::VideoStream& depth_stream,
+    const cv::Mat& depth_f32_mat);
 
 // `indices_out` returns the original pixel coordinates as indices.
 // I.e. for *returned* cloud point i,

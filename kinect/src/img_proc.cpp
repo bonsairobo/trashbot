@@ -15,7 +15,7 @@ using namespace std;
 using namespace openni;
 using namespace pcl;
 
-static const size_t MIN_REGION_SIZE = 50;
+static const size_t MIN_REGION_SIZE = 150;
 
 Point2i region_centroid(const vector<Point2i>& region) {
     Point2i c;
@@ -36,38 +36,47 @@ vector<Point2i> translate_px_coords(
 }
 
 ObjectInfo get_workspace_objects(
-    const VideoStream& depth_stream, const Mat& depth_mat)
+    const VideoStream& depth_stream,
+    const Mat& depth_f32_mat)
 {
-    // Do workspace pixel culling.
-    Point3f ftl(-300.0, 300.0, 800.0);
-    Point3f bbr(300.0, -300.0, 1500.0);
+    // Do 2D workspace culling.
+    Point3f ftl(-300.0, 300.0, 850.0);
+    Point3f bbr(300.0, -300.0, 1200.0);
     Rect roi;
     vector<vector<Point2i>> workspc_px =
-        get_workspace_pixels(depth_stream, depth_mat, ftl, bbr, &roi);
-    cout << "# workspace regions = " << workspc_px.size() << endl;
+        get_workspace_pixels(depth_stream, depth_f32_mat, ftl, bbr, &roi);
     if (workspc_px.empty()) {
         return ObjectInfo();
     }
-    Point2i tl_px = Point2i(roi.x, roi.y);
 
     // Create a point cloud of ROI regions.
+    Point2i tl_px = Point2i(roi.x, roi.y);
     PointCloud<PointXYZ>::Ptr pc = zero_cloud(roi.width, roi.height);
     for (const auto& region : workspc_px) {
         for (const auto& px : region) {
             PointXYZ& pt = pc->at(px.x, px.y);
             CoordinateConverter::convertDepthToWorld(
                 depth_stream,
-                px.x+roi.x, px.y+roi.y,
-                depth_mat.at<uint16_t>(px + tl_px),
+                float(px.x+roi.x), float(px.y+roi.y),
+                depth_f32_mat.at<float>(px + tl_px),
                 &pt.x, &pt.y, &pt.z);
-            pt.z *= -1.0;
+        }
+    }
+
+    // Do 3D workspace culling.
+    for (auto& pt : pc->points) {
+        if (pt.x < ftl.x or pt.x > bbr.x or
+            pt.y > ftl.y or pt.y < bbr.y or
+            pt.z < ftl.z or pt.z > bbr.z)
+        {
+            pt = PointXYZ(0.0, 0.0, 0.0);
         }
     }
 
     // Remove planes.
     vector<int> idx_px_map;
     PointCloud<PointXYZ>::Ptr object_pc = remove_planes(pc, &idx_px_map);
-    if (idx_px_map.empty()) {
+    if (idx_px_map.size() < MIN_REGION_SIZE) {
         return ObjectInfo();
     }
 
@@ -76,7 +85,7 @@ ObjectInfo get_workspace_objects(
     search::KdTree<PointXYZ>::Ptr tree(new search::KdTree<PointXYZ>);
     tree->setInputCloud(object_pc);
     EuclideanClusterExtraction<PointXYZ> ec;
-    ec.setClusterTolerance(5.0);
+    ec.setClusterTolerance(8.0);
     ec.setMinClusterSize(MIN_REGION_SIZE);
     ec.setMaxClusterSize(25000);
     ec.setSearchMethod(tree);
@@ -132,7 +141,7 @@ PointCloud<PointXYZ>::Ptr remove_planes(
     seg.setModelType(SACMODEL_PLANE);
     seg.setMethodType(SAC_RANSAC);
     seg.setMaxIterations(500);
-    seg.setDistanceThreshold(5);
+    seg.setDistanceThreshold(3.0);
     ExtractIndices<PointXYZ> extract;
     int nr_points = (int) filtered->points.size();
     while (true) {
@@ -169,7 +178,7 @@ PointCloud<PointXYZ>::Ptr remove_planes(
         }
 
         // Stop when the planes being removed become small.
-        if (num_before - num_after < 75000) {
+        if (num_before - num_after < 50000) {
             break;
         }
     }
@@ -193,12 +202,8 @@ Mat draw_color_on_depth(const Mat& color, const Mat& depth) {
     return out;
 }
 
-vector<vector<Point2i>> get_workspace_pixels(
-    const VideoStream& depth_stream,
-    const Mat& depth,
-    const Point3f& ftl,
-    const Point3f& bbr,
-    Rect* roi_out)
+Rect roi_from_workspace_corners(
+    const Point3f& ftl, const Point3f& bbr, const VideoStream& depth_stream)
 {
     // Convert Rexarm workspace vertices to pixel coordinates.
     const vector<Point3f> workspc_corners = {
@@ -228,28 +233,39 @@ vector<vector<Point2i>> get_workspace_pixels(
         if (px.y > max_y)
             max_y = px.y;
     }
-    Rect roi(0, 0, depth.cols, depth.rows);
-    if (min_x > 0 and min_x < depth.cols)
+    VideoMode vm = depth_stream.getVideoMode();
+    Rect roi(0, 0, vm.getResolutionX(), vm.getResolutionY());
+    if (min_x > 0 and min_x < vm.getResolutionX())
         roi.x = min_x;
-    if (max_x > 0 and max_x < depth.cols)
+    if (max_x > 0 and max_x < vm.getResolutionX())
         roi.width = max_x - min_x;
-    if (min_y > 0 and min_y < depth.rows)
+    if (min_y > 0 and min_y < vm.getResolutionY())
         roi.y = min_y;
-    if (max_y > 0 and max_y < depth.rows)
+    if (max_y > 0 and max_y < vm.getResolutionY())
         roi.height = max_y - min_y;
+
+    return roi;
+}
+
+vector<vector<Point2i>> get_workspace_pixels(
+    const VideoStream& depth_stream,
+    const Mat& depth,
+    const Point3f& ftl,
+    const Point3f& bbr,
+    Rect* roi_out)
+{
+    Rect roi = roi_from_workspace_corners(ftl, bbr, depth_stream);
 
     // Select ROI from depth image.
     Mat crop = depth(roi);
 
     // Do depth thresholding.
-    Mat thresh;
-    crop.convertTo(thresh, CV_32F);
-    threshold(thresh, thresh, bbr.z, 0, THRESH_TOZERO_INV);
-    threshold(thresh, thresh, ftl.z, 0, THRESH_TOZERO);
+    threshold(crop, crop, bbr.z, 0, THRESH_TOZERO_INV);
+    threshold(crop, crop, ftl.z, 0, THRESH_TOZERO);
 
     // Extract regions as sets of pixels.
     vector<vector<Point2i>> object_regions =
-        find_nonzero_components<float>(thresh);
+        find_nonzero_components<float>(crop);
 
     // Reject small regions.
     auto new_end = remove_if(object_regions.begin(), object_regions.end(),

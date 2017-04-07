@@ -3,6 +3,7 @@
 #include "localization_model.hpp"
 #include "img_proc.hpp"
 #include "common.hpp"
+#include "occupancy_grid.hpp"
 #include <fstream>
 #include <random>
 
@@ -62,6 +63,7 @@ int main(int argc, char **argv) {
 
     if (show_feeds) {
         namedWindow("kinect_feed", 1);
+        namedWindow("objects", 1);
     }
 
     // Create RNG for RGB values.
@@ -80,13 +82,16 @@ int main(int argc, char **argv) {
     //LocalizationModel loc_model;
     //GraspingModel grasp_model;
 
+    VideoMode vm = depth_stream.getVideoMode();
+    OccupancyGrid object_grid(vm.getResolutionX(), vm.getResolutionY());
+
     uint8_t key = 0;
     while (key != ESC_KEYCODE) {
         // Block until new frame data is ready.
-        Mat depth_mat, color_mat, webcolor_mat;
+        Mat depth_u16_mat, color_mat, webcolor_mat;
         VideoFrameRef depth_frame;
         if (get_mat_from_stream(
-            depth_stream, depth_mat, log_stream, 2, &depth_frame) != 0)
+            depth_stream, depth_u16_mat, log_stream, 2, &depth_frame) != 0)
         {
             return 1;
         }
@@ -107,11 +112,14 @@ int main(int argc, char **argv) {
                 webcolor_mat);
         }
 
+        Mat depth_f32_mat;
+        depth_u16_mat.convertTo(depth_f32_mat, CV_32F);
+
         // Check for command to search for grasping points.
         /*PickupCommand cmd;
         socklen_t len = sizeof(js_addr);
         ssize_t bytes_read = 1;*/
-        bool do_search = true; // TODO: make false when using joystick
+        bool do_search = true;
         /*while (bytes_read > 0) {
             bytes_read = recvfrom(
                 sock,
@@ -136,7 +144,7 @@ int main(int argc, char **argv) {
         if (do_search) {
             // Get pixels, points, normals, and ROI for workspace objects.
             ObjectInfo obj_info =
-                get_workspace_objects(depth_stream, depth_mat);
+                get_workspace_objects(depth_stream, depth_f32_mat);
             if (!obj_info.object_pixels.empty()) {
                 Point2i tl_px(obj_info.roi.x, obj_info.roi.y);
 
@@ -152,7 +160,7 @@ int main(int argc, char **argv) {
                 int j = 0;
                 for (const auto& object : obj_info.object_pixels) {
                     auto px = object[0];
-                    float z = -obj_info.cloud->at(px.x, px.y).z;
+                    float z = obj_info.cloud->at(px.x, px.y).z;
                     if (z < min_depth) {
                         min_depth = z;
                         best_obj_idx = j;
@@ -160,18 +168,29 @@ int main(int argc, char **argv) {
                     ++j;
                 }
 
+                // Translate pixel coordinates back to original image from ROI.
+                vector<vector<Point2i>> trans_object_px;
+                for (const auto& object : obj_info.object_pixels) {
+                    trans_object_px.push_back(
+                        translate_px_coords(object, tl_px));
+                }
+
                 if (show_feeds) {
-                    Mat masked = draw_color_on_depth(color_mat, depth_mat);
+                    Mat masked = draw_color_on_depth(color_mat, depth_u16_mat);
                     int j = 0;
-                    for (const auto& object : obj_info.object_pixels) {
+                    for (const auto& object : trans_object_px) {
                         Vec3b color = j == best_obj_idx ?
                             Vec3b(0, 0, 255) :
                             Vec3b(dis(gen), dis(gen), dis(gen));
-                        draw_pixels(
-                            masked, translate_px_coords(object, tl_px), color);
+                        draw_pixels(masked, object, color);
                         ++j;
                     }
                     imshow("kinect_feed", masked);
+
+                    object_grid.update(trans_object_px);
+                    Mat weights = object_grid.get_weights();
+                    threshold(weights, weights, 0.9, 0, THRESH_TOZERO);
+                    imshow("objects", weights);
                 }
 
                 Point2i centroid =

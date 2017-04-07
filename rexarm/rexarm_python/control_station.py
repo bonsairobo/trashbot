@@ -91,15 +91,23 @@ class Gui(QtGui.QMainWindow):
         point = [0.14,0.04,0.14,90*D2R]
         #Test Case
         point = [.22,0,.22,18*D2R]
-        #Different
+        #Different test cases
         point = [.12,0.22,0.1,90*D2R]
         point = [-0.03,-0.17,0.074,90*D2R]
+        #Testing a pick up position (Waterbottle)
+        point = [0.039,-0.002,0.35,37*D2R]
         self.ui.btnUser6.setText("IK on " + str(point))
         self.ui.btnUser6.clicked.connect(functools.partial(self.runIK,point))
 
         #point = [0,0.05,0.082, 90 * D2R]
         #self.ui.btnUser7.setText("IK on " + str(point))
         #self.ui.btnUser7.clicked.connect(functools.partial(self.runIK,np.transpose(point)))
+
+        self.ui.btnUser11.setText("Recall Position")
+        self.ui.btnUser11.clicked.connect(self.recall_pose)
+
+        self.ui.btnUser12.setText("Save Position")
+        self.ui.btnUser12.clicked.connect(self.save_pose)
 
         """ Commands the arm as the arm initialize to 0,0,0,0 angles """
         self.sliderChange(0) 
@@ -109,6 +117,13 @@ class Gui(QtGui.QMainWindow):
         """
         self.ui.btnUser1.setText("Affine Calibration")
         self.ui.btnUser1.clicked.connect(self.affine_cal)
+
+    #Holds the current rexarm position when torque has been set to zero
+    def save_pose(self):
+        self.saved_angles = self.rex.joint_angles_fb[:4]
+
+    def recall_pose(self):
+        self.setPose(self.saved_angles)
 
     #Runs inverse kinematics on xyz
     def runIK(self,xyz_phi_world):

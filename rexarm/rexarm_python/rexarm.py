@@ -88,7 +88,9 @@ class Rexarm():
         self.joint_limits = [[-PI,PI], #Joint 0
                              [-2.00,2.00], #Joint 1
                              [-1.87,1.87], #Joint 2
-                             [-1.82,2.51]] #Joint 3
+                             [-1.82,2.51],
+                             [-PI,PI],
+                             [-0.37,2.15]] #Joint 3
 
         """ DH Table """
         self.DH_table = [DH_xform(0,.044,PI/2), #Joint 0's parameters (Used to form A_0). CORRECT

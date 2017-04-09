@@ -1,4 +1,6 @@
+import struct
 import sys
+import os
 import time
 import cv2
 import numpy as np
@@ -377,14 +379,46 @@ class Gui(QtGui.QMainWindow):
         self.ui.rdoutStatus.setText("Affine Calibration: Click Point %d" 
                                     %(self.video.mouse_click_id + 1))
  
+    def init_socket(self):
+        UDP_IP = "127.0.0.1"
+        UDP_PORT = 5005
+        
+        self.sock = socket.socket(socket.AF_INET, # Internet
+                         socket.SOCK_DGRAM) # UDP
+        self.kinect_path = "/tmp/kinect_endpoint"
+
+        try:
+            os.remove(self.kinect_path)
+        except OSError:
+            pass
+        self.sock.bind(self.kinect_path)
+        self.sock.listen(1)
+
+        #Blocks until Kinect code connects
+        self.conn, self.addr = self.sock.accept()
+
+    def get_socket_data(self):
+        #Grasping Point struct is 28 bytes
+        data = self.conn.recv(28)
+        if not data:
+            #Error
+            pass
+        #p is point. n is normal
+        #TODO: Check endianness
+        time, p1,p2,p3,n1,n2,n3 = struct.unpack("iffffff", data)
+        print "Time:", time
+        print "Point:", p1,p2,p3
+        print "Normal:", n1,n2,n3
+
     def trash_state_machine(self):
+        self.init_socket()
         poses = {"START": [0,0,0,0,0,0],
                  "HOME": [PI,0,0,0,0,0],
                  "NET": [],
                  "HIDE": []
         }
 
-        desried_IK = []
+        desired_IK = []
 
         #State1: Turn 90 degrees at base to prevent collision
         states = ["START","TURN_TO_HOME_FROM_START", "RUN_IK", "GRASP", "LIFT_TO_HOME", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION","UNHIDE","TURN TO HOME FROM UNHIDE"]
@@ -427,10 +461,9 @@ class Gui(QtGui.QMainWindow):
             elif curr_state == "HIDE_POSITION":
                 #TODO
                 #Block and wait for next point of new object
+                self.get_socket_data()
                 next_state = "UNHIDE"
             curr_state == next_state
-
-
 
 def main():
     app = QtGui.QApplication(sys.argv)
@@ -438,16 +471,6 @@ def main():
     ex.show()
     sys.exit(app.exec_())
     """
-    UDP_IP = "127.0.0.1"
-    UDP_PORT = 5005
-    
-    sock = socket.socket(socket.AF_INET, # Internet
-                         socket.SOCK_DGRAM) # UDP
-    sock.bind((UDP_IP, UDP_PORT))
-    
-    while True:
-        data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
-        print "received message:", data
     """
 if __name__ == '__main__':
     main()

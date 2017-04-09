@@ -85,7 +85,7 @@ ObjectInfo get_workspace_objects(
     search::KdTree<PointXYZ>::Ptr tree(new search::KdTree<PointXYZ>);
     tree->setInputCloud(object_pc);
     EuclideanClusterExtraction<PointXYZ> ec;
-    ec.setClusterTolerance(8.0);
+    ec.setClusterTolerance(4.5);
     ec.setMinClusterSize(MIN_REGION_SIZE);
     ec.setMaxClusterSize(25000);
     ec.setSearchMethod(tree);
@@ -141,7 +141,7 @@ PointCloud<PointXYZ>::Ptr remove_planes(
     seg.setModelType(SACMODEL_PLANE);
     seg.setMethodType(SAC_RANSAC);
     seg.setMaxIterations(500);
-    seg.setDistanceThreshold(3.0);
+    seg.setDistanceThreshold(2.5);
     ExtractIndices<PointXYZ> extract;
     int nr_points = (int) filtered->points.size();
     while (true) {

@@ -45,6 +45,7 @@ int main(int argc, char **argv) {
 
     namedWindow("kinect", 1);
     namedWindow("object_grid", 1);
+    namedWindow("edges", 1);
     //namedWindow("webcam", 1);
 
     /*vector<fs::path> webcam_img_paths;
@@ -133,6 +134,18 @@ int main(int argc, char **argv) {
             trans_object_px.push_back(translate_px_coords(object, tl_px));
         }
 
+        Mat gray_mat, edges;
+        cvtColor(color_mat, gray_mat, CV_BGR2GRAY);
+        blur(gray_mat, edges, Size(3,3));
+        Canny(edges, edges, 50, 150, 3);
+        int dilation_size = 1;
+        Mat element = getStructuringElement(
+            MORPH_RECT,
+            Size(2 * dilation_size + 1, 2 * dilation_size + 1),
+            Point(dilation_size, dilation_size));
+        dilate(edges, edges, element);
+        imshow("edges", edges);
+
         // Draw color and webcam.
         Mat masked = draw_color_on_depth(color_mat, depth_u16_mat);
         j = 0;
@@ -145,7 +158,7 @@ int main(int argc, char **argv) {
         }
         imshow("kinect", masked);
 
-        object_grid.update(trans_object_px);
+        object_grid.update(trans_object_px, edges);
         Mat weights = object_grid.get_weights();
         threshold(weights, weights, 0.8, 0, THRESH_TOZERO);
         imshow("object_grid", weights);

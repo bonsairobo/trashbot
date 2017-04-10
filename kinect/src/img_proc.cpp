@@ -15,14 +15,26 @@ using namespace std;
 using namespace openni;
 using namespace pcl;
 
-static const size_t MIN_REGION_SIZE = 150;
-
 Point2i region_centroid(const vector<Point2i>& region) {
     Point2i c;
     for (const auto& px : region) {
         c += px;
     }
     return c / float(region.size());
+}
+
+Point2i region_medoid(const vector<Point2i>& region) {
+    Point2i c = region_centroid(region);
+    float min_dist = numeric_limits<float>::max();
+    Point2i medoid;
+    for (const auto& px : region) {
+        float dist = hypot(px.x - c.x, px.y - c.y);
+        if (dist < min_dist) {
+            min_dist = dist;
+            medoid = px;
+        }
+    }
+    return medoid;
 }
 
 vector<Point2i> translate_px_coords(
@@ -35,174 +47,7 @@ vector<Point2i> translate_px_coords(
     return out;
 }
 
-ObjectInfo get_workspace_objects(
-    const VideoStream& depth_stream,
-    const Mat& depth_f32_mat)
-{
-    // Do 2D workspace culling.
-    Point3f ftl(-300.0, 300.0, 850.0);
-    Point3f bbr(300.0, -300.0, 1200.0);
-    Rect roi;
-    vector<vector<Point2i>> workspc_px =
-        get_workspace_pixels(depth_stream, depth_f32_mat, ftl, bbr, &roi);
-    if (workspc_px.empty()) {
-        return ObjectInfo();
-    }
-
-    // Create a point cloud of ROI regions.
-    Point2i tl_px = Point2i(roi.x, roi.y);
-    PointCloud<PointXYZ>::Ptr pc = zero_cloud(roi.width, roi.height);
-    for (const auto& region : workspc_px) {
-        for (const auto& px : region) {
-            PointXYZ& pt = pc->at(px.x, px.y);
-            CoordinateConverter::convertDepthToWorld(
-                depth_stream,
-                float(px.x+roi.x), float(px.y+roi.y),
-                depth_f32_mat.at<float>(px + tl_px),
-                &pt.x, &pt.y, &pt.z);
-        }
-    }
-
-    // Do 3D workspace culling.
-    for (auto& pt : pc->points) {
-        if (pt.x < ftl.x or pt.x > bbr.x or
-            pt.y > ftl.y or pt.y < bbr.y or
-            pt.z < ftl.z or pt.z > bbr.z)
-        {
-            pt = PointXYZ(0.0, 0.0, 0.0);
-        }
-    }
-
-    // Remove planes.
-    vector<int> idx_px_map;
-    PointCloud<PointXYZ>::Ptr object_pc = remove_planes(pc, &idx_px_map);
-    if (idx_px_map.size() < MIN_REGION_SIZE) {
-        return ObjectInfo();
-    }
-
-    // Cluster remaining points.
-    vector<PointIndices> cluster_idx;
-    search::KdTree<PointXYZ>::Ptr tree(new search::KdTree<PointXYZ>);
-    tree->setInputCloud(object_pc);
-    EuclideanClusterExtraction<PointXYZ> ec;
-    ec.setClusterTolerance(4.5);
-    ec.setMinClusterSize(MIN_REGION_SIZE);
-    ec.setMaxClusterSize(25000);
-    ec.setSearchMethod(tree);
-    ec.setInputCloud(object_pc);
-    ec.extract(cluster_idx);
-
-    // Convert clusters back into pixel coordinates.
-    vector<vector<Point2i>> object_px;
-    for (const auto& cluster : cluster_idx) {
-        vector<Point2i> px_coords;
-        for (const auto& i : cluster.indices) {
-            px_coords.push_back(Point2i(
-                idx_px_map[i] % roi.width, idx_px_map[i] / roi.width));
-        }
-        object_px.push_back(px_coords);
-    }
-
-    return { pc, object_px, roi };
-}
-
-PointCloud<PointXYZ>::Ptr zero_cloud(int width, int height) {
-    PointCloud<PointXYZ>::Ptr pc(new PointCloud<PointXYZ>);
-    pc->width = width;
-    pc->height = height;
-    pc->resize(width * height);
-    pc->is_dense = true;
-    return pc;
-}
-
-PointCloud<Normal>::Ptr estimate_normals(PointCloud<PointXYZ>::ConstPtr pc) {
-    PointCloud<Normal>::Ptr normals (new PointCloud<Normal>);
-    IntegralImageNormalEstimation<PointXYZ, Normal> ne;
-    ne.setNormalEstimationMethod(ne.AVERAGE_3D_GRADIENT);
-    ne.setMaxDepthChangeFactor(0.02f);
-    ne.setNormalSmoothingSize(10.0f);
-    ne.setInputCloud(pc);
-    ne.compute(*normals);
-    return normals;
-}
-
-PointCloud<PointXYZ>::Ptr remove_planes(
-    PointCloud<PointXYZ>::ConstPtr pc,
-    vector<int> *indices_out)
-{
-    // Do plane segmentation.
-    PointCloud<pcl::PointXYZ>::Ptr filtered = pc->makeShared();
-    vector<int> keep_idx;
-    bool first_time = true;
-    ModelCoefficients::Ptr coefficients(new ModelCoefficients);
-    PointIndices::Ptr inliers(new PointIndices);
-    SACSegmentation<PointXYZ> seg;
-    seg.setOptimizeCoefficients(true);
-    seg.setModelType(SACMODEL_PLANE);
-    seg.setMethodType(SAC_RANSAC);
-    seg.setMaxIterations(500);
-    seg.setDistanceThreshold(2.5);
-    ExtractIndices<PointXYZ> extract;
-    int nr_points = (int) filtered->points.size();
-    while (true) {
-        // Segment the largest planar component from the remaining cloud.
-        seg.setInputCloud(filtered);
-        seg.segment(*inliers, *coefficients);
-        if (inliers->indices.size() == 0) {
-            cerr << "Could not estimate a planar model for the given dataset."
-                 << endl;
-            break;
-        }
-
-        // Extract the inliers.
-        extract.setInputCloud(filtered);
-        extract.setIndices(inliers);
-        extract.setNegative(true);
-        vector<int> filtered_idx;
-        extract.filter(filtered_idx);
-        int num_before = filtered->size();
-        extract.filter(*filtered);
-        int num_after = filtered->size();
-
-        // Extraction creates unorganized point clouds, so track the index
-        // mapping to preserve pixel coordinates.
-        if (first_time) {
-            first_time = false;
-            keep_idx = filtered_idx;
-        } else {
-            vector<int> filt;
-            for (int j : filtered_idx) {
-                filt.push_back(keep_idx[j]);
-            }
-            swap(keep_idx, filt);
-        }
-
-        // Stop when the planes being removed become small.
-        if (num_before - num_after < 50000) {
-            break;
-        }
-    }
-
-    if (indices_out != nullptr) {
-        swap(*indices_out, keep_idx);
-    }
-
-    return filtered;
-}
-
-Mat draw_color_on_depth(const Mat& color, const Mat& depth) {
-    Mat out = Mat::zeros(color.size(), CV_8UC3);
-    for (int y = 0; y < out.rows; ++y) {
-        for (int x = 0; x < out.cols; ++x) {
-            if (depth.at<uint16_t>(y,x) != 0) {
-                out.at<Vec3b>(y,x) = color.at<Vec3b>(y,x);
-            }
-        }
-    }
-    return out;
-}
-
-Rect roi_from_workspace_corners(
+static Rect roi_from_workspace_corners(
     const Point3f& ftl, const Point3f& bbr, const VideoStream& depth_stream)
 {
     // Convert Rexarm workspace vertices to pixel coordinates.
@@ -221,7 +66,7 @@ Rect roi_from_workspace_corners(
     max_x = max_y = 0;
     for (const auto& c : workspc_corners) {
         Point2i px;
-        uint16_t z;
+        uint16_t z; // unused
         CoordinateConverter::convertWorldToDepth(
             depth_stream, c.x, c.y, c.z, &px.x, &px.y, &z);
         if (px.x < min_x)
@@ -237,46 +82,190 @@ Rect roi_from_workspace_corners(
     Rect roi(0, 0, vm.getResolutionX(), vm.getResolutionY());
     if (min_x > 0 and min_x < vm.getResolutionX())
         roi.x = min_x;
-    if (max_x > 0 and max_x < vm.getResolutionX())
-        roi.width = max_x - min_x;
     if (min_y > 0 and min_y < vm.getResolutionY())
         roi.y = min_y;
-    if (max_y > 0 and max_y < vm.getResolutionY())
-        roi.height = max_y - min_y;
-
+    int width = max_x - min_x;
+    int height = max_y - min_y;
+    roi.width = min(vm.getResolutionX() - roi.x, width);
+    roi.height = min(vm.getResolutionY() - roi.y, height);
     return roi;
 }
 
-vector<vector<Point2i>> get_workspace_pixels(
-    const VideoStream& depth_stream,
-    const Mat& depth,
-    const Point3f& ftl,
-    const Point3f& bbr,
-    Rect* roi_out)
+static void remove_small_regions(
+    vector<vector<Point2i>> *object_regions, size_t min_region_size)
 {
-    Rect roi = roi_from_workspace_corners(ftl, bbr, depth_stream);
-
-    // Select ROI from depth image.
-    Mat crop = depth(roi);
-
-    // Do depth thresholding.
-    threshold(crop, crop, bbr.z, 0, THRESH_TOZERO_INV);
-    threshold(crop, crop, ftl.z, 0, THRESH_TOZERO);
-
-    // Extract regions as sets of pixels.
-    vector<vector<Point2i>> object_regions =
-        find_nonzero_components<float>(crop);
-
-    // Reject small regions.
-    auto new_end = remove_if(object_regions.begin(), object_regions.end(),
-        [](const vector<Point2i>& region) {
-            return region.size() < MIN_REGION_SIZE;
+    auto new_end = remove_if(object_regions->begin(), object_regions->end(),
+        [min_region_size](const vector<Point2i>& region) {
+            return region.size() < min_region_size;
         }
     );
-    object_regions.erase(new_end, object_regions.end());
+    object_regions->erase(new_end, object_regions->end());
+}
 
-    if (roi_out != nullptr)
-        *roi_out = roi;
+// `indices_out` returns the original pixel coordinates as indices.
+// I.e. for *returned* cloud point i,
+//   px_coord[i] = (indices_out[i] % img_width, indices_out[i] / img_width)
+static void remove_planes(
+    PointCloud<PointXYZ>::Ptr pc,
+    float dist_thresh,
+    IndicesPtr idx_px_map)
+{
+    // Do plane segmentation.
+    ModelCoefficients::Ptr coefficients(new ModelCoefficients);
+    PointIndices::Ptr inliers(new PointIndices);
+    SACSegmentation<PointXYZ> seg;
+    seg.setOptimizeCoefficients(true);
+    seg.setModelType(SACMODEL_PLANE);
+    seg.setMethodType(SAC_RANSAC);
+    seg.setMaxIterations(500);
+    seg.setDistanceThreshold(dist_thresh);
+    ExtractIndices<PointXYZ> extract;
+    while (true) {
+        // Segment the largest planar component from the remaining cloud.
+        seg.setInputCloud(pc);
+        seg.segment(*inliers, *coefficients);
+        if (inliers->indices.size() == 0) {
+            cerr << "Could not estimate a planar model for the given dataset."
+                 << endl;
+            break;
+        }
 
-    return object_regions;
+        // Extract the inliers.
+        extract.setInputCloud(pc);
+        extract.setIndices(inliers);
+        extract.setNegative(true);
+        vector<int> kept_idx;
+        extract.filter(kept_idx);
+        int num_before = pc->size();
+        extract.filter(*pc);
+        int num_after = pc->size();
+
+        // Extraction creates unorganized point clouds, so track the index
+        // mapping to preserve pixel coordinates.
+        vector<int> new_map;
+        for (int j : kept_idx) {
+            new_map.push_back((*idx_px_map)[j]);
+        }
+        swap(*idx_px_map, new_map);
+
+        // Stop when the planes being removed become small.
+        if (num_before - num_after < 50000) {
+            break;
+        }
+    }
+}
+
+static PointCloud<PointXYZ>::Ptr zero_cloud(int width, int height) {
+    PointCloud<PointXYZ>::Ptr pc(new PointCloud<PointXYZ>);
+    pc->width = width;
+    pc->height = height;
+    pc->resize(width * height);
+    pc->is_dense = true;
+    return pc;
+}
+
+ObjectInfo get_workspace_objects(
+    const VideoStream& depth_stream,
+    const Mat& depth_f32_mat,
+    const Point3f& ftl,
+    const Point3f& bbr,
+    size_t min_region_size,
+    float plane_dist_thresh,
+    float cluster_tolerance)
+{
+    // 2D workspace culling.
+    Rect roi = roi_from_workspace_corners(ftl, bbr, depth_stream);
+    Mat crop = depth_f32_mat(roi);
+    threshold(crop, crop, ftl.z, 0, THRESH_TOZERO);
+    threshold(crop, crop, bbr.z, 0, THRESH_TOZERO_INV);
+    vector<vector<Point2i>> workspc_px = find_nonzero_components<float>(crop);
+    remove_small_regions(&workspc_px, min_region_size);
+    if (workspc_px.empty()) {
+        return ObjectInfo();
+    }
+
+    // Create a point cloud of ROI regions.
+    PointCloud<PointXYZ>::Ptr pc = zero_cloud(roi.width, roi.height);
+    for (const auto& region : workspc_px) {
+        for (const auto& px : region) {
+            PointXYZ& pt = pc->at(px.x, px.y);
+            CoordinateConverter::convertDepthToWorld(
+                depth_stream,
+                float(px.x+roi.x), float(px.y+roi.y),
+                crop.at<float>(px),
+                &pt.x, &pt.y, &pt.z);
+        }
+    }
+
+    // 3D workspace culling. Organized cloud becomes unorganized, so keep track
+    // of index -> pixel mapping.
+    IndicesPtr idx_px_map(new vector<int>);
+    for (size_t i = 0; i < pc->size(); ++i) {
+        const auto& pt = pc->points[i];
+        if (pt.x > ftl.x and pt.x < bbr.x and
+            pt.y < ftl.y and pt.y > bbr.y and
+            pt.z > ftl.z and pt.z < bbr.z)
+        {
+            idx_px_map->push_back(i);
+        }
+    }
+    PointCloud<PointXYZ>::Ptr filt_pc = pc->makeShared();
+    ExtractIndices<PointXYZ> filter;
+    filter.setInputCloud(filt_pc);
+    filter.setIndices(idx_px_map);
+    filter.filter(*filt_pc);
+
+    // Remove planes.
+    remove_planes(filt_pc, plane_dist_thresh, idx_px_map);
+    if (idx_px_map->size() < min_region_size) {
+        return ObjectInfo();
+    }
+
+    // Cluster remaining points.
+    vector<PointIndices> cluster_idx;
+    search::KdTree<PointXYZ>::Ptr tree(new search::KdTree<PointXYZ>);
+    tree->setInputCloud(filt_pc);
+    EuclideanClusterExtraction<PointXYZ> ec;
+    ec.setClusterTolerance(cluster_tolerance);
+    ec.setMinClusterSize(min_region_size);
+    ec.setMaxClusterSize(25000);
+    ec.setSearchMethod(tree);
+    ec.setInputCloud(filt_pc);
+    ec.extract(cluster_idx);
+
+    // Convert clusters back into ROI-space pixel coordinates.
+    vector<vector<Point2i>> object_px;
+    for (const auto& cluster : cluster_idx) {
+        vector<Point2i> px_coords;
+        for (const auto& i : cluster.indices) {
+            px_coords.push_back(Point2i(
+                (*idx_px_map)[i] % roi.width, (*idx_px_map)[i] / roi.width));
+        }
+        object_px.push_back(px_coords);
+    }
+
+    return { pc, object_px, roi };
+}
+
+PointCloud<Normal>::Ptr estimate_normals(PointCloud<PointXYZ>::ConstPtr pc) {
+    PointCloud<Normal>::Ptr normals (new PointCloud<Normal>);
+    IntegralImageNormalEstimation<PointXYZ, Normal> ne;
+    ne.setNormalEstimationMethod(ne.AVERAGE_3D_GRADIENT);
+    ne.setMaxDepthChangeFactor(0.02f);
+    ne.setNormalSmoothingSize(10.0f);
+    ne.setInputCloud(pc);
+    ne.compute(*normals);
+    return normals;
+}
+
+Mat draw_color_on_depth(const Mat& color, const Mat& depth) {
+    Mat out = Mat::zeros(color.size(), CV_8UC3);
+    for (int y = 0; y < out.rows; ++y) {
+        for (int x = 0; x < out.cols; ++x) {
+            if (depth.at<uint16_t>(y,x) != 0) {
+                out.at<Vec3b>(y,x) = color.at<Vec3b>(y,x);
+            }
+        }
+    }
+    return out;
 }

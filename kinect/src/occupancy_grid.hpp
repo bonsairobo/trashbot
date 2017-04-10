@@ -17,7 +17,8 @@ public:
     OccupancyGrid(int width, int height);
     void update(
         const std::vector<std::vector<cv::Point2i>>& objects,
-        const cv::Mat& edges);
+        const std::vector<cv::Point2i>& object_medoids,
+        const std::vector<cv::Point2i>& edge_medoids);
     cv::Mat get_weights() const;
 };
 

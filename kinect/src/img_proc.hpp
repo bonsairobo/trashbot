@@ -14,11 +14,17 @@ struct ObjectInfo {
     cv::Rect roi;
 };
 
+cv::Rect roi_from_workspace_corners(
+    const cv::Point3f& ftl,
+    const cv::Point3f& bbr,
+    const openni::VideoStream& depth_stream);
+
 ObjectInfo get_workspace_objects(
     const openni::VideoStream& depth_stream,
     const cv::Mat& depth_f32_mat,
     const cv::Point3f& ftl,
     const cv::Point3f& bbr,
+    const cv::Rect& roi,
     size_t min_region_size,
     float plane_dist_thresh,
     float cluster_tolerance);

@@ -74,8 +74,9 @@ int main(int argc, char **argv) {
     VideoMode vm = depth_stream.getVideoMode();
     OccupancyGrid object_grid(vm.getResolutionX(), vm.getResolutionY());
 
-    Point3f ftl(-300.0, 300.0, 650.0);
-    Point3f bbr(300.0, -280.0, 850.0);
+    Point3f ftl(-200.0, 0.0, 650.0);
+    Point3f bbr(200.0, -280.0, 850.0);
+    Rect roi = roi_from_workspace_corners(ftl, bbr, depth_stream);
 
     uint8_t key = 0;
     while (key != ESC_KEYCODE) {
@@ -124,7 +125,7 @@ int main(int argc, char **argv) {
         if (do_search) {
             // Get pixels, cloud, and ROI for workspace objects.
             ObjectInfo obj_info = get_workspace_objects(
-                depth_stream, depth_f32_mat, ftl, bbr, 100, 3.0, 4.3);
+                depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 3.0, 4.3);
             if (!obj_info.object_pixels.empty()) {
                 // Choose the "best" object.
                 float min_depth = numeric_limits<float>::max();

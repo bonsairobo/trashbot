@@ -60,6 +60,7 @@ int main(int argc, char **argv) {
 
     Point3f ftl(-200.0, 0.0, 650.0);
     Point3f bbr(200.0, -280.0, 850.0);
+    Rect roi = roi_from_workspace_corners(ftl, bbr, depth_stream);
 
     for (int i = 0; i < num_depth_frames; ++i) {
         // This should set also set color stream to the same point in time.
@@ -82,7 +83,7 @@ int main(int argc, char **argv) {
 
         // Get pixels, points, normals, and ROI for workspace objects.
         ObjectInfo obj_info = get_workspace_objects(
-            depth_stream, depth_f32_mat, ftl, bbr, 100, 2.5, 4.3);
+            depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.5, 4.3);
         Point2i tl_px(obj_info.roi.x, obj_info.roi.y);
 
         // Choose the closest object to the Rexarm.

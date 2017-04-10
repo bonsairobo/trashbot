@@ -47,7 +47,7 @@ vector<Point2i> translate_px_coords(
     return out;
 }
 
-static Rect roi_from_workspace_corners(
+Rect roi_from_workspace_corners(
     const Point3f& ftl, const Point3f& bbr, const VideoStream& depth_stream)
 {
     // Convert Rexarm workspace vertices to pixel coordinates.
@@ -169,12 +169,12 @@ ObjectInfo get_workspace_objects(
     const Mat& depth_f32_mat,
     const Point3f& ftl,
     const Point3f& bbr,
+    const Rect& roi,
     size_t min_region_size,
     float plane_dist_thresh,
     float cluster_tolerance)
 {
     // 2D workspace culling.
-    Rect roi = roi_from_workspace_corners(ftl, bbr, depth_stream);
     Mat crop = depth_f32_mat(roi);
     threshold(crop, crop, ftl.z, 0, THRESH_TOZERO);
     threshold(crop, crop, bbr.z, 0, THRESH_TOZERO_INV);

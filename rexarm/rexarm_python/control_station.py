@@ -1,4 +1,6 @@
+import struct
 import sys
+import os
 import time
 import cv2
 import numpy as np
@@ -7,6 +9,7 @@ from PyQt4 import QtGui, QtCore, Qt
 from ui import Ui_MainWindow
 from rexarm import Rexarm
 import functools #Let's us give parameters to callback functions for QT connect
+import socket
 
 from video import Video
 
@@ -98,6 +101,7 @@ class Gui(QtGui.QMainWindow):
         #Testing a pick up position (Waterbottle)
         point = [0.039,-0.002,0.35,37*D2R]
         point = [0.18,0,0.294,(352 * D2R)]
+        point = [-0.22,0.04,-0.01, 82 * D2R]
         self.ui.btnUser6.setText("IK on " + str(point))
         self.ui.btnUser6.clicked.connect(functools.partial(self.runIK,point))
 
@@ -287,7 +291,7 @@ class Gui(QtGui.QMainWindow):
     # angles is a list of floats, an angle for each joint
     def setPose(self,desired_angles):
         #Use the linear motion plan that the professor explained
-        step_size = 0.05
+        step_size = 0.04
         t_range = list(np.arange(0,1 + step_size,step_size))
 
         desired_angles = np.array(desired_angles)
@@ -375,11 +379,98 @@ class Gui(QtGui.QMainWindow):
         self.ui.rdoutStatus.setText("Affine Calibration: Click Point %d" 
                                     %(self.video.mouse_click_id + 1))
  
+    def init_socket(self):
+        UDP_IP = "127.0.0.1"
+        UDP_PORT = 5005
+        
+        self.sock = socket.socket(socket.AF_INET, # Internet
+                         socket.SOCK_DGRAM) # UDP
+        self.kinect_path = "/tmp/kinect_endpoint"
+
+        try:
+            os.remove(self.kinect_path)
+        except OSError:
+            pass
+        self.sock.bind(self.kinect_path)
+        self.sock.listen(1)
+
+        #Blocks until Kinect code connects
+        self.conn, self.addr = self.sock.accept()
+
+    def get_socket_data(self):
+        #Grasping Point struct is 28 bytes
+        data = self.conn.recv(28)
+        if not data:
+            #Error
+            pass
+        #p is point. n is normal
+        #TODO: Check endianness
+        time, p1,p2,p3,n1,n2,n3 = struct.unpack("iffffff", data)
+        print "Time:", time
+        print "Point:", p1,p2,p3
+        print "Normal:", n1,n2,n3
+
+    def trash_state_machine(self):
+        self.init_socket()
+        poses = {"START": [0,0,0,0,0,0],
+                 "HOME": [PI,0,0,0,0,0],
+                 "NET": [],
+                 "HIDE": []
+        }
+
+        desired_IK = []
+
+        #State1: Turn 90 degrees at base to prevent collision
+        states = ["START","TURN_TO_HOME_FROM_START", "RUN_IK", "GRASP", "LIFT_TO_HOME", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION","UNHIDE","TURN TO HOME FROM UNHIDE"]
+        curr_state = "START"
+        while True:
+            if curr_state == "START":
+                self.setPose(poses["START"])
+                #TODO: Function to check we reached the pose 
+                next_state = "TURN_TO_HOME_FROM_START"
+
+            elif curr_state == "TURN_TO_HOME_FROM_START":
+                self.setPose(poses["HOME"])
+                next_state = "HIDE_POSITION"
+
+            elif curr_state == "RUN_IK":
+                #Run_IK
+                pass
+            elif curr_state == "GRASP":
+                #Set joint 5 to grasp a certain amount
+                pass
+            elif curr_state == "LIFT_TO_HOME":
+                #Set all joints accept base joint to 0
+                pass
+            elif curr_state == "TURN_TO_NET":
+                self.setPose(poses["NET"])
+            elif curr_state == "ARCH_TO_NET":
+                pass
+            elif curr_state == "DROP":
+                #Set joint 5 to 0 angle
+                pass
+            elif curr_state == "UNARCH":
+                #Set joint 5 to 0 angle
+                pass
+            elif curr_state == "TURN_TO_HOME_FROM_NET":
+                #Set all joints to 0
+                pass
+            elif curr_state == "UNHIDE":
+                #go to an intermediate position
+                next_state = "TURN_TO_HOME_FROM_UNHIDE"
+            elif curr_state == "HIDE_POSITION":
+                #TODO
+                #Block and wait for next point of new object
+                self.get_socket_data()
+                next_state = "UNHIDE"
+            curr_state == next_state
+
 def main():
     app = QtGui.QApplication(sys.argv)
     ex = Gui()
     ex.show()
     sys.exit(app.exec_())
- 
+    """
+    """
 if __name__ == '__main__':
     main()

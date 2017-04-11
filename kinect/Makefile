@@ -3,7 +3,6 @@ CXX_FLAGS = -g -Wall -pedantic -std=c++11 -c
 INCLUDE_PATH = -I libfreenect/include \
 			   -I OpenNI2/Include \
 			   -I ./pcl/build/include \
-			   -I /usr/include/vtk-5.8 \
 			   -I .. \
 			   -I /usr/local/include/pcl-1.8 \
 
@@ -18,8 +17,6 @@ VPATH = src \
 		obj
 
 KINECT_SRCS = main.cpp \
-			  localization_model.cpp \
-			  grasping_model.cpp \
 			  img_proc.cpp \
 			  common.cpp \
 			  occupancy_grid.cpp
@@ -50,8 +47,6 @@ file_analysis: obj/file_analysis.o obj/img_proc.o obj/common.o obj/occupancy_gri
 									   -l opencv_imgcodecs \
 									   -l opencv_imgproc \
 									   -l OpenNI2 \
-									   -l boost_system \
-									   -l boost_filesystem \
 									   -l pcl_common \
 									   -l pcl_features \
 									   -l pcl_search \

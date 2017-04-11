@@ -1,6 +1,4 @@
 #include "../../common/socket_types.hpp"
-#include "grasping_model.hpp"
-#include "localization_model.hpp"
 #include "img_proc.hpp"
 #include "common.hpp"
 #include "occupancy_grid.hpp"
@@ -55,12 +53,6 @@ int main(int argc, char **argv) {
         recorder.start();
     }
 
-    // Open webcam.
-    VideoCapture webcam(0);
-    if (!webcam.isOpened()) {
-        cout << "Did not find webcam." << endl;
-    }
-
     if (show_feeds) {
         namedWindow("kinect_feed", 1);
         namedWindow("objects", 1);
@@ -79,16 +71,16 @@ int main(int argc, char **argv) {
     int sock = try_create_udp_socket();
     try_bind_path(sock, kin_addr);
 
-    //LocalizationModel loc_model;
-    //GraspingModel grasp_model;
-
     VideoMode vm = depth_stream.getVideoMode();
     OccupancyGrid object_grid(vm.getResolutionX(), vm.getResolutionY());
 
+    Point3f ftl(-200.0, 0.0, 650.0);
+    Point3f bbr(200.0, -280.0, 850.0);
+    Rect roi = roi_from_workspace_corners(ftl, bbr, depth_stream);
+
     uint8_t key = 0;
     while (key != ESC_KEYCODE) {
-        // Block until new frame data is ready.
-        Mat depth_u16_mat, color_mat, webcolor_mat;
+        Mat depth_u16_mat, color_mat;
         VideoFrameRef depth_frame;
         if (get_mat_from_stream(
             depth_stream, depth_u16_mat, log_stream, 2, &depth_frame) != 0)
@@ -99,17 +91,6 @@ int main(int argc, char **argv) {
             color_stream, color_mat, log_stream, 3, nullptr) != 0)
         {
             return 1;
-        }
-        if (webcam.isOpened())
-            webcam.read(webcolor_mat);
-
-        if (record_streams and webcam.isOpened()) {
-            // Use depth frame timestamp for relative ordering, but timestamps
-            // don't get saved to ONI.
-            imwrite(
-                "images/webcolor" +
-                    to_string(depth_frame.getTimestamp()) + ".png",
-                webcolor_mat);
         }
 
         Mat depth_f32_mat;
@@ -142,19 +123,11 @@ int main(int argc, char **argv) {
         }*/
 
         if (do_search) {
-            // Get pixels, points, normals, and ROI for workspace objects.
-            ObjectInfo obj_info =
-                get_workspace_objects(depth_stream, depth_f32_mat);
+            // Get pixels, cloud, and ROI for workspace objects.
+            ObjectInfo obj_info = get_workspace_objects(
+                depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 3.0, 4.3);
             if (!obj_info.object_pixels.empty()) {
-                Point2i tl_px(obj_info.roi.x, obj_info.roi.y);
-
-                // TODO: see if normal estimation would benefit from an
-                // optimization that cuts the cloud image into sub-images, one
-                // for each object.
-                auto normal_cloud = estimate_normals(obj_info.cloud);
-
                 // Choose the "best" object.
-                // TODO: make this smarter.
                 float min_depth = numeric_limits<float>::max();
                 int best_obj_idx = -1;
                 int j = 0;
@@ -169,6 +142,7 @@ int main(int argc, char **argv) {
                 }
 
                 // Translate pixel coordinates back to original image from ROI.
+                Point2i tl_px(obj_info.roi.x, obj_info.roi.y);
                 vector<vector<Point2i>> trans_object_px;
                 for (const auto& object : obj_info.object_pixels) {
                     trans_object_px.push_back(
@@ -199,21 +173,36 @@ int main(int argc, char **argv) {
                     dilate(edges, edges, element);
                     imshow("edges", edges);
 
-                    object_grid.update(trans_object_px, edges);
+                    // Extract objects from edges in point cloud ROI.
+                    vector<vector<Point2i>> edge_objects =
+                        find_nonzero_components<uint8_t>(edges);
+
+                    vector<Point2i> object_medoids;
+                    for (const auto& obj : trans_object_px) {
+                        object_medoids.push_back(region_medoid(obj));
+                    }
+                    vector<Point2i> edge_medoids;
+                    for (const auto& obj : edge_objects) {
+                        edge_medoids.push_back(region_medoid(obj));
+                    }
+
+                    object_grid.update(
+                        trans_object_px, object_medoids, edge_medoids);
                     Mat weights = object_grid.get_weights();
                     threshold(weights, weights, 0.9, 0, THRESH_TOZERO);
                     imshow("objects", weights);
                 }
 
-                Point2i centroid =
-                    region_centroid(obj_info.object_pixels[best_obj_idx]);
+                Point2i medoid =
+                    region_medoid(obj_info.object_pixels[best_obj_idx]);
 
                 // Send grasping point to the Rexarm.
+                auto normal_cloud = estimate_normals(obj_info.cloud);
                 GraspingPoint gp;
                 gp.point = vec3f_from_pointxyz(
-                    obj_info.cloud->at(centroid.x, centroid.y));
+                    obj_info.cloud->at(medoid.x, medoid.y));
                 gp.normal = vec3f_from_normal(
-                    normal_cloud->at(centroid.x, centroid.y));
+                    normal_cloud->at(medoid.x, medoid.y));
                 gp.time_ms = depth_frame.getTimestamp();
                 sendto(
                     sock,

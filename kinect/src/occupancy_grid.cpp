@@ -9,7 +9,7 @@ OccupancyGrid::OccupancyGrid(int width, int height):
     max_odds(numeric_limits<uint8_t>::max()),
     min_odds(numeric_limits<uint8_t>::lowest()),
     hit_odds(25),
-    miss_odds(10),
+    miss_odds(3),
     odds(height, width, CV_8U, Scalar(max_odds / 2))
 {}
 
@@ -49,28 +49,17 @@ static float roi_object_score(const vector<Point2i>& region, const Mat& mask) {
 }
 
 void OccupancyGrid::update(
-    const vector<vector<Point2i>>& objects, const Mat& edges)
+    const vector<vector<Point2i>>& objects,
+    const vector<Point2i>& object_medoids,
+    const vector<Point2i>& edge_medoids)
 {
-    // Extract objects from edges in point cloud ROI.
-    vector<vector<Point2i>> edge_objects =
-        find_nonzero_components<uint8_t>(edges);
-
-    // Compare centroids of edge objects and point cloud objects.
-    vector<Point2i> edge_centroids;
-    for (const auto& obj : edge_objects) {
-        edge_centroids.push_back(region_centroid(obj));
-    }
-    vector<Point2i> object_centroids;
-    for (const auto& obj : objects) {
-        object_centroids.push_back(region_centroid(obj));
-    }
-    const float min_dist = 25.0;
     int obj_idx = 0;
     vector<int> valid_obj_idx;
-    for (const auto& obj_cent : object_centroids) {
-        for (const auto& edge_cent : edge_centroids) {
+    for (const auto& obj_cent : object_medoids) {
+        float radius = sqrt(objects[obj_idx].size() / 3.14159);
+        for (const auto& edge_cent : edge_medoids) {
             if (hypot(obj_cent.x - edge_cent.x, obj_cent.y - edge_cent.y)
-                <= min_dist)
+                <= radius)
             {
                 valid_obj_idx.push_back(obj_idx);
                 break;
@@ -88,9 +77,6 @@ void OccupancyGrid::update(
         }
     }
     // Hit object pixels.
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> dis(0, 100000);
     cv::Mat visited = cv::Mat::zeros(mask.size(), CV_8UC1);
     for (const auto& obj : objects) {
         float prob = roi_object_score(obj, mask);

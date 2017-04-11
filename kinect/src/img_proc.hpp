@@ -8,52 +8,39 @@
 #include <pcl/point_types.h>
 #include <common/socket_types.hpp>
 
-inline Vec3f vec3f_from_pointxyz(const pcl::PointXYZ& p) {
-    return { p.x, p.y, p.z };
-}
+struct ObjectInfo {
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
+    std::vector<std::vector<cv::Point2i>> object_pixels; // ROI coordinates
+    cv::Rect roi;
+};
 
-inline Vec3f vec3f_from_normal(const pcl::Normal& p) {
-    return { p.normal_x, p.normal_y, p.normal_z };
-}
+cv::Rect roi_from_workspace_corners(
+    const cv::Point3f& ftl,
+    const cv::Point3f& bbr,
+    const openni::VideoStream& depth_stream);
+
+ObjectInfo get_workspace_objects(
+    const openni::VideoStream& depth_stream,
+    const cv::Mat& depth_f32_mat,
+    const cv::Point3f& ftl,
+    const cv::Point3f& bbr,
+    const cv::Rect& roi,
+    size_t min_region_size,
+    float plane_dist_thresh,
+    float cluster_tolerance);
 
 cv::Point2i region_centroid(const std::vector<cv::Point2i>&);
+
+cv::Point2i region_medoid(const std::vector<cv::Point2i>&);
 
 std::vector<cv::Point2i> translate_px_coords(
     const std::vector<cv::Point2i>&,
     const cv::Point2i&);
 
-struct ObjectInfo {
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
-    std::vector<std::vector<cv::Point2i>> object_pixels;
-    cv::Rect roi;
-};
-
-ObjectInfo get_workspace_objects(
-    const openni::VideoStream& depth_stream,
-    const cv::Mat& depth_f32_mat);
-
-// `indices_out` returns the original pixel coordinates as indices.
-// I.e. for *returned* cloud point i,
-//   px_coord[i] = (indices_out[i] % img_width, indices_out[i] / img_width)
-pcl::PointCloud<pcl::PointXYZ>::Ptr remove_planes(
-    pcl::PointCloud<pcl::PointXYZ>::ConstPtr,
-    std::vector<int> *indices_out);
-
 pcl::PointCloud<pcl::Normal>::Ptr estimate_normals(
     pcl::PointCloud<pcl::PointXYZ>::ConstPtr);
 
 cv::Mat draw_color_on_depth(const cv::Mat& color, const cv::Mat& depth);
-
-pcl::PointCloud<pcl::PointXYZ>::Ptr zero_cloud(int width, int height);
-
-// Returns all pixels in the workspace of the Rexarm (bounding box).
-// Assumes that the Rexarm workspace is aligned with the camera.
-std::vector<std::vector<cv::Point2i>> get_workspace_pixels(
-    const openni::VideoStream& depth_stream,
-    const cv::Mat& depth,
-    const cv::Point3f& ftl,
-    const cv::Point3f& bbr,
-    cv::Rect* roi_out);
 
 template<typename T>
 std::vector<cv::Point2i> flood_select(
@@ -107,11 +94,39 @@ std::vector<std::vector<cv::Point2i>> find_nonzero_components(const cv::Mat& m)
 
 template<typename T>
 void draw_pixels(
-    cv::Mat& img, std::vector<cv::Point2i> pixels, const T& color)
+    cv::Mat& img, const std::vector<cv::Point2i>& pixels, const T& color)
 {
     for (auto px : pixels) {
         img.at<T>(px) = color;
     }
+}
+
+template<typename T>
+void draw_points(
+    cv::Mat& img, std::vector<cv::Point2i> pixels, const T& color)
+{
+    for (const auto& c : pixels) {
+        std::vector<cv::Point2i> blob = {
+            c,
+            c + cv::Point2i(0, 1),
+            c + cv::Point2i(1, 0),
+            c + cv::Point2i(-1, 1),
+            c + cv::Point2i(1, -1),
+            c + cv::Point2i(0, -1),
+            c + cv::Point2i(-1, 0),
+            c + cv::Point2i(1, 1),
+            c + cv::Point2i(-1, -1),
+        };
+        draw_pixels<T>(img, blob, color);
+    }
+}
+
+inline Vec3f vec3f_from_pointxyz(const pcl::PointXYZ& p) {
+    return { p.x, p.y, p.z };
+}
+
+inline Vec3f vec3f_from_normal(const pcl::Normal& p) {
+    return { p.normal_x, p.normal_y, p.normal_z };
 }
 
 #endif // IMG_PROC_HPP

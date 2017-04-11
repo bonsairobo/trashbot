@@ -382,7 +382,7 @@ class Gui(QtGui.QMainWindow):
     def init_socket(self):
         self.sock = socket.socket(socket.AF_UNIX, # Local computer
                          socket.SOCK_DGRAM) # UDP
-        self.kinect_path = "/tmp/kinect_endpoint"
+        self.kinect_path = "/tmp/rexarm_endpoint"
 
         try:
             os.remove(self.kinect_path)

@@ -380,7 +380,7 @@ class Gui(QtGui.QMainWindow):
                                     %(self.video.mouse_click_id + 1))
  
     def init_socket(self):
-        self.sock = socket.socket(socket.AF_INET, # Internet
+        self.sock = socket.socket(socket.AF_UNIX, # Local computer
                          socket.SOCK_DGRAM) # UDP
         self.kinect_path = "/tmp/kinect_endpoint"
 
@@ -389,23 +389,28 @@ class Gui(QtGui.QMainWindow):
         except OSError:
             pass
         self.sock.bind(self.kinect_path)
-        self.sock.listen(1)
+        print "Socket binded. Ready to receive data."
+        # Don't need this?
+        #self.sock.listen(1)
 
         #Blocks until Kinect code connects
-        self.conn, self.addr = self.sock.accept()
+        #self.conn, self.addr = self.sock.accept()
 
     def get_socket_data(self):
         #Grasping Point struct is 28 bytes
-        data = self.conn.recv(28)
-        if not data:
-            #Error
-            pass
-        #p is point. n is normal
-        #TODO: Check endianness
-        time, p1,p2,p3,n1,n2,n3 = struct.unpack("iffffff", data)
-        print "Time:", time
-        print "Point:", p1,p2,p3
-        print "Normal:", n1,n2,n3
+        while True:
+            print "Waiting for data..."
+            data,addr = self.sock.recvfrom(28)
+            print "Received 28 bytes"
+            if not data:
+                #Error
+                pass
+            #p is point. n is normal
+            #TODO: Check endianness
+            time, p1,p2,p3,n1,n2,n3 = struct.unpack("iffffff", data)
+            print "Time:", time
+            print "Point:", p1,p2,p3
+            print "Normal:", n1,n2,n3
 
     def trash_state_machine(self):
         self.init_socket()

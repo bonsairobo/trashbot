@@ -380,9 +380,6 @@ class Gui(QtGui.QMainWindow):
                                     %(self.video.mouse_click_id + 1))
  
     def init_socket(self):
-        UDP_IP = "127.0.0.1"
-        UDP_PORT = 5005
-        
         self.sock = socket.socket(socket.AF_INET, # Internet
                          socket.SOCK_DGRAM) # UDP
         self.kinect_path = "/tmp/kinect_endpoint"
@@ -468,8 +465,11 @@ class Gui(QtGui.QMainWindow):
 def main():
     app = QtGui.QApplication(sys.argv)
     ex = Gui()
-    ex.show()
-    sys.exit(app.exec_())
+    ex.init_socket()
+    ex.get_socket_data()
+    #Put these back when not testing socket anymore
+    #ex.show()
+    #sys.exit(app.exec_())
     """
     """
 if __name__ == '__main__':

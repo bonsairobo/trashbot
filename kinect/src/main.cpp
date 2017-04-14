@@ -199,8 +199,8 @@ int main(int argc, char **argv) {
                     imshow("kinect_feed", masked);
                 }
 
-                Point2i medoid =
-                    region_medoid(obj_info.object_pixels[best_obj_idx]);
+                Point2i medoid = region_medoid(final_objects[best_obj_idx]);
+                medoid -= tl_px;
 
                 // Send grasping point to the Rexarm.
                 auto normal_cloud = estimate_normals(obj_info.cloud);

@@ -39,8 +39,6 @@ int main(int argc, char **argv) {
 
     namedWindow("kinect", 1);
     namedWindow("edges", 1);
-    namedWindow("depth", 1);
-    namedWindow("world_coords", 1);
 
     // Seek through recording by depth frame index.
     PlaybackControl *pbc = device.getPlaybackControl();
@@ -156,7 +154,6 @@ int main(int argc, char **argv) {
             ++j;
         }
         imshow("kinect", masked);
-        imshow("depth", 40 * depth_u16_mat);
 
         char key = waitKey(0);
         if (key == 27) {

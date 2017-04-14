@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
 
         // Get pixels, points, normals, and ROI for workspace objects.
         ObjectInfo obj_info = get_workspace_objects(
-            depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.5, 4.3);
+            depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.0, 4.3);
         Point2i tl_px(obj_info.roi.x, obj_info.roi.y);
 
         // Choose the closest object to the Rexarm.
@@ -149,7 +149,8 @@ int main(int argc, char **argv) {
         draw_points(color_edges, object_medoids, Vec3b(255,0,0));
         imshow("edges", color_edges);
 
-        object_grid.update(trans_object_px, object_medoids, edge_medoids);
+        object_grid.update(
+            trans_object_px, edge_objects, object_medoids, edge_medoids);
         Mat weights = object_grid.get_weights();
         threshold(weights, weights, 0.8, 0, THRESH_TOZERO);
         imshow("object_grid", weights);

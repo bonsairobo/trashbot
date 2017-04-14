@@ -187,7 +187,10 @@ int main(int argc, char **argv) {
                     }
 
                     object_grid.update(
-                        trans_object_px, object_medoids, edge_medoids);
+                        trans_object_px,
+                        edge_objects,
+                        object_medoids,
+                        edge_medoids);
                     Mat weights = object_grid.get_weights();
                     threshold(weights, weights, 0.9, 0, THRESH_TOZERO);
                     imshow("objects", weights);

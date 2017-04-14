@@ -5,6 +5,7 @@
 #include <opencv2/opencv.hpp>
 
 class OccupancyGrid {
+    int height, width;
     uint8_t max_odds;
     uint8_t min_odds;
     uint8_t hit_odds;
@@ -17,6 +18,7 @@ public:
     OccupancyGrid(int width, int height);
     void update(
         const std::vector<std::vector<cv::Point2i>>& objects,
+        const std::vector<std::vector<cv::Point2i>>& edges,
         const std::vector<cv::Point2i>& object_medoids,
         const std::vector<cv::Point2i>& edge_medoids);
     cv::Mat get_weights() const;

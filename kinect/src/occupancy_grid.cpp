@@ -6,6 +6,8 @@ using namespace cv;
 using namespace std;
 
 OccupancyGrid::OccupancyGrid(int width, int height):
+    height(height),
+    width(width),
     max_odds(numeric_limits<uint8_t>::max()),
     min_odds(numeric_limits<uint8_t>::lowest()),
     hit_odds(25),
@@ -50,27 +52,62 @@ static float roi_object_score(const vector<Point2i>& region, const Mat& mask) {
 
 void OccupancyGrid::update(
     const vector<vector<Point2i>>& objects,
+    const vector<vector<Point2i>>& edges,
     const vector<Point2i>& object_medoids,
     const vector<Point2i>& edge_medoids)
 {
+    // Make object index image.
+    Mat obj_idx_img(
+        height, width, CV_16U, Scalar(numeric_limits<uint16_t>::max()));
+    int i = 0;
+    for (const auto& obj : objects) {
+        draw_pixels<uint16_t>(obj_idx_img, obj, i);
+        ++i;
+    }
+
+    // Rank objects by closest edge overlap percentage.
+    const float min_pct = 0.1;
+    vector<float> best_pct_edge(edges.size(), min_pct);
+    vector<int> valid_obj_idx(edges.size(), -1);
     int obj_idx = 0;
-    vector<int> valid_obj_idx;
-    for (const auto& obj_cent : object_medoids) {
-        float radius = sqrt(objects[obj_idx].size() / 3.14159);
-        for (const auto& edge_cent : edge_medoids) {
-            if (hypot(obj_cent.x - edge_cent.x, obj_cent.y - edge_cent.y)
-                <= radius)
-            {
-                valid_obj_idx.push_back(obj_idx);
-                break;
+    for (const auto& obj_med : object_medoids) {
+        // Find closest edge.
+        float min_dist = numeric_limits<float>::max();
+        int j = 0;
+        int edge_idx = -1;
+        for (const auto& edge_med : edge_medoids) {
+            float d = hypot(obj_med.x - edge_med.x, obj_med.y - edge_med.y);
+            if (d < min_dist) {
+                min_dist = d;
+                edge_idx = j;
+            }
+            ++j;
+        }
+
+        // Calculate percentage of edge overlapped by object.
+        int overlap = 0;
+        for (const auto& px : edges[edge_idx]) {
+            if (obj_idx_img.at<uint16_t>(px) == obj_idx) {
+                ++overlap;
             }
         }
+        float overlap_pct = float(overlap) / edges[edge_idx].size();
+
+        // Take only the best percentage for each closest edge.
+        if (overlap_pct > best_pct_edge[edge_idx]) {
+            best_pct_edge[edge_idx] = overlap_pct;
+            valid_obj_idx[edge_idx] = obj_idx;
+        }
+
         ++obj_idx;
     }
 
     // Make padded object mask.
     Mat mask(odds.cols+2, odds.rows+2, CV_8U, Scalar(0));
     for (int i : valid_obj_idx) {
+        if (i == -1) {
+            continue;
+        }
         const auto& obj = objects[i];
         for (const auto& px : obj) {
             mask.at<uint8_t>(px+Point(1,1)) = 1;

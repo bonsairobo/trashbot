@@ -101,7 +101,7 @@ class Gui(QtGui.QMainWindow):
         #Testing a pick up position (Waterbottle)
         point = [0.039,-0.002,0.35,37*D2R]
         point = [0.18,0,0.294,(352 * D2R)]
-        point = [-0.22,0.04,-0.01, 82 * D2R]
+        point = [0.131,0.139,-0.015, 87 * D2R]
         self.ui.btnUser6.setText("IK on " + str(point))
         self.ui.btnUser6.clicked.connect(functools.partial(self.runIK,point))
 
@@ -412,56 +412,81 @@ class Gui(QtGui.QMainWindow):
             print "Point:", p1,p2,p3
             print "Normal:", n1,n2,n3
 
+    #Busy waits code until rexarm has reached desired pose 
+    def wait_until_reached(self,pose):
+        while not reached_pose(pose):
+            continue
+
+    #Returns true if the rexarm's angles match the pose input approximately.
+    #Use this to repeatedly check if rexarm has reached a configuration
+    # pose is a list of angles for each rexarm_joint ex. [0,0,0,0,0,0]
+    def reached_pose(self,pose):
+        reached = True
+        allowed_error = 0.025 #radians
+        for i in range(len(self.joint_angles_fb)):
+            #If error for any of the joints is > 0.01, then arm is not
+            #at the desired location.
+            if abs(self.joint_angles_fb[i] - pose[i]) > allowed_error:
+                reached = False
+                break
+        return reached
+
     def trash_state_machine(self):
         self.init_socket()
-        poses = {"START": [0,0,0,0,0,0],
-                 "HOME": [PI,0,0,0,0,0],
-                 "NET": [],
-                 "HIDE": []
+        poses = {"HOME": [0,0,0,0,0,97 * D2R],#97 Tightens gripper
+                 "HIDE_STEP1": [0.008,-2.038,0.171,1.30,-0.015,-0.015],
+                 "HIDE": [1.557,-2.03,-0.629,1.079,-0.061,1.994],
+                 "NET": []
         }
 
         desired_IK = []
 
         #State1: Turn 90 degrees at base to prevent collision
-        states = ["START","TURN_TO_HOME_FROM_START", "RUN_IK", "GRASP", "LIFT_TO_HOME", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION","UNHIDE","TURN TO HOME FROM UNHIDE"]
+        states = ["START","RUN_IK", "GRASP", "LIFT_UP", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION_STEP_1", "HIDE_POSITION_STEP_2","UNHIDE","TURN TO HOME FROM UNHIDE"]
         curr_state = "START"
         while True:
             if curr_state == "START":
-                self.setPose(poses["START"])
-                #TODO: Function to check we reached the pose 
-                next_state = "TURN_TO_HOME_FROM_START"
-
-            elif curr_state == "TURN_TO_HOME_FROM_START":
                 self.setPose(poses["HOME"])
-                next_state = "HIDE_POSITION"
-
+                #Function to wait until we reached the pose before moving to next state
+                self.wait_until_reached(poses["HOME"])
+                next_state = "HIDE_POSITION_STEP_1"
             elif curr_state == "RUN_IK":
                 #Run_IK
-                pass
+                next_state = "GRASP"
             elif curr_state == "GRASP":
                 #Set joint 5 to grasp a certain amount
-                pass
+                next_state = "LIFT_TO_HOME"
             elif curr_state == "LIFT_TO_HOME":
                 #Set all joints accept base joint to 0
-                pass
+                next_state = "TURN_TO_NET"
             elif curr_state == "TURN_TO_NET":
                 self.setPose(poses["NET"])
+                next_state = "ARCH_TO_NET"
             elif curr_state == "ARCH_TO_NET":
-                pass
+                next_state = "DROP"
             elif curr_state == "DROP":
                 #Set joint 5 to 0 angle
-                pass
+                next_state = "UNARCH"
             elif curr_state == "UNARCH":
                 #Set joint 5 to 0 angle
-                pass
+                next_state = "TURN_TO_HOME_FROM_NET"
             elif curr_state == "TURN_TO_HOME_FROM_NET":
                 #Set all joints to 0
-                pass
+                next_state = "HIDE_POSITION_STEP_1"
             elif curr_state == "UNHIDE":
                 #go to an intermediate position
                 next_state = "TURN_TO_HOME_FROM_UNHIDE"
-            elif curr_state == "HIDE_POSITION":
+            elif curr_state == "TURN_TO_HOME_FROM_UNHIDE":
+                #Go to home position. Then run IK
+                next_state = "RUN_IK"
+            elif curr_state == "HIDE_POSITION_STEP_1":
                 #TODO
+                self.setPose(poses["HIDE_STEP1"])
+                self.wait_until_reached(poses["HIDE_STEP1"])
+                next_state = "HIDE_POSITION_STEP_2"
+            elif curr_state == "HIDE_POSITION_STEP_2":
+                self.setPose(poses["HIDE"])
+                self.wait_until_reached(poses["HIDE"])
                 #Block and wait for next point of new object
                 self.get_socket_data()
                 next_state = "UNHIDE"
@@ -470,11 +495,12 @@ class Gui(QtGui.QMainWindow):
 def main():
     app = QtGui.QApplication(sys.argv)
     ex = Gui()
-    ex.init_socket()
-    ex.get_socket_data()
+    #Successfully uses socket to listen for data
+    #ex.init_socket()
+    #ex.get_socket_data()
     #Put these back when not testing socket anymore
-    #ex.show()
-    #sys.exit(app.exec_())
+    ex.show()
+    sys.exit(app.exec_())
     """
     """
 if __name__ == '__main__':

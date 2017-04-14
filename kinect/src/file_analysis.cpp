@@ -38,7 +38,6 @@ int main(int argc, char **argv) {
     }
 
     namedWindow("kinect", 1);
-    namedWindow("object_grid", 1);
     namedWindow("edges", 1);
 
     // Seek through recording by depth frame index.
@@ -86,44 +85,17 @@ int main(int argc, char **argv) {
             depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.0, 4.3);
         Point2i tl_px(obj_info.roi.x, obj_info.roi.y);
 
-        // Choose the closest object to the Rexarm.
-        float min_dist = numeric_limits<float>::max();
-        int best_obj_idx = -1;
-        int j = 0;
-        for (const auto& object : obj_info.object_pixels) {
-            auto px = object[0];
-            PointXYZ pt = obj_info.cloud->at(px.x, px.y);
-            float d = pt.x * pt.x + pt.y * pt.y + pt.z * pt.z;
-            if (d < min_dist) {
-                min_dist = d;
-                best_obj_idx = j;
-            }
-            ++j;
-        }
-
         // Translate pixel coordinates back to original image from ROI.
         vector<vector<Point2i>> trans_object_px;
         for (const auto& object : obj_info.object_pixels) {
             trans_object_px.push_back(translate_px_coords(object, tl_px));
         }
 
-        // Draw object clusters on color image.
-        Mat masked = draw_color_on_depth(color_mat, depth_u16_mat);
-        j = 0;
-        for (const auto& object : trans_object_px) {
-            Vec3b color = j == best_obj_idx ?
-                Vec3b(0, 0, 255) :
-                Vec3b(dis(gen), dis(gen), dis(gen));
-            draw_pixels(masked, object, color);
-            ++j;
-        }
-        imshow("kinect", masked);
-
         Mat gray_mat, edges;
         cvtColor(color_mat, gray_mat, CV_BGR2GRAY);
         blur(gray_mat, edges, Size(3,3));
         Canny(edges, edges, 50, 150, 3);
-        int dilation_size = 1;
+        int dilation_size = 2;
         Mat element = getStructuringElement(
             MORPH_RECT,
             Size(2 * dilation_size + 1, 2 * dilation_size + 1),
@@ -153,7 +125,35 @@ int main(int argc, char **argv) {
             trans_object_px, edge_objects, object_medoids, edge_medoids);
         Mat weights = object_grid.get_weights();
         threshold(weights, weights, 0.8, 0, THRESH_TOZERO);
-        imshow("object_grid", weights);
+        auto final_objects = find_nonzero_components<float>(weights);
+        remove_small_regions(&final_objects, 100);
+
+        // Choose the closest object to the Rexarm.
+        float min_dist = numeric_limits<float>::max();
+        int best_obj_idx = -1;
+        int j = 0;
+        for (const auto& object : final_objects) {
+            auto px = object[0] - tl_px;
+            PointXYZ pt = obj_info.cloud->at(px.x, px.y);
+            float d = pt.x * pt.x + pt.y * pt.y + pt.z * pt.z;
+            if (d < min_dist) {
+                min_dist = d;
+                best_obj_idx = j;
+            }
+            ++j;
+        }
+
+        // Draw object clusters on color image.
+        Mat masked = draw_color_on_depth(color_mat, depth_u16_mat);
+        j = 0;
+        for (const auto& object : final_objects) {
+            Vec3b color = j == best_obj_idx ?
+                Vec3b(0, 0, 255) :
+                Vec3b(dis(gen), dis(gen), dis(gen));
+            draw_pixels(masked, object, color);
+            ++j;
+        }
+        imshow("kinect", masked);
 
         // Finally, now that transients are removed, do one final clustering
         // of object points.

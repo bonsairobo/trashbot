@@ -14,6 +14,10 @@ struct ObjectInfo {
     cv::Rect roi;
 };
 
+void remove_small_regions(
+    std::vector<std::vector<cv::Point2i>> *object_regions,
+    size_t min_region_size);
+
 cv::Rect roi_from_workspace_corners(
     const cv::Point3f& ftl,
     const cv::Point3f& bbr,

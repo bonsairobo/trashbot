@@ -55,7 +55,6 @@ int main(int argc, char **argv) {
 
     if (show_feeds) {
         namedWindow("kinect_feed", 1);
-        namedWindow("objects", 1);
     }
 
     // Create RNG for RGB values.
@@ -127,20 +126,6 @@ int main(int argc, char **argv) {
             ObjectInfo obj_info = get_workspace_objects(
                 depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 3.0, 4.3);
             if (!obj_info.object_pixels.empty()) {
-                // Choose the "best" object.
-                float min_depth = numeric_limits<float>::max();
-                int best_obj_idx = -1;
-                int j = 0;
-                for (const auto& object : obj_info.object_pixels) {
-                    auto px = object[0];
-                    float z = obj_info.cloud->at(px.x, px.y).z;
-                    if (z < min_depth) {
-                        min_depth = z;
-                        best_obj_idx = j;
-                    }
-                    ++j;
-                }
-
                 // Translate pixel coordinates back to original image from ROI.
                 Point2i tl_px(obj_info.roi.x, obj_info.roi.y);
                 vector<vector<Point2i>> trans_object_px;
@@ -149,10 +134,62 @@ int main(int argc, char **argv) {
                         translate_px_coords(object, tl_px));
                 }
 
+                Mat gray_mat, edges;
+                cvtColor(color_mat, gray_mat, CV_BGR2GRAY);
+                blur(gray_mat, edges, Size(3,3));
+                Canny(edges, edges, 50, 150, 3);
+                int dilation_size = 1;
+                Mat element = getStructuringElement(
+                    MORPH_RECT,
+                    Size(2 * dilation_size + 1, 2 * dilation_size + 1),
+                    Point(dilation_size, dilation_size));
+                dilate(edges, edges, element);
+
+                // Extract objects from edges in point cloud ROI.
+                vector<vector<Point2i>> edge_objects =
+                    find_nonzero_components<uint8_t>(edges);
+
+                vector<Point2i> object_medoids;
+                for (const auto& obj : trans_object_px) {
+                    object_medoids.push_back(region_medoid(obj));
+                }
+                vector<Point2i> edge_medoids;
+                for (const auto& obj : edge_objects) {
+                    edge_medoids.push_back(region_medoid(obj));
+                }
+
+                object_grid.update(
+                    trans_object_px,
+                    edge_objects,
+                    object_medoids,
+                    edge_medoids);
+                Mat weights = object_grid.get_weights();
+                threshold(weights, weights, 0.9, 0, THRESH_TOZERO);
+
+                auto final_objects =
+                    find_nonzero_components<float>(weights);
+                remove_small_regions(&final_objects, 100);
+
+                // Choose the "best" object.
+                float min_depth = numeric_limits<float>::max();
+                int best_obj_idx = -1;
+                int j = 0;
+                for (const auto& object : final_objects) {
+                    auto px = object[0] - tl_px;
+                    float z = obj_info.cloud->at(px.x, px.y).z;
+                    if (z < min_depth) {
+                        min_depth = z;
+                        best_obj_idx = j;
+                    }
+                    ++j;
+                }
+
                 if (show_feeds) {
+                    imshow("edges", edges);
+
                     Mat masked = draw_color_on_depth(color_mat, depth_u16_mat);
                     int j = 0;
-                    for (const auto& object : trans_object_px) {
+                    for (const auto& object : final_objects) {
                         Vec3b color = j == best_obj_idx ?
                             Vec3b(0, 0, 255) :
                             Vec3b(dis(gen), dis(gen), dis(gen));
@@ -160,40 +197,6 @@ int main(int argc, char **argv) {
                         ++j;
                     }
                     imshow("kinect_feed", masked);
-
-                    Mat gray_mat, edges;
-                    cvtColor(color_mat, gray_mat, CV_BGR2GRAY);
-                    blur(gray_mat, edges, Size(3,3));
-                    Canny(edges, edges, 50, 150, 3);
-                    int dilation_size = 1;
-                    Mat element = getStructuringElement(
-                        MORPH_RECT,
-                        Size(2 * dilation_size + 1, 2 * dilation_size + 1),
-                        Point(dilation_size, dilation_size));
-                    dilate(edges, edges, element);
-                    imshow("edges", edges);
-
-                    // Extract objects from edges in point cloud ROI.
-                    vector<vector<Point2i>> edge_objects =
-                        find_nonzero_components<uint8_t>(edges);
-
-                    vector<Point2i> object_medoids;
-                    for (const auto& obj : trans_object_px) {
-                        object_medoids.push_back(region_medoid(obj));
-                    }
-                    vector<Point2i> edge_medoids;
-                    for (const auto& obj : edge_objects) {
-                        edge_medoids.push_back(region_medoid(obj));
-                    }
-
-                    object_grid.update(
-                        trans_object_px,
-                        edge_objects,
-                        object_medoids,
-                        edge_medoids);
-                    Mat weights = object_grid.get_weights();
-                    threshold(weights, weights, 0.9, 0, THRESH_TOZERO);
-                    imshow("objects", weights);
                 }
 
                 Point2i medoid =

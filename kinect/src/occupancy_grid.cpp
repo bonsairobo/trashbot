@@ -66,7 +66,7 @@ void OccupancyGrid::update(
     }
 
     // Rank objects by closest edge overlap percentage.
-    const float min_pct = 0.1;
+    const float min_pct = 0.2;
     vector<float> best_pct_edge(edges.size(), min_pct);
     vector<int> valid_obj_idx(edges.size(), -1);
     int obj_idx = 0;

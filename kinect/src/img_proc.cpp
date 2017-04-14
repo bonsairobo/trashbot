@@ -91,7 +91,7 @@ Rect roi_from_workspace_corners(
     return roi;
 }
 
-static void remove_small_regions(
+void remove_small_regions(
     vector<vector<Point2i>> *object_regions, size_t min_region_size)
 {
     auto new_end = remove_if(object_regions->begin(), object_regions->end(),

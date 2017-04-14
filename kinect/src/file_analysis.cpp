@@ -39,6 +39,8 @@ int main(int argc, char **argv) {
 
     namedWindow("kinect", 1);
     namedWindow("edges", 1);
+    namedWindow("depth", 1);
+    namedWindow("world_coords", 1);
 
     // Seek through recording by depth frame index.
     PlaybackControl *pbc = device.getPlaybackControl();
@@ -83,7 +85,7 @@ int main(int argc, char **argv) {
         // Get pixels, points, normals, and ROI for workspace objects.
         ObjectInfo obj_info = get_workspace_objects(
             depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.0, 4.3);
-        Point2i tl_px(obj_info.roi.x, obj_info.roi.y);
+        Point2i tl_px(roi.x, roi.y);
 
         // Translate pixel coordinates back to original image from ROI.
         vector<vector<Point2i>> trans_object_px;
@@ -91,36 +93,29 @@ int main(int argc, char **argv) {
             trans_object_px.push_back(translate_px_coords(object, tl_px));
         }
 
+        // Make dilated edge image.
         Mat gray_mat, edges;
         cvtColor(color_mat, gray_mat, CV_BGR2GRAY);
         blur(gray_mat, edges, Size(3,3));
         Canny(edges, edges, 50, 150, 3);
         int dilation_size = 2;
         Mat element = getStructuringElement(
-            MORPH_RECT,
+            MORPH_ELLIPSE,
             Size(2 * dilation_size + 1, 2 * dilation_size + 1),
             Point(dilation_size, dilation_size));
         dilate(edges, edges, element);
 
-        // Extract objects from edges in point cloud ROI.
-        vector<vector<Point2i>> edge_objects =
-            find_nonzero_components<uint8_t>(edges);
-
+        // Do object-edge correspondence filtering.
         vector<Point2i> object_medoids;
         for (const auto& obj : trans_object_px) {
             object_medoids.push_back(region_medoid(obj));
         }
+        vector<vector<Point2i>> edge_objects =
+            find_nonzero_components<uint8_t>(edges);
         vector<Point2i> edge_medoids;
         for (const auto& obj : edge_objects) {
             edge_medoids.push_back(region_medoid(obj));
         }
-
-        Mat color_edges;
-        cvtColor(edges, color_edges, CV_GRAY2BGR);
-        draw_points(color_edges, edge_medoids, Vec3b(0,0,255));
-        draw_points(color_edges, object_medoids, Vec3b(255,0,0));
-        imshow("edges", color_edges);
-
         object_grid.update(
             trans_object_px, edge_objects, object_medoids, edge_medoids);
         Mat weights = object_grid.get_weights();
@@ -133,7 +128,7 @@ int main(int argc, char **argv) {
         int best_obj_idx = -1;
         int j = 0;
         for (const auto& object : final_objects) {
-            auto px = object[0] - tl_px;
+            auto px = region_medoid(object) - tl_px;
             PointXYZ pt = obj_info.cloud->at(px.x, px.y);
             float d = pt.x * pt.x + pt.y * pt.y + pt.z * pt.z;
             if (d < min_dist) {
@@ -143,8 +138,15 @@ int main(int argc, char **argv) {
             ++j;
         }
 
+        // Draw edges.
+        Mat color_edges;
+        cvtColor(edges, color_edges, CV_GRAY2BGR);
+        draw_points(color_edges, edge_medoids, Vec3b(0,0,255));
+        draw_points(color_edges, object_medoids, Vec3b(255,0,0));
+        imshow("edges", color_edges);
+
         // Draw object clusters on color image.
-        Mat masked = draw_color_on_depth(color_mat, depth_u16_mat);
+        Mat masked = mask_image<uint16_t, Vec3b>(color_mat, depth_u16_mat);
         j = 0;
         for (const auto& object : final_objects) {
             Vec3b color = j == best_obj_idx ?
@@ -154,11 +156,9 @@ int main(int argc, char **argv) {
             ++j;
         }
         imshow("kinect", masked);
+        imshow("depth", 40 * depth_u16_mat);
 
-        // Finally, now that transients are removed, do one final clustering
-        // of object points.
-
-        char key = waitKey(1);
+        char key = waitKey(0);
         if (key == 27) {
             break;
         }

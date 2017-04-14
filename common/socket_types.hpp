@@ -28,9 +28,7 @@ struct GraspingPoint {
 };
 
 sockaddr_un create_udp_addr(const char *path);
-
 int try_create_udp_socket();
-
 void try_bind_path(int sock, sockaddr_un addr);
 
 #endif // SOCKET_TYPES_HPP

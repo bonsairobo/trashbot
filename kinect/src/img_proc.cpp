@@ -186,6 +186,7 @@ ObjectInfo get_workspace_objects(
 
     // Create a point cloud of ROI regions.
     PointCloud<PointXYZ>::Ptr pc = zero_cloud(roi.width, roi.height);
+    Mat pc_img(roi.height, roi.width, CV_8UC3, Vec3b(0,0,0));
     for (const auto& region : workspc_px) {
         for (const auto& px : region) {
             PointXYZ& pt = pc->at(px.x, px.y);
@@ -194,8 +195,10 @@ ObjectInfo get_workspace_objects(
                 float(px.x+roi.x), float(px.y+roi.y),
                 crop.at<float>(px),
                 &pt.x, &pt.y, &pt.z);
+            pc_img.at<Vec3b>(px) = Vec3b(abs(pt.x), abs(pt.y), abs(pt.z));
         }
     }
+    imshow("world_coords", pc_img);
 
     // 3D workspace culling. Organized cloud becomes unorganized, so keep track
     // of index -> pixel mapping.
@@ -244,11 +247,11 @@ ObjectInfo get_workspace_objects(
         object_px.push_back(px_coords);
     }
 
-    return { pc, object_px, roi };
+    return { pc, object_px };
 }
 
 PointCloud<Normal>::Ptr estimate_normals(PointCloud<PointXYZ>::ConstPtr pc) {
-    PointCloud<Normal>::Ptr normals (new PointCloud<Normal>);
+    PointCloud<Normal>::Ptr normals(new PointCloud<Normal>);
     IntegralImageNormalEstimation<PointXYZ, Normal> ne;
     ne.setNormalEstimationMethod(ne.AVERAGE_3D_GRADIENT);
     ne.setMaxDepthChangeFactor(0.02f);
@@ -256,16 +259,4 @@ PointCloud<Normal>::Ptr estimate_normals(PointCloud<PointXYZ>::ConstPtr pc) {
     ne.setInputCloud(pc);
     ne.compute(*normals);
     return normals;
-}
-
-Mat draw_color_on_depth(const Mat& color, const Mat& depth) {
-    Mat out = Mat::zeros(color.size(), CV_8UC3);
-    for (int y = 0; y < out.rows; ++y) {
-        for (int x = 0; x < out.cols; ++x) {
-            if (depth.at<uint16_t>(y,x) != 0) {
-                out.at<Vec3b>(y,x) = color.at<Vec3b>(y,x);
-            }
-        }
-    }
-    return out;
 }

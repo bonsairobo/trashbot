@@ -10,8 +10,6 @@ using namespace openni;
 using namespace cv;
 using namespace pcl;
 
-static const uint8_t ESC_KEYCODE = 27;
-
 int main(int argc, char **argv) {
     // Open windows for drawing streams.
     bool show_feeds = !(argc > 1 and *(argv[1]) == '0');
@@ -78,6 +76,7 @@ int main(int argc, char **argv) {
     Rect roi = roi_from_workspace_corners(ftl, bbr, depth_stream);
 
     uint8_t key = 0;
+    const uint8_t ESC_KEYCODE = 27;
     while (key != ESC_KEYCODE) {
         Mat depth_u16_mat, color_mat;
         VideoFrameRef depth_frame;
@@ -127,13 +126,14 @@ int main(int argc, char **argv) {
                 depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 3.0, 4.3);
             if (!obj_info.object_pixels.empty()) {
                 // Translate pixel coordinates back to original image from ROI.
-                Point2i tl_px(obj_info.roi.x, obj_info.roi.y);
+                Point2i tl_px(roi.x, roi.y);
                 vector<vector<Point2i>> trans_object_px;
                 for (const auto& object : obj_info.object_pixels) {
                     trans_object_px.push_back(
                         translate_px_coords(object, tl_px));
                 }
 
+                // Make dilated edge image.
                 Mat gray_mat, edges;
                 cvtColor(color_mat, gray_mat, CV_BGR2GRAY);
                 blur(gray_mat, edges, Size(3,3));
@@ -149,6 +149,7 @@ int main(int argc, char **argv) {
                 vector<vector<Point2i>> edge_objects =
                     find_nonzero_components<uint8_t>(edges);
 
+                // Do object-edge correspondence filtering.
                 vector<Point2i> object_medoids;
                 for (const auto& obj : trans_object_px) {
                     object_medoids.push_back(region_medoid(obj));
@@ -157,7 +158,6 @@ int main(int argc, char **argv) {
                 for (const auto& obj : edge_objects) {
                     edge_medoids.push_back(region_medoid(obj));
                 }
-
                 object_grid.update(
                     trans_object_px,
                     edge_objects,
@@ -165,7 +165,6 @@ int main(int argc, char **argv) {
                     edge_medoids);
                 Mat weights = object_grid.get_weights();
                 threshold(weights, weights, 0.9, 0, THRESH_TOZERO);
-
                 auto final_objects =
                     find_nonzero_components<float>(weights);
                 remove_small_regions(&final_objects, 100);
@@ -175,7 +174,7 @@ int main(int argc, char **argv) {
                 int best_obj_idx = -1;
                 int j = 0;
                 for (const auto& object : final_objects) {
-                    auto px = object[0] - tl_px;
+                    auto px = region_medoid(object) - tl_px;
                     float z = obj_info.cloud->at(px.x, px.y).z;
                     if (z < min_depth) {
                         min_depth = z;
@@ -185,9 +184,8 @@ int main(int argc, char **argv) {
                 }
 
                 if (show_feeds) {
-                    imshow("edges", edges);
-
-                    Mat masked = draw_color_on_depth(color_mat, depth_u16_mat);
+                    Mat masked = mask_image<uint16_t, Vec3b>(
+                        color_mat, depth_u16_mat);
                     int j = 0;
                     for (const auto& object : final_objects) {
                         Vec3b color = j == best_obj_idx ?
@@ -197,12 +195,18 @@ int main(int argc, char **argv) {
                         ++j;
                     }
                     imshow("kinect_feed", masked);
+
+                    Mat color_edges;
+                    cvtColor(edges, color_edges, CV_GRAY2BGR);
+                    draw_points(color_edges, edge_medoids, Vec3b(0,0,255));
+                    draw_points(color_edges, object_medoids, Vec3b(255,0,0));
+                    imshow("edges", color_edges);
+                    imshow("edges", edges);
                 }
 
+                // Send grasping point to the Rexarm.
                 Point2i medoid = region_medoid(final_objects[best_obj_idx]);
                 medoid -= tl_px;
-
-                // Send grasping point to the Rexarm.
                 auto normal_cloud = estimate_normals(obj_info.cloud);
                 GraspingPoint gp;
                 gp.point = vec3f_from_pointxyz(

@@ -10,8 +10,8 @@ OccupancyGrid::OccupancyGrid(int width, int height):
     width(width),
     max_odds(numeric_limits<uint8_t>::max()),
     min_odds(numeric_limits<uint8_t>::lowest()),
-    hit_odds(25),
-    miss_odds(3),
+    hit_odds(20),
+    miss_odds(5),
     odds(height, width, CV_8U, Scalar(max_odds / 2))
 {}
 

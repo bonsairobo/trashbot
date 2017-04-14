@@ -11,7 +11,6 @@
 struct ObjectInfo {
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
     std::vector<std::vector<cv::Point2i>> object_pixels; // ROI coordinates
-    cv::Rect roi;
 };
 
 void remove_small_regions(
@@ -44,7 +43,18 @@ std::vector<cv::Point2i> translate_px_coords(
 pcl::PointCloud<pcl::Normal>::Ptr estimate_normals(
     pcl::PointCloud<pcl::PointXYZ>::ConstPtr);
 
-cv::Mat draw_color_on_depth(const cv::Mat& color, const cv::Mat& depth);
+template<typename T, typename U>
+cv::Mat mask_image(const cv::Mat& img, const cv::Mat& mask) {
+    cv::Mat out = cv::Mat::zeros(img.size(), img.type());
+    for (int y = 0; y < out.rows; ++y) {
+        for (int x = 0; x < out.cols; ++x) {
+            if (mask.at<T>(y,x) != 0) {
+                out.at<U>(y,x) = img.at<U>(y,x);
+            }
+        }
+    }
+    return out;
+}
 
 template<typename T>
 std::vector<cv::Point2i> flood_select(

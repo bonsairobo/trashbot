@@ -505,6 +505,8 @@ class Gui(QtGui.QMainWindow):
         
         synchro_timer = 3
         while True:
+            print "----------------------------------------"
+            print "Current State:", curr_state
             if curr_state == "START":
                 self.setPose(poses["HOME"])
                 #Function to wait until we reached the pose before moving to next state
@@ -598,6 +600,8 @@ class Gui(QtGui.QMainWindow):
                 desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87 *D2R]
                 #desired_IK = [0.131,0.139,-0.015, 87 * D2R]
                 next_state = "UNHIDE"
+            print "Next State:", next_state
+            print "----------------------------------------"
             curr_state = next_state
 
 def main():

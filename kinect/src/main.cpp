@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
     OccupancyGrid object_grid(vm.getResolutionX(), vm.getResolutionY());
 
     Point3f ftl(-200.0, 0.0, 650.0);
-    Point3f bbr(200.0, -280.0, 850.0);
+    Point3f bbr(200.0, -280.0, 950.0);
     Rect roi = roi_from_workspace_corners(ftl, bbr, depth_stream);
 
     uint8_t key = 0;
@@ -138,12 +138,12 @@ int main(int argc, char **argv) {
                 cvtColor(color_mat, gray_mat, CV_BGR2GRAY);
                 blur(gray_mat, edges, Size(3,3));
                 Canny(edges, edges, 50, 150, 3);
-                int dilation_size = 1;
+                /*int dilation_size = 1;
                 Mat element = getStructuringElement(
                     MORPH_RECT,
                     Size(2 * dilation_size + 1, 2 * dilation_size + 1),
                     Point(dilation_size, dilation_size));
-                dilate(edges, edges, element);
+                dilate(edges, edges, element);*/
 
                 // Extract objects from edges in point cloud ROI.
                 vector<vector<Point2i>> edge_objects =
@@ -158,11 +158,13 @@ int main(int argc, char **argv) {
                 for (const auto& obj : edge_objects) {
                     edge_medoids.push_back(region_medoid(obj));
                 }
-                object_grid.update(
-                    trans_object_px,
-                    edge_objects,
-                    object_medoids,
-                    edge_medoids);
+                if (!edge_medoids.empty() and !object_medoids.empty()) {
+                    object_grid.update(
+                        trans_object_px,
+                        edge_objects,
+                        object_medoids,
+                        edge_medoids);
+                }
                 Mat weights = object_grid.get_weights();
                 threshold(weights, weights, 0.9, 0, THRESH_TOZERO);
                 auto final_objects =
@@ -198,29 +200,30 @@ int main(int argc, char **argv) {
 
                     Mat color_edges;
                     cvtColor(edges, color_edges, CV_GRAY2BGR);
-                    draw_points(color_edges, edge_medoids, Vec3b(0,0,255));
-                    draw_points(color_edges, object_medoids, Vec3b(255,0,0));
+                    //draw_points(color_edges, edge_medoids, Vec3b(0,0,255));
+                    //draw_points(color_edges, object_medoids, Vec3b(255,0,0));
                     imshow("edges", color_edges);
-                    imshow("edges", edges);
                 }
 
                 // Send grasping point to the Rexarm.
-                Point2i medoid = region_medoid(final_objects[best_obj_idx]);
-                medoid -= tl_px;
-                auto normal_cloud = estimate_normals(obj_info.cloud);
-                GraspingPoint gp;
-                gp.point = vec3f_from_pointxyz(
-                    obj_info.cloud->at(medoid.x, medoid.y));
-                gp.normal = vec3f_from_normal(
-                    normal_cloud->at(medoid.x, medoid.y));
-                gp.time_ms = depth_frame.getTimestamp();
-                sendto(
-                    sock,
-                    &gp,
-                    sizeof(gp),
-                    0,
-                    (sockaddr*)&rex_addr,
-                    sizeof(rex_addr));
+                if (!final_objects.empty()) {
+                    Point2i medoid = region_medoid(final_objects[best_obj_idx]);
+                    medoid -= tl_px;
+                    auto normal_cloud = estimate_normals(obj_info.cloud);
+                    GraspingPoint gp;
+                    gp.point = vec3f_from_pointxyz(
+                        obj_info.cloud->at(medoid.x, medoid.y));
+                    gp.normal = vec3f_from_normal(
+                        normal_cloud->at(medoid.x, medoid.y));
+                    gp.time_ms = depth_frame.getTimestamp();
+                    sendto(
+                        sock,
+                        &gp,
+                        sizeof(gp),
+                        0,
+                        (sockaddr*)&rex_addr,
+                        sizeof(rex_addr));
+                }
             }
         }
 

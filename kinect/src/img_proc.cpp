@@ -16,6 +16,9 @@ using namespace openni;
 using namespace pcl;
 
 Point2i region_centroid(const vector<Point2i>& region) {
+    if (region.empty()) {
+        return Point2i(0,0);
+    }
     Point2i c;
     for (const auto& px : region) {
         c += px;

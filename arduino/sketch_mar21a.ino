@@ -20,8 +20,8 @@ void setup() {
 }
 
 void loop() {
-    int ticks_high = 1;
-    int ticks_low = 1;
+    int ms_high = 1;
+    int ms_low = 1;
     while (Serial.available() > 0) {
         char inChar = Serial.read();
         Serial.print(inChar);
@@ -57,14 +57,12 @@ void loop() {
 
         unsigned long start_ms = millis();
         while (millis() - start_ms < 50) {
-            for (int i = 0; i < ticks_high; ++i) {
-                digitalWrite(enrpwm, HIGH);
-                digitalWrite(enlpwm, HIGH);
-            }
-            for (int i = 0; i < ticks_low; ++i) {
-                digitalWrite(enrpwm, LOW);
-                digitalWrite(enlpwm, LOW);
-            }
+            digitalWrite(enrpwm, HIGH);
+            digitalWrite(enlpwm, HIGH);
+            delay(ms_high);
+            digitalWrite(enrpwm, LOW);
+            digitalWrite(enlpwm, LOW);
+            delay(ms_low);
         }
     }
     digitalWrite(pinnum, LOW);

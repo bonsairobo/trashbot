@@ -455,9 +455,9 @@ class Gui(QtGui.QMainWindow):
             #TODO: Check endianness
             time, p1,p2,p3,n1,n2,n3 = struct.unpack("iffffff", data)
             print "Time:", time
-            print "Point:", p1,p2,p3
-            print "Normal:", n1,n2,n3
-            point = [p1,p2,p3]
+            print "Point (mm):", p1,p2,p3
+            print "Normal (mm):", n1,n2,n3
+            point = [p1/1000.0,p2/1000.0,p3/1000.0]
             break
         return point
 

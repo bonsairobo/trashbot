@@ -308,12 +308,12 @@ class Rexarm():
         init_point = init_point[0:3]
         end_point = end_point[0:3]
 
-        print "End Point:", end_point
-        print "Initial Point:", init_point
+        #print "End Point:", end_point
+        #print "Initial Point:", init_point
 
         #Get vector to endeffector in global frame
         endeffector_vec = end_point - init_point
-        print "Endeffector Vec:", endeffector_vec
+        #print "Endeffector Vec:", endeffector_vec
 
         horizontal_vec = endeffector_vec.copy()
         #Simple projection onto XY plane

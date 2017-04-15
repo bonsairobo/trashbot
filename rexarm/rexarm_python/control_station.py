@@ -441,6 +441,8 @@ class Gui(QtGui.QMainWindow):
         #self.conn, self.addr = self.sock.accept()
 
     def get_socket_data(self):
+        point = None
+
         #Grasping Point struct is 28 bytes
         while True:
             print "Waiting for data..."
@@ -455,6 +457,10 @@ class Gui(QtGui.QMainWindow):
             print "Time:", time
             print "Point:", p1,p2,p3
             print "Normal:", n1,n2,n3
+            point = [p1,p2,p3]
+            break
+        return point
+
 
     #Busy waits code until rexarm has reached desired pose 
     def wait_until_reached(self,pose):
@@ -581,22 +587,22 @@ class Gui(QtGui.QMainWindow):
                 next_state = "HIDE_POSITION_STEP_2"
             elif curr_state == "HIDE_POSITION_STEP_2":
                 self.setPose(poses["HIDE"])
+                time.sleep(synchro_timer)
                 #self.wait_until_reached(poses["HIDE"])
                 #Block and wait for next point of new object
-                #self.get_socket_data()
-                time.sleep(synchro_timer)
+                kin_point = self.get_socket_data()
+                #Convert to rexarm coordinates from kinect coordinates
+                rex_point = self.kinect_world_to_rexarm_world(kin_point)
                 #TODO: Do matrix transformation from kinect to rexarm world
                 #and populate desired_IK
-
-                desired_IK = [0.131,0.139,-0.015, 87 * D2R]
-
+                desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87 *D2R]
+                #desired_IK = [0.131,0.139,-0.015, 87 * D2R]
                 next_state = "UNHIDE"
             curr_state = next_state
 
 def main():
     app = QtGui.QApplication(sys.argv)
     ex = Gui()
-    print ex.kinect_world_to_rexarm_world([1,2,3])
     #Successfully uses socket to listen for data
     #ex.init_socket()
     #ex.get_socket_data()

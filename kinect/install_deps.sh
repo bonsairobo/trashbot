@@ -44,8 +44,8 @@ cd $root_dir
 wget https://github.com/PointCloudLibrary/pcl/archive/pcl-1.8.0.tar.gz
 tar -xzf pcl-1.8.0.tar.gz
 rm pcl-1.8.0.tar.gz
-cp CMakelists.txt pcl
-cd pcl-1.8.0
+cp CMakelists.txt pcl-pcl-1.8.0
+cd pcl-pcl-1.8.0
 mkdir build
 cd build
 cmake ..

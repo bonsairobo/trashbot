@@ -415,7 +415,10 @@ class Gui(QtGui.QMainWindow):
 
     #Busy waits code until rexarm has reached desired pose 
     def wait_until_reached(self,pose):
-        while not reached_pose(pose):
+        while not self.reached_pose(pose):
+            print "not reached pose yet"
+            print "Pose:", pose
+            print "Rexarm:", self.rex.joint_angles_fb
             continue
 
     #Returns true if the rexarm's angles match the pose input approximately.
@@ -424,10 +427,10 @@ class Gui(QtGui.QMainWindow):
     def reached_pose(self,pose):
         reached = True
         allowed_error = 0.025 #radians
-        for i in range(len(self.joint_angles_fb)):
+        for i in range(len(self.rex.joint_angles_fb)):
             #If error for any of the joints is > 0.01, then arm is not
             #at the desired location.
-            if abs(self.joint_angles_fb[i] - pose[i]) > allowed_error:
+            if abs(self.rex.joint_angles_fb[i] - pose[i]) > allowed_error:
                 reached = False
                 break
         return reached
@@ -436,7 +439,7 @@ class Gui(QtGui.QMainWindow):
         self.init_socket()
         tighten_gripper = 97 * D2R
         net_base_angle = 1.51 
-        poses = {"HOME": [0,0,0,0,0,tighten_gripper],Tightens gripper
+        poses = {"HOME": [0,0,0,0,0,tighten_gripper],#Tightens gripper
                  "HIDE_INTERMEDIATE": [0.008,-2.038,0.171,1.30,-0.015,-0.015],
                  "HIDE": [1.557,-2.03,-0.629,1.079,-0.061,1.994],
                  "NET_ARCH": [net_base_angle,-0.135,-1.223,-1.447,-0.061,tighten_gripper]
@@ -521,12 +524,14 @@ class Gui(QtGui.QMainWindow):
                 self.wait_until_reached(poses["HIDE"])
                 #Block and wait for next point of new object
                 self.get_socket_data()
-
+                time.sleep(1)
                 #TODO: Do matrix transformation from kinect to rexarm world
-                desired_IK = None
+                #and populate desired_IK
+
+                desired_IK = [0.131,0.139,-0.015, 87 * D2R]
 
                 next_state = "UNHIDE"
-            curr_state == next_state
+            curr_state = next_state
 
 def main():
     app = QtGui.QApplication(sys.argv)
@@ -535,8 +540,9 @@ def main():
     #ex.init_socket()
     #ex.get_socket_data()
     #Put these back when not testing socket anymore
-    ex.show()
-    sys.exit(app.exec_())
+    ex.trash_state_machine()
+    #ex.show()
+    #sys.exit(app.exec_())
     """
     """
 if __name__ == '__main__':

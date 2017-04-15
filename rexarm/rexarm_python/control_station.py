@@ -135,6 +135,47 @@ class Gui(QtGui.QMainWindow):
     def recall_pose(self):
         self.setPose(self.saved_angles)
 
+
+    #Takes a list of [x,y,z] in kinect coordinates
+    def kinect_world_to_rexarm_world(self,kinect_coords):
+        x = kinect_coords[0]
+        y = kinect_coords[1]
+        z = -kinect_coords[2]
+
+        #produce 
+        rot_angle = -31 * D2R
+        rot_x = np.array([
+            [1,0,0,0],
+            [0,np.cos(rot_angle),-np.sin(rot_angle),0],
+            [0,np.sin(rot_angle),np.cos(rot_angle),0],
+            [0,0,0,1]
+        ])
+
+        rot_angle = 90 * D2R
+        rot_z = np.array([
+            [np.cos(rot_angle),-np.sin(rot_angle),0,0],
+            [np.sin(rot_angle),np.cos(rot_angle),0,0],
+            [0,0,1,0],
+            [0,0,0,1]
+        ])
+
+        translation = np.array([
+            [1,0,0,.072],
+            [0,1,0,0],
+            [0,0,1,-.656],
+            [0,0,0,1]
+        ])
+
+        inv_xform = np.dot(np.dot(rot_x,rot_z),translation)
+
+        #Invert the matrix produced so we can go from kinect coordinates to rexarm coordinates
+        xform = numpy.linalg.inv(inv_xform)
+        coords = np.array([[x],[y],[z],[1]])
+
+        rex_coords = np.dot(xform,coords)
+
+        return [rex_coords[0][0],rex_coords[1][0], rex_coords[2][0]]
+
     #Runs inverse kinematics on xyz_phi_world, which has form
     #[x,y,z,phi_in_radians]
     def runIK(self,xyz_phi_world):
@@ -555,6 +596,7 @@ class Gui(QtGui.QMainWindow):
 def main():
     app = QtGui.QApplication(sys.argv)
     ex = Gui()
+    print ex.kinect_world_to_rexarm_world([1,2,3])
     #Successfully uses socket to listen for data
     #ex.init_socket()
     #ex.get_socket_data()

@@ -8,7 +8,6 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <opencv2/opencv.hpp>
 
 struct PickupCommand {
     uint32_t time_ms;

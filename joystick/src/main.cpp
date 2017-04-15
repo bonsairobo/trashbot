@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
                     (sockaddr*)&kin_addr,
                     sizeof(kin_addr));
             } else if (event.isAxis() and
-                // TODO: get actual axis #s for triggers and analog stick
+                // TODO: get actual axis #s for left X analog and right Y analog
                 (event.number == 0 or event.number == 1))
             {
                 sendto(

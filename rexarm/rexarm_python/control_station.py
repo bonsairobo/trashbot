@@ -102,6 +102,7 @@ class Gui(QtGui.QMainWindow):
         point = [0.039,-0.002,0.35,37*D2R]
         point = [0.18,0,0.294,(352 * D2R)]
         point = [0.131,0.139,-0.015, 87 * D2R]
+        point = [0.184,0.202,-0.02,38 * D2R]
         self.ui.btnUser6.setText("IK on " + str(point))
         self.ui.btnUser6.clicked.connect(functools.partial(self.runIK,point))
 
@@ -459,29 +460,34 @@ class Gui(QtGui.QMainWindow):
                 self.setPose(poses["HOME"])
                 #Function to wait until we reached the pose before moving to next state
                 #self.wait_until_reached(poses["HOME"])
+                time.sleep(1.5)
                 next_state = "HIDE_POSITION_STEP_1"
             elif curr_state == "RUN_IK":
                 #Run_IK
                 self.runIK(desired_IK)
                 #TODO: Get lcm joint angles returned from runIK so that
                 #we can wait before grasping
+                time.sleep(1.5)
                 next_state = "GRASP"
             elif curr_state == "GRASP":
                 #Set joint 5 to grasp
                 self.rex.joint_angles[5] = tighten_gripper
                 #TODO: wait until reached position
                 self.rex.cmd_publish()
+                time.sleep(1.5)
                 next_state = "LIFT_TO_HOME"
             elif curr_state == "LIFT_TO_HOME":
                 #Set all joints except base joint and gripper joint to 0
                 for i in range(1,5):
                     self.rex.joint_angles[i] = 0
                 self.rex.cmd_publish()
+                time.sleep(1.5)
                 #TODO: wait until reached position
                 next_state = "TURN_TO_NET"
             elif curr_state == "TURN_TO_NET":
                 self.rex.joint_angles[0] = net_base_angle
                 self.rex.cmd_publish()
+                time.sleep(1.5)
                 #TODO: wait until reached position
                 next_state = "ARCH_TO_NET"
             elif curr_state == "ARCH_TO_NET":
@@ -492,32 +498,38 @@ class Gui(QtGui.QMainWindow):
                 #Set joint 5 to 0 angle
                 self.rex.joint_angles[5] = 0
                 self.rex.cmd_publish()
+                time.sleep(1.5)
                 next_state = "UNARCH"
             elif curr_state == "UNARCH":
                 #Set all joints except base to 0
                 for i in range(1,6):
                     self.rex.joint_angles[i] = 0
                 self.rex.cmd_publish()
+                time.sleep(1.5)
                 next_state = "TURN_TO_HOME_FROM_NET"
             elif curr_state == "TURN_TO_HOME_FROM_NET":
                 #Set all joints to 0
                 for i in range(6):
                     self.rex.joint_angles[i] = 0
                 self.rex.cmd_publish()
+                time.sleep(1.5)
                 next_state = "HIDE_POSITION_STEP_1"
             elif curr_state == "UNHIDE":
                 #go to intermediate position
                 self.setPose(poses["HIDE_INTERMEDIATE"])
                 #self.wait_until_reached(poses["HIDE_INTERMEDIATE"])
+                time.sleep(1.5)
                 next_state = "TURN_TO_HOME_FROM_UNHIDE"
             elif curr_state == "TURN_TO_HOME_FROM_UNHIDE":
                 #Go to home position. Then run IK
                 self.setPose(poses["HOME"])
                 #self.wait_until_reached(poses["HOME"])
+                time.sleep(1.5)
                 next_state = "RUN_IK"
             elif curr_state == "HIDE_POSITION_STEP_1":
                 #TODO
                 self.setPose(poses["HIDE_INTERMEDIATE"])
+                time.sleep(1.5)
                 #self.wait_until_reached(poses["HIDE_INTERMEDIATE"])
                 next_state = "HIDE_POSITION_STEP_2"
             elif curr_state == "HIDE_POSITION_STEP_2":
@@ -525,7 +537,7 @@ class Gui(QtGui.QMainWindow):
                 #self.wait_until_reached(poses["HIDE"])
                 #Block and wait for next point of new object
                 #self.get_socket_data()
-                time.sleep(1)
+                time.sleep(1.5)
                 #TODO: Do matrix transformation from kinect to rexarm world
                 #and populate desired_IK
 
@@ -541,8 +553,8 @@ def main():
     #ex.init_socket()
     #ex.get_socket_data()
     #Put these back when not testing socket anymore
-    import pdb
-    pdb.set_trace()
+    #import pdb
+    #pdb.set_trace()
     ex.trash_state_machine()
     #ex.show()
     #sys.exit(app.exec_())

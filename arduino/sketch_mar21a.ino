@@ -57,10 +57,14 @@ void loop() {
 
         unsigned long start_ms = millis();
         while (millis() - start_ms < 50) {
-            digitalWrite(enrpwm, HIGH);
-            digitalWrite(enlpwm, HIGH);
-            digitalWrite(enrpwm, LOW);
-            digitalWrite(enlpwm, LOW);
+            for (int i = 0; i < ticks_high; ++i) {
+                digitalWrite(enrpwm, HIGH);
+                digitalWrite(enlpwm, HIGH);
+            }
+            for (int i = 0; i < ticks_low; ++i) {
+                digitalWrite(enrpwm, LOW);
+                digitalWrite(enlpwm, LOW);
+            }
         }
     }
     digitalWrite(pinnum, LOW);

@@ -515,7 +515,7 @@ class Gui(QtGui.QMainWindow):
         IK_cmd_thetas = None
 
         #State1: Turn 90 degrees at base to prevent collision
-        states = ["START","RUN_IK_TURN_BASE","RUN_IK_DESCEND", "GRASP", "LIFT_UP", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION_STEP_1", "HIDE_POSITION_STEP_2","UNHIDE","TURN TO HOME FROM UNHIDE"]
+        states = ["START","RUN_IK_TURN_BASE","RUN_IK_DESCEND", "GRASP", "LIFT_UP", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION", "UNHIDE","TURN_TO_HOME_FROM_UNHIDE"]
         curr_state = "START"
         
         synchro_timer = 0.5
@@ -527,7 +527,7 @@ class Gui(QtGui.QMainWindow):
                 #Function to wait until we reached the pose before moving to next state
                 #self.wait_until_reached(poses["HOME"])
                 time.sleep(synchro_timer)
-                next_state = "HIDE_POSITION_STEP_1"
+                next_state = "HIDE_POSITION"
             elif curr_state == "RUN_IK_TURN_BASE":
                 #Run_IK
                 IK_cmd_thetas = self.runIK_noCommand(desired_IK)
@@ -565,9 +565,9 @@ class Gui(QtGui.QMainWindow):
                 #TODO: wait until reached position
                 next_state = "ARCH_TO_NET"
             elif curr_state == "ARCH_TO_NET":
-                self.rex.joint_angles[1] = -0.44
-                self.rex.joint_angles[2] = -1.26
-                self.rex.joint_angles[3] = -1.12
+                self.rex.joint_angles[1] = -0.08
+                self.rex.joint_angles[2] = -0.97
+                self.rex.joint_angles[3] = -1.58
                 self.rex.cmd_publish()
                 time.sleep(synchro_timer)
                 #self.wait_until_reached(poses["NET_ARCH"])
@@ -591,7 +591,7 @@ class Gui(QtGui.QMainWindow):
                     self.rex.joint_angles[i] = 0
                 self.rex.cmd_publish()
                 time.sleep(synchro_timer)
-                next_state = "HIDE_POSITION_STEP_1"
+                next_state = "HIDE_POSITION"
             elif curr_state == "UNHIDE":
                 #go to intermediate position
                 self.setPose(poses["HIDE_INTERMEDIATE"])
@@ -604,13 +604,7 @@ class Gui(QtGui.QMainWindow):
                 #self.wait_until_reached(poses["HOME"])
                 time.sleep(synchro_timer)
                 next_state = "RUN_IK_TURN_BASE"
-            elif curr_state == "HIDE_POSITION_STEP_1":
-                #TODO
-                self.setPose(poses["HIDE_INTERMEDIATE"])
-                time.sleep(synchro_timer)
-                #self.wait_until_reached(poses["HIDE_INTERMEDIATE"])
-                next_state = "HIDE_POSITION_STEP_2"
-            elif curr_state == "HIDE_POSITION_STEP_2":
+            elif curr_state == "HIDE_POSITION":
                 self.setPose(poses["HIDE"])
                 time.sleep(synchro_timer)
                 #self.wait_until_reached(poses["HIDE"])

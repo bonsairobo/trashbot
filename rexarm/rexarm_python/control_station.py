@@ -182,9 +182,9 @@ class Gui(QtGui.QMainWindow):
 
         return [rex_coords[0][0],rex_coords[1][0], rex_coords[2][0]]
 
-    #Runs inverse kinematics on xyz_phi_world, which has form
-    #[x,y,z,phi_in_radians]
-    def runIK(self,xyz_phi_world):
+    #Runs inverse kinematics and only returns hardware thetas. Up to the
+    #user to set the pose
+    def runIK_noCommand(self,xyz_phi_world):
         #In the robot frame
         xyz_world = xyz_phi_world[0:3]
         phi_world = xyz_phi_world[3]
@@ -238,10 +238,18 @@ class Gui(QtGui.QMainWindow):
         hardware_thetas.append(0)
         hardware_thetas.append(0)
 
+        return hardware_thetas
+
+
+    #Runs inverse kinematics on xyz_phi_world, which has form
+    #[x,y,z,phi_in_radians]
+    def runIK(self,xyz_phi_world):
+        hardware_thetas = self.runIK_noCommand(xyz_phi_world)
         print "Send thetas:", hardware_thetas
 
         #Send pose to Rexarm
         self.setPose(hardware_thetas)
+
 
     def play(self):
         """ 
@@ -504,9 +512,10 @@ class Gui(QtGui.QMainWindow):
         next_pose = None
         
         desired_IK = []
+        IK_cmd_thetas = None
 
         #State1: Turn 90 degrees at base to prevent collision
-        states = ["START","RUN_IK", "GRASP", "LIFT_UP", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION_STEP_1", "HIDE_POSITION_STEP_2","UNHIDE","TURN TO HOME FROM UNHIDE"]
+        states = ["START","RUN_IK_TURN_BASE","RUN_IK_DESCEND", "GRASP", "LIFT_UP", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION_STEP_1", "HIDE_POSITION_STEP_2","UNHIDE","TURN TO HOME FROM UNHIDE"]
         curr_state = "START"
         
         synchro_timer = 0.5
@@ -519,11 +528,19 @@ class Gui(QtGui.QMainWindow):
                 #self.wait_until_reached(poses["HOME"])
                 time.sleep(synchro_timer)
                 next_state = "HIDE_POSITION_STEP_1"
-            elif curr_state == "RUN_IK":
+            elif curr_state == "RUN_IK_TURN_BASE":
                 #Run_IK
-                self.runIK(desired_IK)
+                IK_cmd_thetas = self.runIK_noCommand(desired_IK)
+                #Turn base towards object
+                self.rex.joint_angles[0] = IK_cmd_thetas[0]
+                self.rex.cmd_publish()
                 #TODO: Get lcm joint angles returned from runIK so that
                 #we can wait before grasping
+                time.sleep(synchro_timer)
+                next_state = "RUN_IK_DESCEND"
+            elif curr_state == "RUN_IK_DESCEND":
+                #Descend the rest of the IK outside of base
+                self.setPose(IK_cmd_thetas)
                 time.sleep(synchro_timer)
                 next_state = "GRASP"
             elif curr_state == "GRASP":
@@ -586,7 +603,7 @@ class Gui(QtGui.QMainWindow):
                 self.setPose(poses["HOME"])
                 #self.wait_until_reached(poses["HOME"])
                 time.sleep(synchro_timer)
-                next_state = "RUN_IK"
+                next_state = "RUN_IK_TURN_BASE"
             elif curr_state == "HIDE_POSITION_STEP_1":
                 #TODO
                 self.setPose(poses["HIDE_INTERMEDIATE"])

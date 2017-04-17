@@ -143,7 +143,7 @@ class Gui(QtGui.QMainWindow):
         z = -kinect_coords[2]
 
         #produce 
-        rot_angle = -31 * D2R
+        rot_angle = -37.5 * D2R
         rot_x = np.array([
             [1,0,0,0],
             [0,np.cos(rot_angle),-np.sin(rot_angle),0],
@@ -162,7 +162,7 @@ class Gui(QtGui.QMainWindow):
         translation = np.array([
             [1,0,0,.072],
             [0,1,0,0],
-            [0,0,1,0],
+            [0,0,1,-.625],
             [0,0,0,1]
         ])
 
@@ -186,7 +186,7 @@ class Gui(QtGui.QMainWindow):
         #In the rexarm frame
         xyz_rexarm = None #To be computed
 
-        print "World Coords:", xyz_world
+        #print "World Coords:", xyz_world
 
         #Homogeneous coordinates
         xyz_world = np.append(xyz_world,1)
@@ -503,7 +503,7 @@ class Gui(QtGui.QMainWindow):
         states = ["START","RUN_IK", "GRASP", "LIFT_UP", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION_STEP_1", "HIDE_POSITION_STEP_2","UNHIDE","TURN TO HOME FROM UNHIDE"]
         curr_state = "START"
         
-        synchro_timer = 3
+        synchro_timer = 0.5
         while True:
             print "----------------------------------------"
             print "Current State:", curr_state
@@ -593,12 +593,17 @@ class Gui(QtGui.QMainWindow):
                 #self.wait_until_reached(poses["HIDE"])
                 #Block and wait for next point of new object
                 kin_point = self.get_socket_data()
+                #kin_point = [.057,-.165,.731]
                 #Convert to rexarm coordinates from kinect coordinates
                 rex_point = self.kinect_world_to_rexarm_world(kin_point)
                 #TODO: Do matrix transformation from kinect to rexarm world
                 #and populate desired_IK
                 desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87 *D2R]
                 #desired_IK = [0.131,0.139,-0.015, 87 * D2R]
+                print "Inverse Kinematics Target:"
+                print "Goal x in Rexarm:", desired_IK[0]
+                print "Goal y in Rexarm:", desired_IK[1]
+                print "Goal z:", desired_IK[2]
                 next_state = "UNHIDE"
             print "Next State:", next_state
             print "----------------------------------------"

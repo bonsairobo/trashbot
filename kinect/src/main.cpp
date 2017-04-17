@@ -77,6 +77,7 @@ int main(int argc, char **argv) {
 
     uint8_t key = 0;
     const uint8_t ESC_KEYCODE = 27;
+    const uint8_t SPACEBAR = 32;
     while (key != ESC_KEYCODE) {
         Mat depth_u16_mat, color_mat;
         VideoFrameRef depth_frame;
@@ -98,7 +99,7 @@ int main(int argc, char **argv) {
         /*PickupCommand cmd;
         socklen_t len = sizeof(js_addr);
         ssize_t bytes_read = 1;*/
-        bool do_search = true;
+        bool do_send = key == SPACEBAR;
         /*while (bytes_read > 0) {
             bytes_read = recvfrom(
                 sock,
@@ -117,113 +118,112 @@ int main(int argc, char **argv) {
             }
 
             // Consume all commands and only do a single search.
-            do_search = true;
+            do_send = true;
         }*/
 
-        if (do_search) {
-            // Get pixels, cloud, and ROI for workspace objects.
-            ObjectInfo obj_info = get_workspace_objects(
-                depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 3.0, 4.3);
-            if (!obj_info.object_pixels.empty()) {
-                // Translate pixel coordinates back to original image from ROI.
-                Point2i tl_px(roi.x, roi.y);
-                vector<vector<Point2i>> trans_object_px;
-                for (const auto& object : obj_info.object_pixels) {
-                    trans_object_px.push_back(
-                        translate_px_coords(object, tl_px));
-                }
+        // Get pixels, cloud, and ROI for workspace objects.
+        ObjectInfo obj_info = get_workspace_objects(
+            depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.5, 4.3);
+        if (!obj_info.object_pixels.empty()) {
+            // Translate pixel coordinates back to original image from ROI.
+            Point2i tl_px(roi.x, roi.y);
+            vector<vector<Point2i>> trans_object_px;
+            for (const auto& object : obj_info.object_pixels) {
+                trans_object_px.push_back(
+                    translate_px_coords(object, tl_px));
+            }
 
-                // Make dilated edge image.
-                Mat gray_mat, edges;
-                cvtColor(color_mat, gray_mat, CV_BGR2GRAY);
-                blur(gray_mat, edges, Size(3,3));
-                Canny(edges, edges, 50, 150, 3);
-                /*int dilation_size = 1;
-                Mat element = getStructuringElement(
-                    MORPH_RECT,
-                    Size(2 * dilation_size + 1, 2 * dilation_size + 1),
-                    Point(dilation_size, dilation_size));
-                dilate(edges, edges, element);*/
+            // Make dilated edge image.
+            Mat gray_mat, edges;
+            cvtColor(color_mat, gray_mat, CV_BGR2GRAY);
+            blur(gray_mat, edges, Size(3,3));
+            Canny(edges, edges, 50, 150, 3);
+            /*int dilation_size = 1;
+            Mat element = getStructuringElement(
+                MORPH_RECT,
+                Size(2 * dilation_size + 1, 2 * dilation_size + 1),
+                Point(dilation_size, dilation_size));
+            dilate(edges, edges, element);*/
 
-                // Extract objects from edges in point cloud ROI.
-                vector<vector<Point2i>> edge_objects =
-                    find_nonzero_components<uint8_t>(edges);
+            // Extract objects from edges in point cloud ROI.
+            vector<vector<Point2i>> edge_objects =
+                find_nonzero_components<uint8_t>(edges);
 
-                // Do object-edge correspondence filtering.
-                vector<Point2i> object_medoids;
-                for (const auto& obj : trans_object_px) {
-                    object_medoids.push_back(region_medoid(obj));
-                }
-                vector<Point2i> edge_medoids;
-                for (const auto& obj : edge_objects) {
-                    edge_medoids.push_back(region_medoid(obj));
-                }
-                if (!edge_medoids.empty() and !object_medoids.empty()) {
-                    object_grid.update(
-                        trans_object_px,
-                        edge_objects,
-                        object_medoids,
-                        edge_medoids);
-                }
-                Mat weights = object_grid.get_weights();
-                threshold(weights, weights, 0.9, 0, THRESH_TOZERO);
-                auto final_objects =
-                    find_nonzero_components<float>(weights);
-                remove_small_regions(&final_objects, 100);
+            // Do object-edge correspondence filtering.
+            vector<Point2i> object_medoids;
+            for (const auto& obj : trans_object_px) {
+                object_medoids.push_back(region_medoid(obj));
+            }
+            vector<Point2i> edge_medoids;
+            for (const auto& obj : edge_objects) {
+                edge_medoids.push_back(region_medoid(obj));
+            }
+            if (!edge_medoids.empty() and !object_medoids.empty()) {
+                object_grid.update(
+                    trans_object_px,
+                    edge_objects,
+                    object_medoids,
+                    edge_medoids);
+            }
+            Mat weights = object_grid.get_weights();
+            threshold(weights, weights, 0.9, 0, THRESH_TOZERO);
+            auto final_objects =
+                find_nonzero_components<float>(weights);
+            remove_small_regions(&final_objects, 100);
 
-                // Choose the "best" object.
-                float min_depth = numeric_limits<float>::max();
-                int best_obj_idx = -1;
+            // Choose the "best" object.
+            float min_depth = numeric_limits<float>::max();
+            int best_obj_idx = -1;
+            int j = 0;
+            for (const auto& object : final_objects) {
+                auto px = region_medoid(object) - tl_px;
+                float z = obj_info.cloud->at(px.x, px.y).z;
+                if (z < min_depth) {
+                    min_depth = z;
+                    best_obj_idx = j;
+                }
+                ++j;
+            }
+
+            if (show_feeds) {
+                Mat masked = mask_image<uint16_t, Vec3b>(
+                    color_mat, depth_u16_mat);
                 int j = 0;
                 for (const auto& object : final_objects) {
-                    auto px = region_medoid(object) - tl_px;
-                    float z = obj_info.cloud->at(px.x, px.y).z;
-                    if (z < min_depth) {
-                        min_depth = z;
-                        best_obj_idx = j;
-                    }
+                    Vec3b color = j == best_obj_idx ?
+                        Vec3b(0, 0, 255) :
+                        Vec3b(dis(gen), dis(gen), dis(gen));
+                    draw_pixels(masked, object, color);
                     ++j;
                 }
+                imshow("kinect_feed", masked);
 
-                if (show_feeds) {
-                    Mat masked = mask_image<uint16_t, Vec3b>(
-                        color_mat, depth_u16_mat);
-                    int j = 0;
-                    for (const auto& object : final_objects) {
-                        Vec3b color = j == best_obj_idx ?
-                            Vec3b(0, 0, 255) :
-                            Vec3b(dis(gen), dis(gen), dis(gen));
-                        draw_pixels(masked, object, color);
-                        ++j;
-                    }
-                    imshow("kinect_feed", masked);
+                Mat color_edges;
+                cvtColor(edges, color_edges, CV_GRAY2BGR);
+                //draw_points(color_edges, edge_medoids, Vec3b(0,0,255));
+                //draw_points(color_edges, object_medoids, Vec3b(255,0,0));
+                imshow("edges", color_edges);
+            }
 
-                    Mat color_edges;
-                    cvtColor(edges, color_edges, CV_GRAY2BGR);
-                    //draw_points(color_edges, edge_medoids, Vec3b(0,0,255));
-                    //draw_points(color_edges, object_medoids, Vec3b(255,0,0));
-                    imshow("edges", color_edges);
-                }
-
-                // Send grasping point to the Rexarm.
-                if (!final_objects.empty()) {
-                    Point2i medoid = region_medoid(final_objects[best_obj_idx]);
-                    medoid -= tl_px;
-                    auto normal_cloud = estimate_normals(obj_info.cloud);
-                    GraspingPoint gp;
-                    gp.point = vec3f_from_pointxyz(
-                        obj_info.cloud->at(medoid.x, medoid.y));
-                    gp.normal = vec3f_from_normal(
-                        normal_cloud->at(medoid.x, medoid.y));
-                    gp.time_ms = depth_frame.getTimestamp();
-                    sendto(
-                        sock,
-                        &gp,
-                        sizeof(gp),
-                        0,
-                        (sockaddr*)&rex_addr,
-                        sizeof(rex_addr));
-                }
+            // Send grasping point to the Rexarm.
+            if (!final_objects.empty() and do_send) {
+                Point2i medoid = region_medoid(final_objects[best_obj_idx]);
+                medoid -= tl_px;
+                auto normal_cloud = estimate_normals(obj_info.cloud);
+                GraspingPoint gp;
+                gp.point = vec3f_from_pointxyz(
+                    obj_info.cloud->at(medoid.x, medoid.y));
+                gp.normal = vec3f_from_normal(
+                    normal_cloud->at(medoid.x, medoid.y));
+                gp.time_ms = depth_frame.getTimestamp();
+                sendto(
+                    sock,
+                    &gp,
+                    sizeof(gp),
+                    0,
+                    (sockaddr*)&rex_addr,
+                    sizeof(rex_addr));
+                cout << "sent packet" << endl;
             }
         }
 

@@ -11,7 +11,7 @@ OccupancyGrid::OccupancyGrid(int width, int height):
     max_odds(numeric_limits<uint8_t>::max()),
     min_odds(numeric_limits<uint8_t>::lowest()),
     hit_odds(20),
-    miss_odds(5),
+    miss_odds(8),
     odds(height, width, CV_8U, Scalar(max_odds / 2))
 {}
 
@@ -66,7 +66,7 @@ void OccupancyGrid::update(
     }
 
     // Rank objects by closest edge overlap percentage.
-    const float min_pct = 0.1;
+    const float min_pct = 0.15;
     vector<float> best_pct_edge(edges.size(), min_pct);
     vector<int> valid_obj_idx(edges.size(), -1);
     int obj_idx = 0;

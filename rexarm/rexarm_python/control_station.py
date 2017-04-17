@@ -175,7 +175,7 @@ class Gui(QtGui.QMainWindow):
         rex_coords = np.dot(xform,coords)
 
         #Clamp z if below this limit
-        z_limit = -.04
+        z_limit = -.03
         if rex_coords[2][0] <= z_limit:
             print "z_limit was", rex_coords[2][0],"; clamped it to", z_limit
             rex_coords[2][0] = z_limit

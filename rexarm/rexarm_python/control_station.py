@@ -162,7 +162,7 @@ class Gui(QtGui.QMainWindow):
         translation = np.array([
             [1,0,0,.072],
             [0,1,0,0],
-            [0,0,1,-.656],
+            [0,0,1,-.636],
             [0,0,0,1]
         ])
 

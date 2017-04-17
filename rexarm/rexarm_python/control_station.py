@@ -143,7 +143,7 @@ class Gui(QtGui.QMainWindow):
         z = -kinect_coords[2]
 
         #produce 
-        rot_angle = -40 * D2R
+        rot_angle = -30 * D2R
         rot_x = np.array([
             [1,0,0,0],
             [0,np.cos(rot_angle),-np.sin(rot_angle),0],

@@ -71,8 +71,8 @@ int main(int argc, char **argv) {
     VideoMode vm = depth_stream.getVideoMode();
     OccupancyGrid object_grid(vm.getResolutionX(), vm.getResolutionY());
 
-    Point3f ftl(-200.0, 0.0, 650.0);
-    Point3f bbr(200.0, -280.0, 950.0);
+    Point3f ftl(-200.0, -50.0, 650.0);
+    Point3f bbr(200.0, -250.0, 950.0);
     Rect roi = roi_from_workspace_corners(ftl, bbr, depth_stream);
 
     uint8_t key = 0;
@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
 
         // Get pixels, cloud, and ROI for workspace objects.
         ObjectInfo obj_info = get_workspace_objects(
-            depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.5, 4.3);
+            depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 3.0, 4.3);
         if (!obj_info.object_pixels.empty()) {
             // Translate pixel coordinates back to original image from ROI.
             Point2i tl_px(roi.x, roi.y);
@@ -148,6 +148,7 @@ int main(int argc, char **argv) {
             // Extract objects from edges in point cloud ROI.
             vector<vector<Point2i>> edge_objects =
                 find_nonzero_components<uint8_t>(edges);
+            remove_small_regions(&edge_objects, 30);
 
             // Do object-edge correspondence filtering.
             vector<Point2i> object_medoids;

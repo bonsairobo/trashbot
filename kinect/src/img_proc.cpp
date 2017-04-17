@@ -123,6 +123,7 @@ static void remove_planes(
     seg.setMaxIterations(500);
     seg.setDistanceThreshold(dist_thresh);
     ExtractIndices<PointXYZ> extract;
+    vector<vector<int>> planes;
     while (true) {
         // Segment the largest planar component from the remaining cloud.
         seg.setInputCloud(pc);
@@ -136,6 +137,9 @@ static void remove_planes(
         // Extract the inliers.
         extract.setInputCloud(pc);
         extract.setIndices(inliers);
+        vector<int> plane_idx;
+        extract.filter(plane_idx);
+        planes.push_back(plane_idx);
         extract.setNegative(true);
         vector<int> kept_idx;
         extract.filter(kept_idx);
@@ -152,9 +156,14 @@ static void remove_planes(
         swap(*idx_px_map, new_map);
 
         // Stop when the planes being removed become small.
-        if (num_before - num_after < 50000) {
+        if (plane_idx.size() < 10000) {
             break;
         }
+    }
+    if (planes.size() > 1 and planes[1].size() > 3000) {
+        cout << "BOUNDARY DETECTED" << endl;
+    } else {
+        cout << "NO BOUNDARY DETECTED" << endl;
     }
 }
 

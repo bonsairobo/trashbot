@@ -59,7 +59,8 @@ int main(int argc, char **argv) {
 
     Point3f ftl(-200.0, 0.0, 650.0);
     Point3f bbr(200.0, -280.0, 850.0);
-    Rect roi = roi_from_workspace_corners(ftl, bbr, depth_stream);
+    //Rect roi = roi_from_workspace_corners(ftl, bbr, depth_stream);
+    Rect roi(0,0,vm.getResolutionX(),vm.getResolutionY());
 
     for (int i = 0; i < num_depth_frames; ++i) {
         // This should set also set color stream to the same point in time.

@@ -2,6 +2,7 @@ import lcm
 import time
 import numpy as np
 import math
+import threading
 from lcmtypes import dynamixel_command_t
 from lcmtypes import dynamixel_command_list_t
 from lcmtypes import dynamixel_status_t
@@ -173,6 +174,7 @@ class Rexarm():
         self.lc = lcm.LCM()
         lcmMotorSub = self.lc.subscribe("ARM_STATUS",
                                         self.feedback_handler)
+        print "Subscribed to LCM feedback_handler"
 
     def cmd_publish(self):
         """ 

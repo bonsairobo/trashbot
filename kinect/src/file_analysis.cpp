@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
         // Draw object clusters on color image.
         Mat masked = mask_image<uint16_t, Vec3b>(color_mat, depth_u16_mat);
         obj_idx = 0;
-        for (const auto& object : final_objects) {
+        for (const auto& object : trans_object_px) {
             Vec3b color = obj_idx == best_obj_idx ?
                 Vec3b(0, 0, 255) :
                 Vec3b(dis(gen), dis(gen), dis(gen));

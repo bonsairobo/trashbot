@@ -3,6 +3,8 @@
 
 using namespace std;
 
+CodePacket::CodePacket(char code): code(code) {}
+
 sockaddr_un create_udp_addr(const char *path) {
     sockaddr_un addr;
     memset(&addr, 0, sizeof(sockaddr_un));

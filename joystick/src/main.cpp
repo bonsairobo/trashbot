@@ -24,19 +24,23 @@ int main(int argc, char **argv) {
         while (js.sample(&event)) {
             // Press any button to send a pickup command.
             if (event.isButton() and event.value == 1) {
-                PickupCommand cmd;
-                cmd.time_ms = event.time;
-                sendto(
-                    sock,
-                    &cmd,
-                    sizeof(cmd),
-                    0,
-                    (sockaddr*)&kin_addr,
-                    sizeof(kin_addr));
+                if (event.number == 12 or event.number == 14) {
+                    cout << int(event.number) << ": " << event.value << endl;
+                    CodePacket cmd(event.number);
+                    cmd.time_ms = event.time;
+                    sendto(
+                        sock,
+                        &cmd,
+                        sizeof(cmd),
+                        0,
+                        (sockaddr*)&kin_addr,
+                        sizeof(kin_addr));
+                }
             } else if (event.isAxis() and
                 // TODO: get actual axis #s for left X analog and right Y analog
-                (event.number == 0 or event.number == 1))
+                (event.number == 2 or event.number == 12 or event.number == 13))
             {
+                cout << int(event.number) << ": " << event.value << endl;
                 sendto(
                     sock,
                     &event,

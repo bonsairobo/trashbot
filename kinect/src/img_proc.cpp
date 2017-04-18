@@ -7,6 +7,7 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/kdtree/kdtree.h>
+#include <pcl/common/pca.h>
 #include <queue>
 #include <cassert>
 #include <Eigen/Core>
@@ -16,6 +17,7 @@ using namespace std;
 using namespace openni;
 using namespace pcl;
 using namespace Eigen;
+using namespace boost;
 
 Point2i region_centroid(const vector<Point2i>& region) {
     if (region.empty()) {
@@ -42,31 +44,27 @@ static inline Vector3f cloud_centroid(
     for (auto& pt : *cloud) {
         c += eigenvec3f_from_pointxyz(pt);
     }
-    return (1.0 / float(cloud->size())) * c;
+    return c / float(cloud->size());
+}
+
+static IndicesPtr indices_from_px(
+    const vector<Point2i>& pixels, int width)
+{
+    IndicesPtr indices(new vector<int>);
+    for (const auto& px : pixels) {
+        indices->push_back(px.y * width + px.x);
+    }
+    return indices;
 }
 
 Vector3f object_principal_axis(
     vector<Point2i> object_px, PointCloud<PointXYZ>::Ptr cloud)
 {
-    // Zero-center data.
-    auto mean = cloud_centroid(object_px, cloud);
-    vector<Vector3f> object_pts;
-    for (const auto& px : object_px) {
-        object_pts.push_back(
-            eigenvec3f_from_pointxyz(cloud->at(px.x, px.y)) - mean);
-    }
-
-    // Create data matrix.
-    MatrixXf data_mat(object_pts.size(), 3);
-    int row = 0;
-    for (const auto& pt : object_pts) {
-        data_mat.row(row) = pt;
-        ++row;
-    }
-
-    // Return largest eigenvalue eigenvector of covariance matrix.
-    JacobiSVD<MatrixXf> svd(data_mat, ComputeFullV | ComputeFullU);
-    return svd.matrixV().col(0);
+    pcl::PCA<PointXYZ> pca(true);
+    pca.setInputCloud(cloud);
+    IndicesPtr indices = indices_from_px(object_px, cloud->width);
+    pca.setIndices(indices);
+    return pca.getEigenVectors().row(0);
 }
 
 Point2i region_medoid(const vector<Point2i>& region) {
@@ -203,11 +201,11 @@ static void remove_planes(
             break;
         }
     }
-    if (planes.size() > 1 and planes[1].size() > 3000) {
+    /*if (planes.size() > 1 and planes[1].size() > 3000) {
         cout << "BOUNDARY DETECTED" << endl;
     } else {
         cout << "NO BOUNDARY DETECTED" << endl;
-    }
+    }*/
 }
 
 static PointCloud<PointXYZ>::Ptr zero_cloud(int width, int height) {

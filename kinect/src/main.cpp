@@ -4,11 +4,13 @@
 #include "occupancy_grid.hpp"
 #include <fstream>
 #include <random>
+#include <fcntl.h>
 
 using namespace std;
 using namespace openni;
 using namespace cv;
 using namespace pcl;
+using namespace Eigen;
 
 int main(int argc, char **argv) {
     // Open windows for drawing streams.
@@ -62,11 +64,13 @@ int main(int argc, char **argv) {
 
     // Set up UDP socket for receiving command from joystick and sending data
     // to Rexarm.
-    //sockaddr_un js_addr = create_udp_addr("/tmp/joystick_endpoint");
+    sockaddr_un js_addr = create_udp_addr("/tmp/joystick_endpoint");
     sockaddr_un kin_addr = create_udp_addr("/tmp/kinect_endpoint");
     sockaddr_un rex_addr = create_udp_addr("/tmp/rexarm_endpoint");
+    sockaddr_un mc_addr = create_udp_addr("/tmp/motion_controller_endpoint");
     int sock = try_create_udp_socket();
     try_bind_path(sock, kin_addr);
+    fcntl(sock, F_SETFL, O_NONBLOCK);
 
     VideoMode vm = depth_stream.getVideoMode();
     OccupancyGrid object_grid(vm.getResolutionX(), vm.getResolutionY());
@@ -74,6 +78,8 @@ int main(int argc, char **argv) {
     Point3f ftl(-200.0, -50.0, 650.0);
     Point3f bbr(200.0, -250.0, 950.0);
     Rect roi = roi_from_workspace_corners(ftl, bbr, depth_stream);
+
+    bool mode = false; // Manual control
 
     uint8_t key = 0;
     const uint8_t ESC_KEYCODE = 27;
@@ -96,11 +102,12 @@ int main(int argc, char **argv) {
         depth_u16_mat.convertTo(depth_f32_mat, CV_32F);
 
         // Check for command to search for grasping points.
-        /*PickupCommand cmd;
+        CodePacket cmd(-1);
         socklen_t len = sizeof(js_addr);
-        ssize_t bytes_read = 1;*/
-        bool do_send = key == SPACEBAR;
-        /*while (bytes_read > 0) {
+        ssize_t bytes_read = 1;
+        bool do_send_grasp = key == SPACEBAR;
+        bool do_send_mode_switch = false;
+        while (bytes_read > 0) {
             bytes_read = recvfrom(
                 sock,
                 &cmd,
@@ -108,6 +115,9 @@ int main(int argc, char **argv) {
                 0,
                 (sockaddr*)&js_addr,
                 &len);
+            if (bytes_read == EWOULDBLOCK) {
+                break;
+            }
             if (bytes_read < 0) {
                 // TODO: remove this hack
                 //perror("recvfrom");
@@ -118,12 +128,16 @@ int main(int argc, char **argv) {
             }
 
             // Consume all commands and only do a single search.
-            do_send = true;
-        }*/
+            if (cmd.code == 0) {
+                do_send_grasp = true;
+            } else if (cmd.code == 1) {
+                do_send_mode_switch = true;
+            }
+        }
 
         // Get pixels, cloud, and ROI for workspace objects.
         ObjectInfo obj_info = get_workspace_objects(
-            depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 3.0, 4.3);
+            depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.0, 4.3);
         if (!obj_info.object_pixels.empty()) {
             // Translate pixel coordinates back to original image from ROI.
             Point2i tl_px(roi.x, roi.y);
@@ -138,12 +152,12 @@ int main(int argc, char **argv) {
             cvtColor(color_mat, gray_mat, CV_BGR2GRAY);
             blur(gray_mat, edges, Size(3,3));
             Canny(edges, edges, 50, 150, 3);
-            /*int dilation_size = 1;
+            int dilation_size = 1;
             Mat element = getStructuringElement(
                 MORPH_RECT,
                 Size(2 * dilation_size + 1, 2 * dilation_size + 1),
                 Point(dilation_size, dilation_size));
-            dilate(edges, edges, element);*/
+            dilate(edges, edges, element);
 
             // Extract objects from edges in point cloud ROI.
             vector<vector<Point2i>> edge_objects =
@@ -187,6 +201,15 @@ int main(int argc, char **argv) {
                 ++obj_idx;
             }
 
+            // Compute the principal axis unit vector of the chosen object.
+            /*if (best_obj_idx != -1) {
+                Vector3f principal_axis = object_principal_axis(
+                    translate_px_coords(final_objects[best_obj_idx], -tl_px),
+                    obj_info.cloud);
+                cout << "principal axis = (" << principal_axis(0) << ","
+                     << principal_axis(1) << "," << principal_axis(2) << ")" << endl;
+            }*/
+
             if (show_feeds) {
                 Mat masked = mask_image<uint16_t, Vec3b>(
                     color_mat, depth_u16_mat);
@@ -208,7 +231,7 @@ int main(int argc, char **argv) {
             }
 
             // Send grasping point to the Rexarm.
-            if (!final_objects.empty() and do_send) {
+            if (!final_objects.empty()) {
                 Point2i medoid = region_medoid(final_objects[best_obj_idx]);
                 medoid -= tl_px;
                 auto normal_cloud = estimate_normals(obj_info.cloud);
@@ -218,14 +241,28 @@ int main(int argc, char **argv) {
                 gp.normal = vec3f_from_normal(
                     normal_cloud->at(medoid.x, medoid.y));
                 gp.time_ms = depth_frame.getTimestamp();
-                sendto(
+                cout << "GP = (" << gp.point.x << "," << gp.point.y << "," << gp.point.z << ")" << endl;
+                /*sendto(
                     sock,
                     &gp,
                     sizeof(gp),
                     0,
                     (sockaddr*)&rex_addr,
                     sizeof(rex_addr));
-                cout << "sent packet" << endl;
+                cout << "sent grasp packet" << endl;*/
+            }
+
+            if (do_send_mode_switch) {
+                /*CodePacket packet();
+                mode = !mode;
+                sendto(
+                    sock,
+                    &gp,
+                    sizeof(gp),
+                    0,
+                    (sockaddr*)&mc_addr,
+                    sizeof(mc_addr));
+                cout << "sent mode switch packet (" << mode << ")" << endl;*/
             }
         }
 

@@ -9,8 +9,11 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-struct PickupCommand {
+struct CodePacket {
     uint32_t time_ms;
+    char code;
+
+    CodePacket(char code);
 };
 
 // Just make a simple POD type so we don't have to use some library's type for

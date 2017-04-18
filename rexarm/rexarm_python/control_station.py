@@ -351,7 +351,7 @@ class Gui(QtGui.QMainWindow):
     #current_angles is provided by Rexarm state machine since rex.joint_angles_fb
     #isn't being updated with the rexarm lcm handler
     #Returns the new pose as a variable
-    def setPose(self,desired_angles,current_angles = None):
+    def setPose(self,desired_angles,current_angles = []):
         #Use the linear motion plan that the professor explained
         step_size = 0.04
         t_range = list(np.arange(0,1 + step_size,step_size))
@@ -359,7 +359,7 @@ class Gui(QtGui.QMainWindow):
         desired_angles = np.array(desired_angles)
         
         initial_angles = None
-        if current_angles == None:
+        if len(current_angles) == 0:
             initial_angles = np.array(self.rex.joint_angles_fb)
         else:
             initial_angles = np.array(current_angles)
@@ -495,6 +495,12 @@ class Gui(QtGui.QMainWindow):
             #print "Rexarm:", self.rex.joint_angles_fb
             continue
 
+    #Instantly publishes pose to rexarm without any motion smoothing
+    #Used to save time
+    def instant_publish(self,pose):
+        self.rex.joint_angles = pose[:]
+        self.rex.cmd_publish()
+
     #Returns true if the rexarm's angles match the pose input approximately.
     #Use this to repeatedly check if rexarm has reached a configuration
     # pose is a list of angles for each rexarm_joint ex. [0,0,0,0,0,0]
@@ -512,7 +518,7 @@ class Gui(QtGui.QMainWindow):
     def trash_state_machine(self):
         self.init_socket()
         tighten_gripper = 115 * D2R
-        net_base_angle = -1.51 
+        net_base_angle = -1.71 
         poses = {"HOME": [0,0,0,0,0,tighten_gripper],#Tightens gripper
                  "HIDE_INTERMEDIATE": [0.008,-2.038,0.171,1.30,-0.015,-0.015],
                  "HIDE": [1.557,-2.03,-0.629,1.079,-0.061,1.994]#,
@@ -530,106 +536,79 @@ class Gui(QtGui.QMainWindow):
         #State1: Turn 90 degrees at base to prevent collision
         states = ["START","RUN_IK_TURN_BASE","RUN_IK_DESCEND", "GRASP", "LIFT_UP", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION", "UNHIDE","TURN_TO_HOME_FROM_UNHIDE"]
         curr_state = "START"
-        
         synchro_timer = 0.5
+        start = True
+        linear = True
+
         while True:
             print "----------------------------------------"
             print "Current State:", curr_state
             if curr_state == "START":
-                current_pose = self.setPose(poses["HOME"])
-                #Function to wait until we reached the pose before moving to next state
-                #self.wait_until_reached(poses["HOME"])
-                time.sleep(synchro_timer)
+                next_pose = poses["HOME"][:]
                 next_state = "HIDE_POSITION"
             elif curr_state == "RUN_IK_TURN_BASE":
                 #Run_IK
                 IK_cmd_thetas = self.runIK_noCommand(desired_IK)
                 print "IK_result:", IK_cmd_thetas
                 #Turn base towards object
-                self.rex.joint_angles[0] = IK_cmd_thetas[0]
-                self.rex.cmd_publish()
+                next_pose[0] = IK_cmd_thetas[0]
+                linear = False
+                self.instant_publish(next_pose)
                 print "Published to joint 0:", IK_cmd_thetas[0]
-                current_pose[0] = IK_cmd_thetas[0]
                 #TODO: Get lcm joint angles returned from runIK so that
                 #we can wait before grasping
-                time.sleep(synchro_timer)
                 next_state = "RUN_IK_DESCEND"
             elif curr_state == "RUN_IK_DESCEND":
                 print "About to descend:"
                 print "Current pose:", self.rex.joint_angles_fb
                 print "Desired Pose:", IK_cmd_thetas
                 #Descend the rest of the IK outside of base
-                current_pose = self.setPose(IK_cmd_thetas,current_pose)
-                time.sleep(synchro_timer)
+                next_pose = IK_cmd_thetas[:]
                 next_state = "GRASP"
             elif curr_state == "GRASP":
                 #Set joint 5 to grasp
-                self.rex.joint_angles[5] = tighten_gripper
-                #TODO: wait until reached position
-                self.rex.cmd_publish()
-                current_pose[5] = tighten_gripper
-                time.sleep(synchro_timer)
+                next_pose[5] = tighten_gripper
                 next_state = "LIFT_TO_HOME"
             elif curr_state == "LIFT_TO_HOME":
                 #Set all joints except base joint and gripper joint to 0
                 for i in range(1,5):
-                    self.rex.joint_angles[i] = 0
-                    current_pose[i] = 0
-                self.rex.cmd_publish()
-                time.sleep(synchro_timer)
-                #TODO: wait until reached position
+                    next_pose[i] = 0
                 next_state = "TURN_TO_NET"
             elif curr_state == "TURN_TO_NET":
-                self.rex.joint_angles[0] = net_base_angle
-                current_pose[0] = net_base_angle
-                self.rex.cmd_publish()
-                time.sleep(synchro_timer)
-                #TODO: wait until reached position
+                next_pose[0] = net_base_angle
+                linear = False
+                self.instant_publish(next_pose)
                 next_state = "ARCH_TO_NET"
             elif curr_state == "ARCH_TO_NET":
-                self.rex.joint_angles[1] = -0.08
-                self.rex.joint_angles[2] = -0.97
-                self.rex.joint_angles[3] = -1.58
-                self.rex.cmd_publish()
-                current_pose[1] = self.rex.joint_angles[1]
-                current_pose[2] = self.rex.joint_angles[2]
-                current_pose[3] = self.rex.joint_angles[3]
-                time.sleep(synchro_timer)
-                #self.wait_until_reached(poses["NET_ARCH"])
+                next_pose[1] = -0.08
+                next_pose[2] = -0.97
+                next_pose[3] = -1.58
                 next_state = "DROP"
             elif curr_state == "DROP":
                 #Set joint 5 to 0 angle
-                self.rex.joint_angles[5] = 0
-                self.rex.cmd_publish()
-                current_pose[5] = 0
-                time.sleep(synchro_timer)
+                next_pose[5] = 0
+                linear = False
+                self.instant_publish(next_pose)
                 next_state = "UNARCH"
             elif curr_state == "UNARCH":
                 #Set all joints except base to 0
                 for i in range(1,6):
-                    self.rex.joint_angles[i] = 0
-                    current_pose[i] = 0
-                self.rex.cmd_publish()
-                time.sleep(synchro_timer)
+                    next_pose[i] = 0
                 next_state = "TURN_TO_HOME_FROM_NET"
             elif curr_state == "TURN_TO_HOME_FROM_NET":
                 #Set all joints to 0
-                for i in range(6):
-                    self.rex.joint_angles[i] = 0
-                    current_pose[i] = 0
-                self.rex.cmd_publish()
-                time.sleep(synchro_timer)
+                next_pose[0] = 0
+                linear = False
+                self.instant_publish(next_pose)
                 next_state = "HIDE_POSITION"
             elif curr_state == "UNHIDE":
                 #Go to home position. Then run IK
-                current_pose = self.setPose(poses["HOME"],current_pose)
-                #self.wait_until_reached(poses["HOME"])
-                time.sleep(synchro_timer)
+                next_pose = poses["HOME"][:]
                 next_state = "RUN_IK_TURN_BASE"
             elif curr_state == "HIDE_POSITION":
-                current_pose = self.setPose(poses["HIDE"],current_pose)
-                time.sleep(synchro_timer)
-                #self.wait_until_reached(poses["HIDE"])
+                next_pose = poses["HIDE"][:]
+                next_state = "SOCKET_READ"
+            elif curr_state == "SOCKET_READ":
                 #Block and wait for next point of new object
                 kin_point = self.get_socket_data()
                 #kin_point = [.057,-.165,.731]
@@ -644,7 +623,23 @@ class Gui(QtGui.QMainWindow):
                 print "Goal x in Rexarm:", desired_IK[0]
                 print "Goal y in Rexarm:", desired_IK[1]
                 print "Goal z:", desired_IK[2]
+                linear = False
+                #Not setting next_pose
                 next_state = "UNHIDE"
+            if linear:
+                if start:
+                    self.setPose(next_pose)
+                    start = False
+                else:
+                    self.setPose(next_pose,current_pose)
+            else:
+                linear = True
+
+            #Setting current_pose to whatever next_pose was 
+            #determined to be
+            current_pose = next_pose[:]
+            time.sleep(synchro_timer)
+
             print "Next State:", next_state
             print "----------------------------------------"
             curr_state = next_state

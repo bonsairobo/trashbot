@@ -512,7 +512,7 @@ class Gui(QtGui.QMainWindow):
     def trash_state_machine(self):
         self.init_socket()
         tighten_gripper = 115 * D2R
-        net_base_angle = -1.51 
+        net_base_angle = -1.71 
         poses = {"HOME": [0,0,0,0,0,tighten_gripper],#Tightens gripper
                  "HIDE_INTERMEDIATE": [0.008,-2.038,0.171,1.30,-0.015,-0.015],
                  "HIDE": [1.557,-2.03,-0.629,1.079,-0.061,1.994]#,
@@ -532,6 +532,7 @@ class Gui(QtGui.QMainWindow):
         curr_state = "START"
         synchro_timer = 0.5
         start = True
+        state_delay = True
 
         while True:
             print "----------------------------------------"
@@ -566,7 +567,7 @@ class Gui(QtGui.QMainWindow):
                     next_pose[i] = 0
                 next_state = "TURN_TO_NET"
             elif curr_state == "TURN_TO_NET":
-                next_pose[0] = next_base_angle
+                next_pose[0] = net_base_angle
                 next_state = "ARCH_TO_NET"
             elif curr_state == "ARCH_TO_NET":
                 next_pose[1] = -0.08
@@ -597,19 +598,20 @@ class Gui(QtGui.QMainWindow):
                 next_state = "SOCKET_READ"
             elif curr_state == "SOCKET_READ":
                 #Block and wait for next point of new object
-                kin_point = self.get_socket_data()
+                #kin_point = self.get_socket_data()
                 #kin_point = [.057,-.165,.731]
                 #Convert to rexarm coordinates from kinect coordinates
-                rex_point = self.kinect_world_to_rexarm_world(kin_point)
+                #rex_point = self.kinect_world_to_rexarm_world(kin_point)
                 #TODO: Do matrix transformation from kinect to rexarm world
                 #and populate desired_IK
-                desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87 *D2R]
+                #desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87 *D2R]
                 #desired_IK = [0.131,0.139,-0.015, 87 * D2R]
-                #desired_IK = [0.15,0.1,0.05, 87 * D2R]
+                desired_IK = [0.15,0.1,0.05, 87 * D2R]
                 print "Inverse Kinematics Target:"
                 print "Goal x in Rexarm:", desired_IK[0]
                 print "Goal y in Rexarm:", desired_IK[1]
                 print "Goal z:", desired_IK[2]
+                state_delay = False
                 #Not setting next_pose. Should be same. Note we'll
                 #have a delay twice as long though
                 next_state = "UNHIDE"
@@ -618,7 +620,10 @@ class Gui(QtGui.QMainWindow):
                 start = False
             else:
                 current_pose = self.setPose(next_pose,current_pose)
-            time.sleep(synchro_timer)
+            if state_delay == True:
+                time.sleep(synchro_timer)
+            else:
+                state_delay = True
             print "Next State:", next_state
             print "----------------------------------------"
             curr_state = next_state

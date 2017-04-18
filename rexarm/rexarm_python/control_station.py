@@ -143,7 +143,7 @@ class Gui(QtGui.QMainWindow):
         z = -kinect_coords[2]
 
         #produce 
-        rot_angle = -40 * D2R
+        rot_angle = -30 * D2R
         rot_x = np.array([
             [1,0,0,0],
             [0,np.cos(rot_angle),-np.sin(rot_angle),0],
@@ -593,12 +593,6 @@ class Gui(QtGui.QMainWindow):
                 time.sleep(synchro_timer)
                 next_state = "HIDE_POSITION"
             elif curr_state == "UNHIDE":
-                #go to intermediate position
-                self.setPose(poses["HIDE_INTERMEDIATE"])
-                #self.wait_until_reached(poses["HIDE_INTERMEDIATE"])
-                time.sleep(synchro_timer)
-                next_state = "TURN_TO_HOME_FROM_UNHIDE"
-            elif curr_state == "TURN_TO_HOME_FROM_UNHIDE":
                 #Go to home position. Then run IK
                 self.setPose(poses["HOME"])
                 #self.wait_until_reached(poses["HOME"])
@@ -617,6 +611,7 @@ class Gui(QtGui.QMainWindow):
                 #and populate desired_IK
                 desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87 *D2R]
                 #desired_IK = [0.131,0.139,-0.015, 87 * D2R]
+                #desired_IK = [0.1,0,0, 87 * D2R]
                 print "Inverse Kinematics Target:"
                 print "Goal x in Rexarm:", desired_IK[0]
                 print "Goal y in Rexarm:", desired_IK[1]

@@ -351,7 +351,7 @@ class Gui(QtGui.QMainWindow):
     #current_angles is provided by Rexarm state machine since rex.joint_angles_fb
     #isn't being updated with the rexarm lcm handler
     #Returns the new pose as a variable
-    def setPose(self,desired_angles,current_angles = None):
+    def setPose(self,desired_angles,current_angles = []):
         #Use the linear motion plan that the professor explained
         step_size = 0.04
         t_range = list(np.arange(0,1 + step_size,step_size))
@@ -359,7 +359,7 @@ class Gui(QtGui.QMainWindow):
         desired_angles = np.array(desired_angles)
         
         initial_angles = None
-        if current_angles == None:
+        if len(current_angles) == 0:
             initial_angles = np.array(self.rex.joint_angles_fb)
         else:
             initial_angles = np.array(current_angles)
@@ -495,6 +495,12 @@ class Gui(QtGui.QMainWindow):
             #print "Rexarm:", self.rex.joint_angles_fb
             continue
 
+    #Instantly publishes pose to rexarm without any motion smoothing
+    #Used to save time
+    def instant_publish(self,pose):
+        self.rex.joint_angles = pose[:]
+        self.rex.cmd_publish()
+
     #Returns true if the rexarm's angles match the pose input approximately.
     #Use this to repeatedly check if rexarm has reached a configuration
     # pose is a list of angles for each rexarm_joint ex. [0,0,0,0,0,0]
@@ -532,7 +538,7 @@ class Gui(QtGui.QMainWindow):
         curr_state = "START"
         synchro_timer = 0.5
         start = True
-        state_delay = True
+        linear = True
 
         while True:
             print "----------------------------------------"
@@ -546,6 +552,8 @@ class Gui(QtGui.QMainWindow):
                 print "IK_result:", IK_cmd_thetas
                 #Turn base towards object
                 next_pose[0] = IK_cmd_thetas[0]
+                linear = False
+                self.instant_publish(next_pose)
                 print "Published to joint 0:", IK_cmd_thetas[0]
                 #TODO: Get lcm joint angles returned from runIK so that
                 #we can wait before grasping
@@ -568,6 +576,8 @@ class Gui(QtGui.QMainWindow):
                 next_state = "TURN_TO_NET"
             elif curr_state == "TURN_TO_NET":
                 next_pose[0] = net_base_angle
+                linear = False
+                self.instant_publish(next_pose)
                 next_state = "ARCH_TO_NET"
             elif curr_state == "ARCH_TO_NET":
                 next_pose[1] = -0.08
@@ -577,6 +587,8 @@ class Gui(QtGui.QMainWindow):
             elif curr_state == "DROP":
                 #Set joint 5 to 0 angle
                 next_pose[5] = 0
+                linear = False
+                self.instant_publish(next_pose)
                 next_state = "UNARCH"
             elif curr_state == "UNARCH":
                 #Set all joints except base to 0
@@ -585,9 +597,9 @@ class Gui(QtGui.QMainWindow):
                 next_state = "TURN_TO_HOME_FROM_NET"
             elif curr_state == "TURN_TO_HOME_FROM_NET":
                 #Set all joints to 0
-                for i in range(6):
-                    next_pose[i] = 0
-                time.sleep(synchro_timer)
+                next_pose[0] = 0
+                linear = False
+                self.instant_publish(next_pose)
                 next_state = "HIDE_POSITION"
             elif curr_state == "UNHIDE":
                 #Go to home position. Then run IK
@@ -598,32 +610,36 @@ class Gui(QtGui.QMainWindow):
                 next_state = "SOCKET_READ"
             elif curr_state == "SOCKET_READ":
                 #Block and wait for next point of new object
-                #kin_point = self.get_socket_data()
+                kin_point = self.get_socket_data()
                 #kin_point = [.057,-.165,.731]
                 #Convert to rexarm coordinates from kinect coordinates
-                #rex_point = self.kinect_world_to_rexarm_world(kin_point)
+                rex_point = self.kinect_world_to_rexarm_world(kin_point)
                 #TODO: Do matrix transformation from kinect to rexarm world
                 #and populate desired_IK
-                #desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87 *D2R]
+                desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87 *D2R]
                 #desired_IK = [0.131,0.139,-0.015, 87 * D2R]
-                desired_IK = [0.15,0.1,0.05, 87 * D2R]
+                #desired_IK = [0.15,0.1,0.05, 87 * D2R]
                 print "Inverse Kinematics Target:"
                 print "Goal x in Rexarm:", desired_IK[0]
                 print "Goal y in Rexarm:", desired_IK[1]
                 print "Goal z:", desired_IK[2]
-                state_delay = False
-                #Not setting next_pose. Should be same. Note we'll
-                #have a delay twice as long though
+                linear = False
+                #Not setting next_pose
                 next_state = "UNHIDE"
-            if start:
-                current_pose = self.setPose(next_pose)
-                start = False
+            if linear:
+                if start:
+                    self.setPose(next_pose)
+                    start = False
+                else:
+                    self.setPose(next_pose,current_pose)
             else:
-                current_pose = self.setPose(next_pose,current_pose)
-            if state_delay == True:
-                time.sleep(synchro_timer)
-            else:
-                state_delay = True
+                linear = True
+
+            #Setting current_pose to whatever next_pose was 
+            #determined to be
+            current_pose = next_pose[:]
+            time.sleep(synchro_timer)
+
             print "Next State:", next_state
             print "----------------------------------------"
             curr_state = next_state

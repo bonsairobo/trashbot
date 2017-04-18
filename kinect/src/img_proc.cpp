@@ -9,11 +9,13 @@
 #include <pcl/kdtree/kdtree.h>
 #include <queue>
 #include <cassert>
+#include <Eigen/Core>
 
 using namespace cv;
 using namespace std;
 using namespace openni;
 using namespace pcl;
+using namespace Eigen;
 
 Point2i region_centroid(const vector<Point2i>& region) {
     if (region.empty()) {
@@ -24,6 +26,47 @@ Point2i region_centroid(const vector<Point2i>& region) {
         c += px;
     }
     return c / float(region.size());
+}
+
+static Vector3f eigenvec3f_from_pointxyz(const PointXYZ& pt) {
+    return Vector3f(pt.x, pt.y, pt.z);
+}
+
+static inline Vector3f cloud_centroid(
+    vector<Point2i> object_px, PointCloud<PointXYZ>::Ptr cloud)
+{
+    if (cloud->empty()) {
+        return Vector3f(0,0,0);
+    }
+    Vector3f c(0,0,0);
+    for (auto& pt : *cloud) {
+        c += eigenvec3f_from_pointxyz(pt);
+    }
+    return (1.0 / float(cloud->size())) * c;
+}
+
+Vector3f object_principal_axis(
+    vector<Point2i> object_px, PointCloud<PointXYZ>::Ptr cloud)
+{
+    // Zero-center data.
+    auto mean = cloud_centroid(object_px, cloud);
+    vector<Vector3f> object_pts;
+    for (const auto& px : object_px) {
+        object_pts.push_back(
+            eigenvec3f_from_pointxyz(cloud->at(px.x, px.y)) - mean);
+    }
+
+    // Create data matrix.
+    MatrixXf data_mat(object_pts.size(), 3);
+    int row = 0;
+    for (const auto& pt : object_pts) {
+        data_mat.row(row) = pt;
+        ++row;
+    }
+
+    // Return largest eigenvalue eigenvector of covariance matrix.
+    JacobiSVD<MatrixXf> svd(data_mat, ComputeFullV | ComputeFullU);
+    return svd.matrixV().col(0);
 }
 
 Point2i region_medoid(const vector<Point2i>& region) {

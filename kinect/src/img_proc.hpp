@@ -13,6 +13,10 @@ struct ObjectInfo {
     std::vector<std::vector<cv::Point2i>> object_pixels; // ROI coordinates
 };
 
+Eigen::Vector3f object_principal_axis(
+    std::vector<cv::Point2i> object_px,
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
+
 void remove_small_regions(
     std::vector<std::vector<cv::Point2i>> *object_regions,
     size_t min_region_size);

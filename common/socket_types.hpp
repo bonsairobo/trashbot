@@ -24,6 +24,7 @@ struct GraspingPoint {
     uint32_t time_ms;
     Vec3f point;
     Vec3f normal;
+    Vec3f principal_axis;
 };
 
 sockaddr_un create_udp_addr(const char *path);

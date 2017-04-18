@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
                     translate_px_coords(object, tl_px));
             }
 
-            // Make dilated edge image.
+            // Make edge image.
             Mat gray_mat, edges;
             cvtColor(color_mat, gray_mat, CV_BGR2GRAY);
             blur(gray_mat, edges, Size(3,3));
@@ -172,18 +172,19 @@ int main(int argc, char **argv) {
                 find_nonzero_components<float>(weights);
             remove_small_regions(&final_objects, 100);
 
-            // Choose the "best" object.
-            float min_depth = numeric_limits<float>::max();
+            // Choose the closest object to the Rexarm.
+            float min_dist = numeric_limits<float>::max();
             int best_obj_idx = -1;
-            int j = 0;
+            int obj_idx = 0;
             for (const auto& object : final_objects) {
                 auto px = region_medoid(object) - tl_px;
-                float z = obj_info.cloud->at(px.x, px.y).z;
-                if (z < min_depth) {
-                    min_depth = z;
-                    best_obj_idx = j;
+                PointXYZ pt = obj_info.cloud->at(px.x, px.y);
+                float d = pt.x * pt.x + pt.y * pt.y + pt.z * pt.z;
+                if (d < min_dist) {
+                    min_dist = d;
+                    best_obj_idx = obj_idx;
                 }
-                ++j;
+                ++obj_idx;
             }
 
             if (show_feeds) {

@@ -21,15 +21,15 @@ void setup() {
 
 void loop() {
     while (Serial.available() >= 6) {
-        char c = '\0';
+        char c = 0;
         while (c != 'L') {
             c = Serial.read();
         }
         char left_sgn = Serial.read();
-        char left_motor_byte = Serial.read();
+        unsigned char left_motor_byte = Serial.read();
         char r = Serial.read();
         char right_sgn = Serial.read();
-        char right_motor_byte = Serial.read();
+        unsigned char right_motor_byte = Serial.read();
 
         // Verify packet.
         if (r != 'R') {
@@ -54,11 +54,12 @@ void loop() {
             continue;
         }
 
+        // Use byte range [0,255] as the duty cycle range over 255 / 20 ms.
         digitalWrite(enrpwm, HIGH);
         digitalWrite(enlpwm, HIGH);
-        char total_delay = min(left_motor_byte, right_motor_byte) / 20;
+        unsigned char total_delay = min(left_motor_byte, right_motor_byte) / 20;
         delay(total_delay);
-        char delay = 0;
+        unsigned char delay = 0;
         if (left_motor_byte > right_motor_byte) {
             digitalWrite(enrpwm, LOW);
             delay = (left_motor_byte - right_motor_byte) / 20;

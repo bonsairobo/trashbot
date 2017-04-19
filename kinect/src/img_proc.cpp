@@ -169,6 +169,7 @@ static void remove_planes(
         // Segment the largest planar component from the remaining cloud.
         seg.setInputCloud(pc);
         seg.segment(*inliers, *coefficients);
+        cout << coefficients->values[0] << " " << coefficients->values[1] << " " << coefficients->values[2] << " " << coefficients->values[3] << endl;
         if (inliers->indices.size() == 0) {
             cerr << "Could not estimate a planar model for the given dataset."
                  << endl;

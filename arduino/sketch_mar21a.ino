@@ -19,6 +19,31 @@ void setup() {
     pinMode(m1in2r, OUTPUT);
 }
 
+unsigned char left_motor_byte = 0;
+unsigned char right_motor_byte = 0;
+
+void pwm() {
+    // Use byte range [0,255] as the duty cycle range over (255 / 20) ms.
+    digitalWrite(enrpwm, HIGH);
+    digitalWrite(enlpwm, HIGH);
+    unsigned char total_delay = min(left_motor_byte, right_motor_byte) / 20;
+    delay(total_delay);
+    unsigned char overlap_delay = 0;
+    if (left_motor_byte > right_motor_byte) {
+        digitalWrite(enrpwm, LOW);
+        overlap_delay = (left_motor_byte - right_motor_byte) / 20;
+        delay(overlap_delay);
+    } else {
+        digitalWrite(enlpwm, LOW);
+        overlap_delay = (right_motor_byte - left_motor_byte) / 20;
+        delay(overlap_delay);
+    }
+    total_delay += overlap_delay;
+    digitalWrite(enrpwm, LOW);
+    digitalWrite(enlpwm, LOW);
+    delay(255 / 20 - total_delay);
+}
+
 void loop() {
     while (Serial.available() >= 6) {
         char c = 0;
@@ -26,10 +51,10 @@ void loop() {
             c = Serial.read();
         }
         char left_sgn = Serial.read();
-        unsigned char left_motor_byte = Serial.read();
+        left_motor_byte = Serial.read();
         char r = Serial.read();
         char right_sgn = Serial.read();
-        unsigned char right_motor_byte = Serial.read();
+        right_motor_byte = Serial.read();
 
         // Verify packet.
         if (r != 'R') {
@@ -54,24 +79,8 @@ void loop() {
             continue;
         }
 
-        // Use byte range [0,255] as the duty cycle range over 255 / 20 ms.
-        digitalWrite(enrpwm, HIGH);
-        digitalWrite(enlpwm, HIGH);
-        unsigned char total_delay = min(left_motor_byte, right_motor_byte) / 20;
-        delay(total_delay);
-        unsigned char delay = 0;
-        if (left_motor_byte > right_motor_byte) {
-            digitalWrite(enrpwm, LOW);
-            delay = (left_motor_byte - right_motor_byte) / 20;
-            delay(delay);
-        } else {
-            digitalWrite(enlpwm, LOW);
-            delay = (right_motor_byte - left_motor_byte) / 20;
-            delay(delay);
-        }
-        total_delay += delay;
-        digitalWrite(enrpwm, LOW);
-        digitalWrite(enlpwm, LOW);
-        delay(255 / 20 - total_delay);
+        pwm();
     }
+
+    pwm();
 }

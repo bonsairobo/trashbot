@@ -35,8 +35,8 @@ int main(int argc, char **argv) {
 
     int x_amp = 0;
     int y_amp = 0;
-    int forward_speed = 3;
-    int turn_speed = 1;
+    int forward_speed = 1;
+    int turn_speed = 2;
     int max_amp = (turn_speed + forward_speed) * JoystickEvent::MAX_AXES_VALUE;
 
     while (true) {
@@ -71,8 +71,8 @@ int main(int argc, char **argv) {
             clamp(float(forward_speed * y_amp + x_amp) / max_amp);
         float right_motor =
             clamp(float(forward_speed * y_amp - x_amp) / max_amp);
-        char left_motor_byte = round(abs(left_motor) * 255);
-        char right_motor_byte = round(abs(right_motor) * 255);
+        unsigned char left_motor_byte = round(abs(left_motor) * 255);
+        unsigned char right_motor_byte = round(abs(right_motor) * 255);
         char left_sgn = left_motor >= 0 ? '+' : '-';
         char right_sgn = right_motor >= 0 ? '+' : '-';
 

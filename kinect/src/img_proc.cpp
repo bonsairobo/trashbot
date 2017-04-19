@@ -146,10 +146,10 @@ void remove_small_regions(
     object_regions->erase(new_end, object_regions->end());
 }
 
-// `indices_out` returns the original pixel coordinates as indices.
+// `idx_px_map` returns the original pixel coordinates as indices.
 // I.e. for *returned* cloud point i,
-//   px_coord[i] = (indices_out[i] % img_width, indices_out[i] / img_width)
-static void remove_planes(
+//   px_coord[i] = (idx_px_map[i] % img_width, idx_px_map[i] / img_width)
+static PlaneInfo remove_planes(
     PointCloud<PointXYZ>::Ptr pc,
     float dist_thresh,
     IndicesPtr idx_px_map)
@@ -164,12 +164,12 @@ static void remove_planes(
     seg.setMaxIterations(500);
     seg.setDistanceThreshold(dist_thresh);
     ExtractIndices<PointXYZ> extract;
-    vector<vector<int>> planes;
+    vector<vector<float>> plane_eqs;
+    vector<size_t> plane_sizes;
     while (true) {
         // Segment the largest planar component from the remaining cloud.
         seg.setInputCloud(pc);
         seg.segment(*inliers, *coefficients);
-        cout << coefficients->values[0] << " " << coefficients->values[1] << " " << coefficients->values[2] << " " << coefficients->values[3] << endl;
         if (inliers->indices.size() == 0) {
             cerr << "Could not estimate a planar model for the given dataset."
                  << endl;
@@ -179,9 +179,6 @@ static void remove_planes(
         // Extract the inliers.
         extract.setInputCloud(pc);
         extract.setIndices(inliers);
-        vector<int> plane_idx;
-        extract.filter(plane_idx);
-        planes.push_back(plane_idx);
         extract.setNegative(true);
         vector<int> kept_idx;
         extract.filter(kept_idx);
@@ -198,15 +195,17 @@ static void remove_planes(
         swap(*idx_px_map, new_map);
 
         // Stop when the planes being removed become small.
-        if (plane_idx.size() < 10000) {
+        // TODO: Use inverse relationship between area and distance to improve
+        // stopping accuracy (obstacle detection accuracy).
+        if (num_before - num_after < 10000) {
             break;
         }
+
+        plane_eqs.push_back(coefficients->values);
+        plane_sizes.push_back(inliers->indices.size());
     }
-    /*if (planes.size() > 1 and planes[1].size() > 3000) {
-        cout << "BOUNDARY DETECTED" << endl;
-    } else {
-        cout << "NO BOUNDARY DETECTED" << endl;
-    }*/
+
+    return { plane_eqs, plane_sizes };
 }
 
 static PointCloud<PointXYZ>::Ptr zero_cloud(int width, int height) {
@@ -270,7 +269,8 @@ ObjectInfo get_workspace_objects(
     filter.filter(*filt_pc);
 
     // Remove planes.
-    remove_planes(filt_pc, plane_dist_thresh, idx_px_map);
+    PlaneInfo plane_info =
+        remove_planes(filt_pc, plane_dist_thresh, idx_px_map);
     if (idx_px_map->size() < min_region_size) {
         return ObjectInfo();
     }
@@ -298,7 +298,7 @@ ObjectInfo get_workspace_objects(
         object_px.push_back(px_coords);
     }
 
-    return { pc, object_px };
+    return { plane_info, pc, object_px };
 }
 
 PointCloud<Normal>::Ptr estimate_normals(PointCloud<PointXYZ>::ConstPtr pc) {

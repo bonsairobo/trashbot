@@ -71,21 +71,30 @@ int main(int argc, char **argv) {
     try_bind_path(sock, kin_addr);
     fcntl(sock, F_SETFL, O_NONBLOCK);
 
-    bool manual_mode = true;
-    TrashSearch trash_search;
-
     VideoMode vm = depth_stream.getVideoMode();
     OccupancyGrid object_grid(vm.getResolutionX(), vm.getResolutionY());
+
+    bool manual_mode = true;
+    TrashSearch trash_search;
 
     Point3f pickup_ftl(-200.0, -50.0, 650.0);
     Point3f pickup_bbr(200.0, -250.0, 950.0);
     Rect pickup_roi = roi_from_workspace_corners(
         pickup_ftl, pickup_bbr, depth_stream);
+    Point3f search_ftl(-400.0, 400.0, 650.0);
+    Point3f search_bbr(400.0, -400.0, 4000.0);
+    Rect search_roi = roi_from_workspace_corners(
+        search_ftl, search_bbr, depth_stream);
 
     uint8_t key = 0;
     const uint8_t ESC_KEYCODE = 27;
     const uint8_t SPACEBAR = 32;
     while (key != ESC_KEYCODE) {
+        // Select workspace based on control mode.
+        Point3f ftl = manual_mode ? pickup_ftl : search_ftl;
+        Point3f bbr = manual_mode ? pickup_bbr : search_bbr;
+        Rect roi = manual_mode ? pickup_roi : search_roi;
+
         Mat depth_u16_mat, color_mat;
         VideoFrameRef depth_frame;
         if (get_mat_from_stream(
@@ -131,21 +140,17 @@ int main(int argc, char **argv) {
             if (cmd.type == PICKUP_COMMAND) {
                 do_send_grasp = true;
             } else if (cmd.type == MODE_SWITCH_COMMAND) {
+                trash_search = TrashSearch(); // reset state machine
                 manual_mode = !manual_mode;
             }
         }
 
         // Get pixels, cloud, and ROI for workspace objects.
         ObjectInfo obj_info = get_workspace_objects(
-            depth_stream,
-            depth_f32_mat,
-            pickup_ftl,
-            pickup_bbr,
-            pickup_roi,
-            100, 2.0, 4.3);
+            depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.0, 4.3);
 
         // Translate pixel coordinates back to original image from ROI.
-        Point2i tl_px(pickup_roi.x, pickup_roi.y);
+        Point2i tl_px(roi.x, roi.y);
         vector<vector<Point2i>> trans_object_px;
         for (const auto& object : obj_info.object_pixels) {
             trans_object_px.push_back(
@@ -191,7 +196,7 @@ int main(int argc, char **argv) {
             find_nonzero_components<float>(weights);
         remove_small_regions(&final_objects, 100);
 
-        // Choose the closest object to the Rexarm.
+        // Choose the closest object to the Kinect.
         float min_dist = numeric_limits<float>::max();
         int best_obj_idx = -1;
         int obj_idx = 0;
@@ -204,17 +209,6 @@ int main(int argc, char **argv) {
                 best_obj_idx = obj_idx;
             }
             ++obj_idx;
-        }
-
-        // Compute the principal axis unit vector of the chosen object.
-        Vector3f principal_axis;
-        if (best_obj_idx != -1) {
-            principal_axis = object_principal_axis(
-                translate_px_coords(final_objects[best_obj_idx], -tl_px),
-                obj_info.cloud);
-            log_stream << "principal axis = (" << principal_axis(0) << ","
-                       << principal_axis(1) << "," << principal_axis(2)
-                       << ")" << endl;
         }
 
         if (show_feeds) {
@@ -239,6 +233,14 @@ int main(int argc, char **argv) {
 
         // Send grasping point to the Rexarm.
         if (!final_objects.empty() and do_send_grasp) {
+            // Compute the principal axis unit vector of the chosen object.
+            Vector3f principal_axis = object_principal_axis(
+                translate_px_coords(final_objects[best_obj_idx], -tl_px),
+                obj_info.cloud);
+            log_stream << "principal axis = (" << principal_axis(0) << ","
+                       << principal_axis(1) << "," << principal_axis(2)
+                       << ")" << endl;
+
             Point2i medoid = region_medoid(final_objects[best_obj_idx]);
             medoid -= tl_px;
             auto normal_cloud = estimate_normals(obj_info.cloud);
@@ -265,10 +267,10 @@ int main(int argc, char **argv) {
 
         if (!manual_mode) {
             // Execute trash search state machine.
-            trash_search.update();
+            trash_search.update(obj_info.plane_info);
 
             // Send motor amplitudes to motion controller.
-            MCMotors motors = trash_search.motors();
+            MCMotors motors = trash_search.motors;
             sendto(
                 sock,
                 &motors,

@@ -8,7 +8,13 @@
 #include <pcl/point_types.h>
 #include <common/socket_types.hpp>
 
+struct PlaneInfo {
+    std::vector<std::vector<float>> plane_eqs;
+    std::vector<size_t> plane_sizes;
+};
+
 struct ObjectInfo {
+    PlaneInfo plane_info;
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
     std::vector<std::vector<cv::Point2i>> object_pixels; // ROI coordinates
 };
@@ -140,7 +146,7 @@ void draw_points(
 }
 
 inline Vec3f vec3f_from_eigen_vector3f(const Eigen::Vector3f v) {
-    return { v[0], v[1], v[2] };
+    return { v(0), v(1), v(2) };
 }
 
 inline Vec3f vec3f_from_pointxyz(const pcl::PointXYZ& p) {

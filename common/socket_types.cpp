@@ -3,6 +3,8 @@
 
 using namespace std;
 
+MCMotors::MCMotors(): l_motor(0.0), r_motor(0.0) {}
+
 CodePacket::CodePacket(PacketType type): type(type) {}
 
 sockaddr_un create_udp_addr(const char *path) {

@@ -20,52 +20,57 @@ void setup() {
 }
 
 void loop() {
-    int ms_high = 1;
-    int ms_low = 1;
-    while (Serial.available() > 0) {
-        char inChar = Serial.read();
-        Serial.print(inChar);
-        if (inChar == 'w') {
-            digitalWrite(pinnum, HIGH);
+    while (Serial.available() >= 6) {
+        char c = '\0';
+        while (c != 'L') {
+            c = Serial.read();
+        }
+        char left_sgn = Serial.read();
+        char left_motor_byte = Serial.read();
+        char r = Serial.read();
+        char right_sgn = Serial.read();
+        char right_motor_byte = Serial.read();
 
-            digitalWrite(m1in1r, HIGH);
-            digitalWrite(m1in2r, LOW);
+        // Verify packet.
+        if (r != 'R') {
+            continue;
+        }
+        if (left_sgn == '+') {
             digitalWrite(m2in1l, HIGH);
             digitalWrite(m2in2l, LOW);
-        } else if (inChar == 's') {
-            digitalWrite(pinnum, LOW);
-
-            digitalWrite(m1in1r, LOW);
-            digitalWrite(m1in2r, HIGH);
+        } else if (left_sgn == '-') {
             digitalWrite(m2in1l, LOW);
             digitalWrite(m2in2l, HIGH);
-        } else if (inChar == 'a') {
-            digitalWrite(pinnum, HIGH);
-
+        } else {
+            continue;
+        }
+        if (right_sgn == '+') {
             digitalWrite(m1in1r, HIGH);
             digitalWrite(m1in2r, LOW);
-            digitalWrite(m2in1l, LOW);
-            digitalWrite(m2in2l, HIGH);
-        } else if (inChar == 'd') {
-            digitalWrite(pinnum, LOW);
-
+        } else if (right_sgn == '-') {
             digitalWrite(m1in1r, LOW);
             digitalWrite(m1in2r, HIGH);
-            digitalWrite(m2in1l, HIGH);
-            digitalWrite(m2in2l, LOW);
+        } else {
+            continue;
         }
 
-        unsigned long start_ms = millis();
-        while (millis() - start_ms < 50) {
-            digitalWrite(enrpwm, HIGH);
-            digitalWrite(enlpwm, HIGH);
-            delay(ms_high);
+        digitalWrite(enrpwm, HIGH);
+        digitalWrite(enlpwm, HIGH);
+        char total_delay = min(left_motor_byte, right_motor_byte) / 20;
+        delay(total_delay);
+        char delay = 0;
+        if (left_motor_byte > right_motor_byte) {
             digitalWrite(enrpwm, LOW);
+            delay = (left_motor_byte - right_motor_byte) / 20;
+            delay(delay);
+        } else {
             digitalWrite(enlpwm, LOW);
-            delay(ms_low);
+            delay = (right_motor_byte - left_motor_byte) / 20;
+            delay(delay);
         }
+        total_delay += delay;
+        digitalWrite(enrpwm, LOW);
+        digitalWrite(enlpwm, LOW);
+        delay(255 / 20 - total_delay);
     }
-    digitalWrite(pinnum, LOW);
-    digitalWrite(enrpwm, LOW);
-    digitalWrite(enlpwm, LOW);
 }

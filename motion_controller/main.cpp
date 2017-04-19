@@ -15,6 +15,11 @@ float clamp(float x) {
     return x;
 }
 
+template <typename T>
+int sgn(T val) {
+    return (T(0) < val) - (val < T(0));
+}
+
 int main(int argc, char **argv) {
     sockaddr_un mc_addr = create_udp_addr("/tmp/motion_controller_endpoint");
     sockaddr_un js_addr = create_udp_addr("/tmp/joystick_endpoint");
@@ -66,12 +71,16 @@ int main(int argc, char **argv) {
             clamp(float(forward_speed * y_amp + x_amp) / max_amp);
         float right_motor =
             clamp(float(forward_speed * y_amp - x_amp) / max_amp);
+        char left_motor_byte = round(abs(left_motor) * 255);
+        char right_motor_byte = round(abs(right_motor) * 255);
+        char left_sgn = left_motor >= 0 ? '+' : '-';
+        char right_sgn = right_motor >= 0 ? '+' : '-';
 
         cout << left_motor << " " << right_motor << endl;
 
         // Send over serial port.
-        cout << "sending packet" << endl;
-        arduino << left_motor << right_motor;
+        arduino << 'L' << left_sgn << left_motor_byte
+                << 'R' << right_sgn << right_motor_byte;
         arduino.flush();
     }
 

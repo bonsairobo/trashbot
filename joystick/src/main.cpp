@@ -22,7 +22,8 @@ int main(int argc, char **argv) {
         usleep(1000);
         JoystickEvent event;
         while (js.sample(&event)) {
-            // Press any button to send a pickup command.
+            // Press button to send a pickup command or switch between manual
+            // and Roomba modes.
             if (event.isButton() and event.value == 1) {
                 if (event.number == 12 or event.number == 14) {
                     cout << int(event.number) << ": " << event.value << endl;

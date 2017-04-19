@@ -79,8 +79,6 @@ int main(int argc, char **argv) {
     Point3f bbr(200.0, -250.0, 950.0);
     Rect roi = roi_from_workspace_corners(ftl, bbr, depth_stream);
 
-    bool mode = false; // Manual control
-
     uint8_t key = 0;
     const uint8_t ESC_KEYCODE = 27;
     const uint8_t SPACEBAR = 32;

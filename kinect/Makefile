@@ -19,7 +19,8 @@ VPATH = src \
 KINECT_SRCS = main.cpp \
 			  img_proc.cpp \
 			  common.cpp \
-			  occupancy_grid.cpp
+			  occupancy_grid.cpp \
+			  trash_search.cpp
 
 KINECT_OBJS = $(KINECT_SRCS:.cpp=.o)
 

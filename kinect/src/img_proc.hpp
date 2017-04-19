@@ -139,6 +139,10 @@ void draw_points(
     }
 }
 
+inline Vec3f vec3f_from_eigen_vector3f(const Eigen::Vector3f v) {
+    return { v[0], v[1], v[2] };
+}
+
 inline Vec3f vec3f_from_pointxyz(const pcl::PointXYZ& p) {
     return { p.x, p.y, p.z };
 }

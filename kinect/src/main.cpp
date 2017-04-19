@@ -2,6 +2,7 @@
 #include "img_proc.hpp"
 #include "common.hpp"
 #include "occupancy_grid.hpp"
+#include "trash_search.hpp"
 #include <fstream>
 #include <random>
 #include <fcntl.h>
@@ -19,8 +20,6 @@ int main(int argc, char **argv) {
     // Saves all frames from depth and color streams in ONI files.
     bool record_streams = argc > 2 and *(argv[2]) == '1';
 
-    // All debug and error messages get saved. `watch` the file for
-    // realtime feedback.
     ofstream log_stream("kinect_log.txt");
 
     Status rc = OpenNI::initialize();
@@ -72,12 +71,16 @@ int main(int argc, char **argv) {
     try_bind_path(sock, kin_addr);
     fcntl(sock, F_SETFL, O_NONBLOCK);
 
+    bool manual_mode = true;
+    TrashSearch trash_search;
+
     VideoMode vm = depth_stream.getVideoMode();
     OccupancyGrid object_grid(vm.getResolutionX(), vm.getResolutionY());
 
-    Point3f ftl(-200.0, -50.0, 650.0);
-    Point3f bbr(200.0, -250.0, 950.0);
-    Rect roi = roi_from_workspace_corners(ftl, bbr, depth_stream);
+    Point3f pickup_ftl(-200.0, -50.0, 650.0);
+    Point3f pickup_bbr(200.0, -250.0, 950.0);
+    Rect pickup_roi = roi_from_workspace_corners(
+        pickup_ftl, pickup_bbr, depth_stream);
 
     uint8_t key = 0;
     const uint8_t ESC_KEYCODE = 27;
@@ -99,12 +102,11 @@ int main(int argc, char **argv) {
         Mat depth_f32_mat;
         depth_u16_mat.convertTo(depth_f32_mat, CV_32F);
 
-        // Check for command to search for grasping points.
-        CodePacket cmd(-1);
+        // Check for commands to search for grasping points or switch modes.
+        CodePacket cmd(NONE_TYPE);
         socklen_t len = sizeof(js_addr);
         ssize_t bytes_read = 1;
         bool do_send_grasp = key == SPACEBAR;
-        bool do_send_mode_switch = false;
         while (bytes_read > 0) {
             bytes_read = recvfrom(
                 sock,
@@ -126,142 +128,154 @@ int main(int argc, char **argv) {
             }
 
             // Consume all commands and only do a single search.
-            if (cmd.code == 0) {
+            if (cmd.type == PICKUP_COMMAND) {
                 do_send_grasp = true;
-            } else if (cmd.code == 1) {
-                do_send_mode_switch = true;
+            } else if (cmd.type == MODE_SWITCH_COMMAND) {
+                manual_mode = !manual_mode;
             }
         }
 
         // Get pixels, cloud, and ROI for workspace objects.
         ObjectInfo obj_info = get_workspace_objects(
-            depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.0, 4.3);
-        if (!obj_info.object_pixels.empty()) {
-            // Translate pixel coordinates back to original image from ROI.
-            Point2i tl_px(roi.x, roi.y);
-            vector<vector<Point2i>> trans_object_px;
-            for (const auto& object : obj_info.object_pixels) {
-                trans_object_px.push_back(
-                    translate_px_coords(object, tl_px));
-            }
+            depth_stream,
+            depth_f32_mat,
+            pickup_ftl,
+            pickup_bbr,
+            pickup_roi,
+            100, 2.0, 4.3);
 
-            // Make edge image.
-            Mat gray_mat, edges;
-            cvtColor(color_mat, gray_mat, CV_BGR2GRAY);
-            blur(gray_mat, edges, Size(3,3));
-            Canny(edges, edges, 50, 150, 3);
-            int dilation_size = 1;
-            Mat element = getStructuringElement(
-                MORPH_RECT,
-                Size(2 * dilation_size + 1, 2 * dilation_size + 1),
-                Point(dilation_size, dilation_size));
-            dilate(edges, edges, element);
+        // Translate pixel coordinates back to original image from ROI.
+        Point2i tl_px(pickup_roi.x, pickup_roi.y);
+        vector<vector<Point2i>> trans_object_px;
+        for (const auto& object : obj_info.object_pixels) {
+            trans_object_px.push_back(
+                translate_px_coords(object, tl_px));
+        }
 
-            // Extract objects from edges in point cloud ROI.
-            vector<vector<Point2i>> edge_objects =
-                find_nonzero_components<uint8_t>(edges);
-            remove_small_regions(&edge_objects, 30);
+        // Make edge image.
+        Mat gray_mat, edges;
+        cvtColor(color_mat, gray_mat, CV_BGR2GRAY);
+        blur(gray_mat, edges, Size(3,3));
+        Canny(edges, edges, 50, 150, 3);
+        int dilation_size = 1;
+        Mat element = getStructuringElement(
+            MORPH_RECT,
+            Size(2 * dilation_size + 1, 2 * dilation_size + 1),
+            Point(dilation_size, dilation_size));
+        dilate(edges, edges, element);
 
-            // Do object-edge correspondence filtering.
-            vector<Point2i> object_medoids;
-            for (const auto& obj : trans_object_px) {
-                object_medoids.push_back(region_medoid(obj));
-            }
-            vector<Point2i> edge_medoids;
-            for (const auto& obj : edge_objects) {
-                edge_medoids.push_back(region_medoid(obj));
-            }
-            if (!edge_medoids.empty() and !object_medoids.empty()) {
-                object_grid.update(
-                    trans_object_px,
-                    edge_objects,
-                    object_medoids,
-                    edge_medoids);
-            }
-            Mat weights = object_grid.get_weights();
-            threshold(weights, weights, 0.9, 0, THRESH_TOZERO);
-            auto final_objects =
-                find_nonzero_components<float>(weights);
-            remove_small_regions(&final_objects, 100);
+        // Extract objects from edges in point cloud ROI.
+        vector<vector<Point2i>> edge_objects =
+            find_nonzero_components<uint8_t>(edges);
+        remove_small_regions(&edge_objects, 30);
 
-            // Choose the closest object to the Rexarm.
-            float min_dist = numeric_limits<float>::max();
-            int best_obj_idx = -1;
-            int obj_idx = 0;
+        // Do object-edge correspondence filtering.
+        vector<Point2i> object_medoids;
+        for (const auto& obj : trans_object_px) {
+            object_medoids.push_back(region_medoid(obj));
+        }
+        vector<Point2i> edge_medoids;
+        for (const auto& obj : edge_objects) {
+            edge_medoids.push_back(region_medoid(obj));
+        }
+        if (!edge_medoids.empty() and !object_medoids.empty()) {
+            object_grid.update(
+                trans_object_px,
+                edge_objects,
+                object_medoids,
+                edge_medoids);
+        }
+        Mat weights = object_grid.get_weights();
+        threshold(weights, weights, 0.9, 0, THRESH_TOZERO);
+        auto final_objects =
+            find_nonzero_components<float>(weights);
+        remove_small_regions(&final_objects, 100);
+
+        // Choose the closest object to the Rexarm.
+        float min_dist = numeric_limits<float>::max();
+        int best_obj_idx = -1;
+        int obj_idx = 0;
+        for (const auto& object : final_objects) {
+            auto px = region_medoid(object) - tl_px;
+            PointXYZ pt = obj_info.cloud->at(px.x, px.y);
+            float d = pt.x * pt.x + pt.y * pt.y + pt.z * pt.z;
+            if (d < min_dist) {
+                min_dist = d;
+                best_obj_idx = obj_idx;
+            }
+            ++obj_idx;
+        }
+
+        // Compute the principal axis unit vector of the chosen object.
+        Vector3f principal_axis;
+        if (best_obj_idx != -1) {
+            principal_axis = object_principal_axis(
+                translate_px_coords(final_objects[best_obj_idx], -tl_px),
+                obj_info.cloud);
+            log_stream << "principal axis = (" << principal_axis(0) << ","
+                       << principal_axis(1) << "," << principal_axis(2)
+                       << ")" << endl;
+        }
+
+        if (show_feeds) {
+            Mat masked = mask_image<uint16_t, Vec3b>(
+                color_mat, depth_u16_mat);
+            int j = 0;
             for (const auto& object : final_objects) {
-                auto px = region_medoid(object) - tl_px;
-                PointXYZ pt = obj_info.cloud->at(px.x, px.y);
-                float d = pt.x * pt.x + pt.y * pt.y + pt.z * pt.z;
-                if (d < min_dist) {
-                    min_dist = d;
-                    best_obj_idx = obj_idx;
-                }
-                ++obj_idx;
+                Vec3b color = j == best_obj_idx ?
+                    Vec3b(0, 0, 255) :
+                    Vec3b(dis(gen), dis(gen), dis(gen));
+                draw_pixels(masked, object, color);
+                ++j;
             }
+            imshow("kinect_feed", masked);
 
-            // Compute the principal axis unit vector of the chosen object.
-            /*if (best_obj_idx != -1) {
-                Vector3f principal_axis = object_principal_axis(
-                    translate_px_coords(final_objects[best_obj_idx], -tl_px),
-                    obj_info.cloud);
-                cout << "principal axis = (" << principal_axis(0) << ","
-                     << principal_axis(1) << "," << principal_axis(2) << ")" << endl;
-            }*/
+            Mat color_edges;
+            cvtColor(edges, color_edges, CV_GRAY2BGR);
+            //draw_points(color_edges, edge_medoids, Vec3b(0,0,255));
+            //draw_points(color_edges, object_medoids, Vec3b(255,0,0));
+            imshow("edges", color_edges);
+        }
 
-            if (show_feeds) {
-                Mat masked = mask_image<uint16_t, Vec3b>(
-                    color_mat, depth_u16_mat);
-                int j = 0;
-                for (const auto& object : final_objects) {
-                    Vec3b color = j == best_obj_idx ?
-                        Vec3b(0, 0, 255) :
-                        Vec3b(dis(gen), dis(gen), dis(gen));
-                    draw_pixels(masked, object, color);
-                    ++j;
-                }
-                imshow("kinect_feed", masked);
+        // Send grasping point to the Rexarm.
+        if (!final_objects.empty() and do_send_grasp) {
+            Point2i medoid = region_medoid(final_objects[best_obj_idx]);
+            medoid -= tl_px;
+            auto normal_cloud = estimate_normals(obj_info.cloud);
+            GraspingPoint gp;
+            gp.point = vec3f_from_pointxyz(
+                obj_info.cloud->at(medoid.x, medoid.y));
+            gp.normal = vec3f_from_normal(
+                normal_cloud->at(medoid.x, medoid.y));
+            gp.time_ms = depth_frame.getTimestamp();
+            gp.principal_axis = vec3f_from_eigen_vector3f(principal_axis);
+            log_stream << "GP = ("
+                       << gp.point.x << ","
+                       << gp.point.y << ","
+                       << gp.point.z << ")" << endl;
+            sendto(
+                sock,
+                &gp,
+                sizeof(gp),
+                0,
+                (sockaddr*)&rex_addr,
+                sizeof(rex_addr));
+            cout << "sent grasp packet" << endl;
+        }
 
-                Mat color_edges;
-                cvtColor(edges, color_edges, CV_GRAY2BGR);
-                //draw_points(color_edges, edge_medoids, Vec3b(0,0,255));
-                //draw_points(color_edges, object_medoids, Vec3b(255,0,0));
-                imshow("edges", color_edges);
-            }
+        if (!manual_mode) {
+            // Execute trash search state machine.
+            trash_search.update();
 
-            // Send grasping point to the Rexarm.
-            if (!final_objects.empty()) {
-                Point2i medoid = region_medoid(final_objects[best_obj_idx]);
-                medoid -= tl_px;
-                auto normal_cloud = estimate_normals(obj_info.cloud);
-                GraspingPoint gp;
-                gp.point = vec3f_from_pointxyz(
-                    obj_info.cloud->at(medoid.x, medoid.y));
-                gp.normal = vec3f_from_normal(
-                    normal_cloud->at(medoid.x, medoid.y));
-                gp.time_ms = depth_frame.getTimestamp();
-                cout << "GP = (" << gp.point.x << "," << gp.point.y << "," << gp.point.z << ")" << endl;
-                /*sendto(
-                    sock,
-                    &gp,
-                    sizeof(gp),
-                    0,
-                    (sockaddr*)&rex_addr,
-                    sizeof(rex_addr));
-                cout << "sent grasp packet" << endl;*/
-            }
-
-            if (do_send_mode_switch) {
-                /*CodePacket packet();
-                mode = !mode;
-                sendto(
-                    sock,
-                    &gp,
-                    sizeof(gp),
-                    0,
-                    (sockaddr*)&mc_addr,
-                    sizeof(mc_addr));
-                cout << "sent mode switch packet (" << mode << ")" << endl;*/
-            }
+            // Send motor amplitudes to motion controller.
+            MCMotors motors = trash_search.motors();
+            sendto(
+                sock,
+                &motors,
+                sizeof(motors),
+                0,
+                (sockaddr*)&mc_addr,
+                sizeof(mc_addr));
         }
 
         key = waitKey(1);

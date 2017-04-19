@@ -3,7 +3,7 @@
 
 using namespace std;
 
-CodePacket::CodePacket(char code): code(code) {}
+CodePacket::CodePacket(PacketType type): type(type) {}
 
 sockaddr_un create_udp_addr(const char *path) {
     sockaddr_un addr;

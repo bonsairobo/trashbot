@@ -9,11 +9,22 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+enum PacketType {
+    NONE_TYPE,
+    AXIS_EVENT,
+    PICKUP_COMMAND,
+    MODE_SWITCH_COMMAND
+};
+
+struct MCMotors {
+    float l_motor, r_motor; // from -1.0 to 1.0
+};
+
 struct CodePacket {
     uint32_t time_ms;
-    char code;
+    PacketType type;
 
-    CodePacket(char code);
+    CodePacket(PacketType type);
 };
 
 // Just make a simple POD type so we don't have to use some library's type for

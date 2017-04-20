@@ -19,6 +19,9 @@ struct ObjectInfo {
     std::vector<std::vector<cv::Point2i>> object_pixels; // ROI coordinates
 };
 
+bool point_in_workspace(
+    const pcl::PointXYZ&, const cv::Point3f& ftl, const cv::Point3f& bbr);
+
 Eigen::Vector3f object_principal_axis(
     std::vector<cv::Point2i> object_px,
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);

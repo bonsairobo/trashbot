@@ -217,6 +217,14 @@ static PointCloud<PointXYZ>::Ptr zero_cloud(int width, int height) {
     return pc;
 }
 
+bool point_in_workspace(
+    const PointXYZ& pt, const Point3f& ftl, const Point3f& bbr)
+{
+    return pt.x > ftl.x and pt.x < bbr.x and
+           pt.y < ftl.y and pt.y > bbr.y and
+           pt.z > ftl.z and pt.z < bbr.z;
+}
+
 ObjectInfo get_workspace_objects(
     const VideoStream& depth_stream,
     const Mat& depth_f32_mat,
@@ -255,10 +263,7 @@ ObjectInfo get_workspace_objects(
     IndicesPtr idx_px_map(new vector<int>);
     for (size_t i = 0; i < pc->size(); ++i) {
         const auto& pt = pc->points[i];
-        if (pt.x > ftl.x and pt.x < bbr.x and
-            pt.y < ftl.y and pt.y > bbr.y and
-            pt.z > ftl.z and pt.z < bbr.z)
-        {
+        if (point_in_workspace(pt, ftl, bbr)) {
             idx_px_map->push_back(i);
         }
     }

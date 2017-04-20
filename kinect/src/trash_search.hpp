@@ -17,7 +17,13 @@ class TrashSearch {
 
 public:
     TrashSearch(); // initialize state machine
-    void update(const PlaneInfo&);
+    void update(
+        const PlaneInfo&,
+        const std::vector<std::vector<cv::Point2i>>& objects,
+        const std::vector<cv::Point2i>& object_medoids,
+        int best_object_idx,
+        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud);
+
     MCMotors motors;
 };
 

@@ -195,6 +195,11 @@ int main(int argc, char **argv) {
         auto final_objects =
             find_nonzero_components<float>(weights);
         remove_small_regions(&final_objects, 100);
+        vector<vector<Point2i>> trans_final_objects;
+        for (const auto& object : final_objects) {
+            trans_final_objects.push_back(
+                translate_px_coords(object, -tl_px));
+        }
 
         // Choose the closest object to the Kinect.
         float min_dist = numeric_limits<float>::max();
@@ -235,8 +240,7 @@ int main(int argc, char **argv) {
         if (!final_objects.empty() and do_send_grasp) {
             // Compute the principal axis unit vector of the chosen object.
             Vector3f principal_axis = object_principal_axis(
-                translate_px_coords(final_objects[best_obj_idx], -tl_px),
-                obj_info.cloud);
+                trans_final_objects[best_obj_idx], obj_info.cloud);
             log_stream << "principal axis = (" << principal_axis(0) << ","
                        << principal_axis(1) << "," << principal_axis(2)
                        << ")" << endl;
@@ -267,14 +271,18 @@ int main(int argc, char **argv) {
 
         if (!manual_mode) {
             // Execute trash search state machine.
-            trash_search.update(obj_info.plane_info);
+            trash_search.update(
+                obj_info.plane_info,
+                trans_final_objects,
+                translate_px_coords(object_medoids, -tl_px),
+                best_obj_idx,
+                obj_info.cloud);
 
             // Send motor amplitudes to motion controller.
-            MCMotors motors = trash_search.motors;
             sendto(
                 sock,
-                &motors,
-                sizeof(motors),
+                &trash_search.motors,
+                sizeof(trash_search.motors),
                 0,
                 (sockaddr*)&mc_addr,
                 sizeof(mc_addr));

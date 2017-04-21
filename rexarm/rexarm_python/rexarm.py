@@ -204,6 +204,8 @@ class Rexarm():
         self.lc.handle_timeout(50)
 
     def feedback_handler(self, channel, data):
+        print "Feedback handler called!"
+
         """
         Feedback Handler for LCM
         """

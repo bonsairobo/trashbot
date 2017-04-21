@@ -160,8 +160,8 @@ class Gui(QtGui.QMainWindow):
         ])
 
         translation = np.array([
-            [1,0,0,.072],
-            [0,1,0,0],
+            [1,0,0,.072-.0413],
+            [0,1,0,0-.0473],
             [0,0,1,-.625],
             [0,0,0,1]
         ])
@@ -175,7 +175,7 @@ class Gui(QtGui.QMainWindow):
         rex_coords = np.dot(xform,coords)
 
         #Clamp z if below this limit
-        z_limit = -.03
+        z_limit = -.025
         if rex_coords[2][0] <= z_limit:
             print "z_limit was", rex_coords[2][0],"; clamped it to", z_limit
             rex_coords[2][0] = z_limit
@@ -516,6 +516,11 @@ class Gui(QtGui.QMainWindow):
         return reached
 
     def trash_state_machine(self):
+        #Makes the feedback handler work
+        self._timer3 = QtCore.QTimer(self)
+        self._timer3.timeout.connect(self.rex.get_feedback)
+        self._timer3.start()
+
         self.init_socket()
         tighten_gripper = 115 * D2R
         net_base_angle = -1.71 
@@ -610,8 +615,14 @@ class Gui(QtGui.QMainWindow):
                 next_state = "SOCKET_READ"
             elif curr_state == "SOCKET_READ":
                 #Block and wait for next point of new object
-                kin_point = self.get_socket_data()
+                #kin_point = self.get_socket_data()
                 #kin_point = [.057,-.165,.731]
+                #Block on right
+                #kin_point = [.124,-.170,.770]
+                #Velcro box on center
+                #kin_point = [-.045,-.209,.703]
+                #velcro box on side
+                #kin_point = [-.115,-.186,.730]
                 #Convert to rexarm coordinates from kinect coordinates
                 rex_point = self.kinect_world_to_rexarm_world(kin_point)
                 #TODO: Do matrix transformation from kinect to rexarm world

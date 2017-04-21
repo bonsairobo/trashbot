@@ -2,7 +2,7 @@ import lcm
 import time
 import numpy as np
 import math
-from threading import Lock
+from threading import Lock,Condition
 from lcmtypes import dynamixel_command_t
 from lcmtypes import dynamixel_command_list_t
 from lcmtypes import dynamixel_status_t
@@ -177,6 +177,7 @@ class Rexarm():
         print "Subscribed to LCM feedback_handler"
 
         self.lcm_mutex = Lock()
+        self.lcm_cv = Condition(self.lcm_mutex)
 
     def cmd_publish(self):
         """ 
@@ -225,6 +226,8 @@ class Rexarm():
             self.speed_fb[i] = msg.statuses[i].speed 
             self.load_fb[i] = msg.statuses[i].load 
             self.temp_fb[i] = msg.statuses[i].temperature
+        self.lcm_cv.notify()
+        #print "Notified sleeping thread"
         self.lcm_mutex.release()
 
         """

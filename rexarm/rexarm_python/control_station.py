@@ -491,27 +491,28 @@ class Gui(QtGui.QMainWindow):
 
     #Busy waits code until rexarm has reached desired pose 
     def wait_until_reached(self,pose):
+        self.rex.lcm_mutex.acquire()
         while not self.reached_pose(pose):
-            time.sleep(1)
-            print "not reached pose yet"
-            print "Pose:", pose
-            print "Rexarm:", self.rex.joint_angles_fb
-            pass
+            #time.sleep(1)
+            print "not reached pose yet. Thread going to sleep..."
+            #print "Pose:", pose
+            #print "Rexarm:", self.rex.joint_angles_fb
+            self.rex.lcm_cv.wait()
+            #print "Woke up"
+        self.rex.lcm_mutex.release()
 
     #Returns true if the rexarm's angles match the pose input approximately.
     #Use this to repeatedly check if rexarm has reached a configuration
     # pose is a list of angles for each rexarm_joint ex. [0,0,0,0,0,0]
     def reached_pose(self,pose):
         reached = True
-        allowed_error = 0.4 #radians
-        self.rex.lcm_mutex.acquire()
+        allowed_error = 0.3 #radians
         for i in range(len(self.rex.joint_angles_fb)):
             #If error for any of the joints is > 0.01, then arm is not
             #at the desired location.
             if abs(self.rex.joint_angles_fb[i] - pose[i]) > allowed_error:
                 reached = False
                 break
-        self.rex.lcm_mutex.release()
         return reached
 
     #Instantly publishes pose to rexarm without any motion smoothing
@@ -524,7 +525,7 @@ class Gui(QtGui.QMainWindow):
     def trash_state_machine(self):
         #Setting the torque and speed. Ranges from 0 to 1
         self.rex.max_torque = 0.55
-        self.rex.speed = 0.5
+        self.rex.speed = 0.4
         self.rex.cmd_publish()
 
         #Thread to call rex.get_feedback, which enables the callback

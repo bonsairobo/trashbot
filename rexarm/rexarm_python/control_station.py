@@ -177,7 +177,7 @@ class Gui(QtGui.QMainWindow):
         rex_coords = np.dot(xform,coords)
 
         #Clamp z if below this limit
-        z_limit = -0.005
+        z_limit = -0.01
         if rex_coords[2][0] <= z_limit:
             print "z_limit was", rex_coords[2][0],"; clamped it to", z_limit
             rex_coords[2][0] = z_limit
@@ -598,11 +598,22 @@ class Gui(QtGui.QMainWindow):
                 next_state = "HIDE_POSITION"
             elif curr_state == "RUN_IK_TURN_BASE":
                 #Run_IK
-                IK_cmd_thetas = self.runIK_noCommand(desired_IK)
+                IK_cmd_thetas = []
+                IK_successful = True
+                IK_message = ""
+                try:
+                    IK_cmd_thetas = self.runIK_noCommand(desired_IK)
+                except Exception as e:
+                    IK_successful = False
+                    IK_message = "ERROR: IK encountered runtime error.\n" + str(e)
+                if not self.check_pose_valid(IK_cmd_thetas):
+                    IK_successful = False
+                    IK_message = "ERROR: IK gave angles outside of feasible range.\n"
+
                 print "IK_result:", IK_cmd_thetas
                 #Check that the joint angles returned by IK are possible
-                if not self.check_pose_valid(IK_cmd_thetas):
-                    print "ERROR: IK gave angles outside of feasible range"
+                if not IK_successful:
+                    print IK_message
                     print "Returning to Hide position"
                     linear = False
                     next_state = "HIDE_POSITION"

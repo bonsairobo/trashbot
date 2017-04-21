@@ -161,14 +161,15 @@ int main(int argc, char **argv) {
                 }
                 perror("recvfrom");
                 exit(1);
-            } else if (strcmp(addr.sun_path, js_addr.sun_path) and
+            } else if (strcmp(addr.sun_path, js_addr.sun_path) == 0 and
                 bytes_read == sizeof(cmd))
             {
                 // Do nothing, we already have the code packet.
-            } else if (strcmp(addr.sun_path, rex_addr.sun_path) != 0 and
+            } else if (strcmp(addr.sun_path, rex_addr.sun_path) == 0 and
                 bytes_read == 1)
             {
                 pickup_complete = true;
+                break;
             } else {
                 cerr << "Bad packet!" << endl;
                 continue;

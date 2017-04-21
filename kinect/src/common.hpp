@@ -4,6 +4,14 @@
 #include <opencv2/opencv.hpp>
 #include <OpenNI.h>
 #include <iostream>
+#include <chrono>
+
+class StopWatch {
+    std::chrono::high_resolution_clock::time_point prev_time;
+public:
+    void start();
+    float click();
+};
 
 int try_start_rgbd_streams(
     openni::Device&,

@@ -453,7 +453,12 @@ class Gui(QtGui.QMainWindow):
     #Initialize socket to send acknowledgement over
     def send_socket_ack(self):
         print "Sending socket acknowledgement..."
-        self.sock.sendto("1","/tmp/kinect_endpoint")
+        self.kinect_endpoint = "/tmp/kinect_endpoint" 
+
+        if not os.path.isfile(self.kinect_endpoint):
+            open(self.kinect_endpoint, 'w').close()
+
+        self.sock.sendto("1",self.kinect_endpoint)
         return
 
     def init_socket(self):

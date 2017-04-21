@@ -8,13 +8,13 @@ using namespace Eigen;
 
 TrashSearch::TrashSearch(): state(RANDOM_WALK) {}
 
-MCMotors feedback_control(
+static MCMotors feedback_control(
     const PointXYZ& medoid_pt, const vector<float>& ground_plane)
 {
     return MCMotors();
 }
 
-MCMotors obstacle_avoidance(const vector<float>& obstacle_plane) {
+static MCMotors obstacle_avoidance(const vector<float>& obstacle_plane) {
     // Check the sign of the distance to get the normal orientation.
     // Use the X coordinate of the normal to decide which direction to turn.
     if (obstacle_plane[3] > 0) {
@@ -24,10 +24,10 @@ MCMotors obstacle_avoidance(const vector<float>& obstacle_plane) {
             return MCMotors(-0.3, 0.3);
         }
     } else {
-        if (obstacle_plane[1] > 0) {
-            return MCMotors(-0.3, 0.3);
-        } else {
+        if (obstacle_plane[1] < 0) {
             return MCMotors(0.3, -0.3);
+        } else {
+            return MCMotors(-0.3, 0.3);
         }
     }
 }

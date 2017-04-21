@@ -542,7 +542,7 @@ class Gui(QtGui.QMainWindow):
     def check_pose_valid(self,pose):
         valid = True
         for i in range(len(pose)):
-            if  pose[i] < self.joint_limits[i][0] or self.joint_limits[i][1] < pose[i]:
+            if  pose[i] < self.rex.joint_limits[i][0] or self.rex.joint_limits[i][1] < pose[i]:
                 valid = False
                 break
         return valid
@@ -600,7 +600,7 @@ class Gui(QtGui.QMainWindow):
                 IK_cmd_thetas = self.runIK_noCommand(desired_IK)
                 print "IK_result:", IK_cmd_thetas
                 #Check that the joint angles returned by IK are possible
-                if not self.check_pose_valid():
+                if not self.check_pose_valid(IK_cmd_thetas):
                     print "ERROR: IK gave angles outside of feasible range"
                     print "Returning to Hide position"
                     linear = False

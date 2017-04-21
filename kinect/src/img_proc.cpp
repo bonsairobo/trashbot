@@ -28,7 +28,7 @@ PlaneInfo merge_similar_planes(const PlaneInfo& plane_info) {
     int i = 0;
     for (const auto& plane_eq : plane_info.plane_eqs) {
         // Check for a similar plane.
-        int closest_cluster = -1;
+        int close_cluster = -1;
         int j = 0;
         for (const auto& cluster_plane_eq : plane_eqs) {
             float dot = abs(plane_eq[0] * cluster_plane_eq[0]
@@ -36,19 +36,20 @@ PlaneInfo merge_similar_planes(const PlaneInfo& plane_info) {
                           + plane_eq[2] * cluster_plane_eq[2]);
             float dist = abs(abs(cluster_plane_eq[3]) - abs(plane_eq[3]));
             if (abs(1.0 - dot) <= dot_diff_thresh and dist <= dist_thresh) {
-                closest_cluster = j;
+                close_cluster = j;
+                break;
             }
             ++j;
         }
-        if (closest_cluster == -1) {
+        if (close_cluster == -1) {
             // Make a new cluster.
             plane_eqs.push_back(plane_eq);
             plane_sizes.push_back(plane_info.plane_sizes[i]);
         } else {
             // Take the bigger plane.
-            if (plane_sizes[closest_cluster] < plane_info.plane_sizes[i]) {
-                plane_sizes[closest_cluster] = plane_info.plane_sizes[i];
-                plane_eqs[closest_cluster] = plane_info.plane_eqs[i];
+            if (plane_sizes[close_cluster] < plane_info.plane_sizes[i]) {
+                plane_sizes[close_cluster] = plane_info.plane_sizes[i];
+                plane_eqs[close_cluster] = plane_info.plane_eqs[i];
             }
         }
         ++i;

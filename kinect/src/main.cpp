@@ -110,6 +110,9 @@ int main(int argc, char **argv) {
     Point3f pickup_bbr(200.0, -250.0, 950.0);
     Rect pickup_roi = roi_from_workspace_corners(
          pickup_ftl, pickup_bbr, depth_stream);
+
+    // Search odds are very large for more responsive object recognition in
+    // autonomous mode (when the update rate is slow).
     uint8_t search_hit_odds = 250, search_miss_odds = 100;
     uint8_t pickup_hit_odds = 20, pickup_miss_odds = 5;
 

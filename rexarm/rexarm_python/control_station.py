@@ -583,7 +583,7 @@ class Gui(QtGui.QMainWindow):
         IK_cmd_thetas = None
 
         #State1: Turn 90 degrees at base to prevent collision
-        states = ["START","RUN_IK_TURN_BASE","RUN_IK_DESCEND", "GRASP", "LIFT_UP", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION", "UNHIDE","TURN_TO_HOME_FROM_UNHIDE"]
+        states = ["START","RUN_IK_TURN_BASE","RUN_IK_DESCEND", "GRASP", "LIFT_UP", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION_1","HIDE_POSITION_2","UNHIDE","TURN_TO_HOME_FROM_UNHIDE"]
         curr_state = "START"
         synchro_timer = 1.5
         start = True
@@ -595,7 +595,7 @@ class Gui(QtGui.QMainWindow):
             print "Current State:", curr_state
             if curr_state == "START":
                 next_pose = poses["HOME"][:]
-                next_state = "HIDE_POSITION"
+                next_state = "HIDE_POSITION_1"
             elif curr_state == "RUN_IK_TURN_BASE":
                 #Run_IK
                 IK_cmd_thetas = []
@@ -616,7 +616,7 @@ class Gui(QtGui.QMainWindow):
                     print IK_message
                     print "Returning to Hide position"
                     linear = False
-                    next_state = "HIDE_POSITION"
+                    next_state = "HIDE_POSITION_2"
                 else:
                     #Turn base towards object
                     next_pose[0] = IK_cmd_thetas[0]
@@ -672,15 +672,21 @@ class Gui(QtGui.QMainWindow):
                 next_pose[0] = 0
                 linear = False
                 self.instant_publish(next_pose)
-                #Acknowledge that we are done picking up and disposing of object
-                self.send_socket_ack()
-                next_state = "HIDE_POSITION"
+                next_state = "HIDE_POSITION_2"
             elif curr_state == "UNHIDE":
                 #Go to home position. Then run IK
                 next_pose = poses["HOME"][:]
                 next_state = "RUN_IK_TURN_BASE"
-            elif curr_state == "HIDE_POSITION":
+            elif curr_state == "HIDE_POSITION_1":
                 next_pose = poses["HIDE"][:]
+                next_state = "SOCKET_READ"
+            elif curr_state == "HIDE_POSITION_2":
+                next_pose = poses["HIDE"][:]
+                next_state = "SEND_ACK"
+            elif curr_state == "SEND_ACK":
+                #Acknowledge that we are done picking up and disposing of object
+                self.send_socket_ack()
+                linear = False
                 next_state = "SOCKET_READ"
             elif curr_state == "SOCKET_READ":
                 #Block and wait for next point of new object

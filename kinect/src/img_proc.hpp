@@ -13,6 +13,8 @@ struct PlaneInfo {
     std::vector<size_t> plane_sizes;
 };
 
+PlaneInfo merge_similar_planes(const PlaneInfo&);
+
 struct ObjectInfo {
     PlaneInfo plane_info;
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;

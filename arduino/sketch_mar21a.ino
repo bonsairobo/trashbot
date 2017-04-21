@@ -24,24 +24,25 @@ unsigned char right_motor_byte = 0;
 
 void pwm() {
     // Use byte range [0,255] as the duty cycle range over (255 / 20) ms.
+    unsigned char div = 25;
     digitalWrite(enrpwm, HIGH);
     digitalWrite(enlpwm, HIGH);
-    unsigned char total_delay = min(left_motor_byte, right_motor_byte) / 20;
+    unsigned char total_delay = min(left_motor_byte, right_motor_byte) / div;
     delay(total_delay);
     unsigned char overlap_delay = 0;
     if (left_motor_byte > right_motor_byte) {
         digitalWrite(enrpwm, LOW);
-        overlap_delay = (left_motor_byte - right_motor_byte) / 20;
+        overlap_delay = (left_motor_byte - right_motor_byte) / div;
         delay(overlap_delay);
     } else {
         digitalWrite(enlpwm, LOW);
-        overlap_delay = (right_motor_byte - left_motor_byte) / 20;
+        overlap_delay = (right_motor_byte - left_motor_byte) / div;
         delay(overlap_delay);
     }
     total_delay += overlap_delay;
     digitalWrite(enrpwm, LOW);
     digitalWrite(enlpwm, LOW);
-    delay(255 / 20 - total_delay);
+    delay(255 / div - total_delay);
 }
 
 void loop() {
@@ -79,8 +80,12 @@ void loop() {
             continue;
         }
 
-        pwm();
+        if (left_motor_byte != 0 or right_motor_byte != 0) {
+            pwm();
+        }
     }
 
-    pwm();
+    if (left_motor_byte != 0 or right_motor_byte != 0) {
+        pwm();
+    }
 }

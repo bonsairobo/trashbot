@@ -19,6 +19,7 @@ enum PacketType {
 struct MCMotors {
     float l_motor, r_motor; // from -1.0 to 1.0
     MCMotors();
+    MCMotors(float l, float r);
 };
 
 struct CodePacket {

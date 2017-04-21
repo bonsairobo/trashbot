@@ -6,12 +6,41 @@
 #include <fstream>
 #include <random>
 #include <fcntl.h>
+#include <cassert>
 
 using namespace std;
 using namespace openni;
 using namespace cv;
 using namespace pcl;
 using namespace Eigen;
+
+static int closest_object_index(
+    const vector<Point2i>& medoids,
+    PointCloud<PointXYZ>::ConstPtr cloud)
+{
+    if (cloud == nullptr) {
+        return -1;
+    }
+
+    // Choose the closest object to the Kinect.
+    float min_dist = numeric_limits<float>::max();
+    int best_obj_idx = -1;
+    int obj_idx = 0;
+    for (const auto& medoid : medoids) {
+        if (medoid.x >= 0 and medoid.y >= 0 and
+            medoid.x < int(cloud->height) and medoid.y < int(cloud->height))
+        {
+            PointXYZ pt = cloud->at(medoid.x, medoid.y);
+            float d = pt.x * pt.x + pt.y * pt.y + pt.z * pt.z;
+            if (d < min_dist) {
+                min_dist = d;
+                best_obj_idx = obj_idx;
+            }
+            ++obj_idx;
+        }
+    }
+    return best_obj_idx;
+}
 
 int main(int argc, char **argv) {
     // Open windows for drawing streams.
@@ -77,14 +106,17 @@ int main(int argc, char **argv) {
     bool manual_mode = true;
     TrashSearch trash_search;
 
-    Point3f pickup_ftl(-200.0, -50.0, 650.0);
-    Point3f pickup_bbr(200.0, -250.0, 950.0);
-    Rect pickup_roi = roi_from_workspace_corners(
-        pickup_ftl, pickup_bbr, depth_stream);
-    Point3f search_ftl(-400.0, 400.0, 650.0);
-    Point3f search_bbr(400.0, -400.0, 4000.0);
+    Point3f search_ftl(-350.0, 350.0, 650.0);
+    Point3f search_bbr(350.0, -300.0, 2000.0);
     Rect search_roi = roi_from_workspace_corners(
         search_ftl, search_bbr, depth_stream);
+    //Point3f pickup_ftl(-200.0, -50.0, 650.0);
+    Point3f pickup_ftl = search_ftl;
+    //Point3f pickup_bbr(200.0, -250.0, 950.0);
+    Point3f pickup_bbr = search_bbr;
+    // Rect pickup_roi = roi_from_workspace_corners(
+    //     pickup_ftl, pickup_bbr, depth_stream);
+    Rect pickup_roi = search_roi;
 
     uint8_t key = 0;
     const uint8_t ESC_KEYCODE = 27;
@@ -116,23 +148,24 @@ int main(int argc, char **argv) {
         socklen_t len = sizeof(js_addr);
         ssize_t bytes_read = 1;
         bool do_send_grasp = key == SPACEBAR;
+        sockaddr_un addr;
         while (bytes_read > 0) {
             bytes_read = recvfrom(
                 sock,
                 &cmd,
                 sizeof(cmd),
                 0,
-                (sockaddr*)&js_addr,
+                (sockaddr*)&addr,
                 &len);
-            if (bytes_read == EWOULDBLOCK) {
-                break;
-            }
             if (bytes_read < 0) {
-                // TODO: remove this hack
-                //perror("recvfrom");
-                continue;
-                //exit(1);
-            } else if (bytes_read != sizeof(cmd)) {
+                if (errno == EAGAIN) {
+                    break;
+                }
+                perror("recvfrom");
+                exit(1);
+            } else if (strcmp(addr.sun_path, js_addr.sun_path) != 0
+                or bytes_read != sizeof(cmd))
+            {
                 continue;
             }
 
@@ -142,12 +175,16 @@ int main(int argc, char **argv) {
             } else if (cmd.type == MODE_SWITCH_COMMAND) {
                 trash_search = TrashSearch(); // reset state machine
                 manual_mode = !manual_mode;
+                cout << "manual_mode = " << manual_mode << endl;
             }
         }
 
         // Get pixels, cloud, and ROI for workspace objects.
         ObjectInfo obj_info = get_workspace_objects(
             depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.0, 4.3);
+
+        // Merge similar planes (by unit normal dot product and distance).
+        PlaneInfo merged_plane_info = merge_similar_planes(obj_info.plane_info);
 
         // Translate pixel coordinates back to original image from ROI.
         Point2i tl_px(roi.x, roi.y);
@@ -195,23 +232,14 @@ int main(int argc, char **argv) {
         auto final_objects =
             find_nonzero_components<float>(weights);
         remove_small_regions(&final_objects, 100);
-
-        // Choose the closest object to the Kinect.
-        float min_dist = numeric_limits<float>::max();
-        int best_obj_idx = -1;
-        int obj_idx = 0;
         vector<Point2i> final_medoids;
         for (const auto& object : final_objects) {
-            auto px = region_medoid(object) - tl_px;
-            final_medoids.push_back(px);
-            PointXYZ pt = obj_info.cloud->at(px.x, px.y);
-            float d = pt.x * pt.x + pt.y * pt.y + pt.z * pt.z;
-            if (d < min_dist) {
-                min_dist = d;
-                best_obj_idx = obj_idx;
-            }
-            ++obj_idx;
+            final_medoids.push_back(region_medoid(object) - tl_px);
         }
+
+        // Choose the closest object to the Kinect.
+        int best_obj_idx = closest_object_index(
+            final_medoids, obj_info.cloud);
 
         if (show_feeds) {
             Mat masked = mask_image<uint16_t, Vec3b>(
@@ -233,24 +261,37 @@ int main(int argc, char **argv) {
             imshow("edges", color_edges);
         }
 
-        if (!manual_mode) {
+        cout << "# planes = " << merged_plane_info.plane_eqs.size() << endl;
+        for (const auto& plane_eq : merged_plane_info.plane_eqs) {
+            cout << "Normal equation: ["
+                 << plane_eq[0] << ","
+                 << plane_eq[1] << ","
+                 << plane_eq[2] << ","
+                 << plane_eq[3] <<  "]" << endl;
+        }
+
+        cout << "# objects = " << final_objects.size() << endl;
+
+        if (!manual_mode and !obj_info.object_pixels.empty()) {
             // Execute trash search state machine.
+            auto medoid = best_obj_idx == -1 ?
+                Point2i(0,0) : final_medoids[best_obj_idx];
             if (trash_search.update(
-                best_obj_idx == -1,
+                best_obj_idx >= 0,
                 pickup_ftl,
                 pickup_bbr,
-                obj_info.plane_info,
-                best_obj_idx == -1 ?
-                    Point2i(0,0) : final_medoids[best_obj_idx],
-                obj_info.cloud))
+                merged_plane_info,
+                obj_info.cloud->at(medoid.x, medoid.y)))
             {
                 do_send_grasp = true;
             }
 
             // Send motor amplitudes to motion controller.
+            cout << "motors: " << trash_search.motors.l_motor << " "
+                 << trash_search.motors.r_motor << endl;
             sendto(
                 sock,
-                &trash_search.motors,
+                &(trash_search.motors),
                 sizeof(trash_search.motors),
                 0,
                 (sockaddr*)&mc_addr,

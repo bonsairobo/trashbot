@@ -1,21 +1,21 @@
 #include "trash_search.hpp"
+#include <Eigen/Core>
 
 using namespace cv;
 using namespace pcl;
 using namespace std;
+using namespace Eigen;
 
 TrashSearch::TrashSearch(): state(RANDOM_WALK) {}
 
-MCMotors random_walk() {
+MCMotors feedback_control(
+    const PointXYZ& medoid_pt, const vector<float>& ground_plane)
+{
     return MCMotors();
 }
 
-MCMotors obstacle_avoidance() {
-    return MCMotors();
-}
-
-MCMotors feedback_control() {
-    return MCMotors();
+TrashSearchState TrashSearch::get_state() const {
+    return state;
 }
 
 bool TrashSearch::update(
@@ -23,30 +23,32 @@ bool TrashSearch::update(
     const Point3f& pickup_ftl,
     const Point3f& pickup_bbr,
     const PlaneInfo& plane_info,
-    const Point2i& object_medoid,
-    PointCloud<PointXYZ>::ConstPtr cloud)
+    const PointXYZ& medoid_pt)
 {
     if (plane_info.plane_eqs.size() > 1) {
         // Check if any of the non-ground planes are close to the robot.
-        float min_plane_dist = 700.0;
+        float min_plane_dist = 600.0;
         bool obstacle_near = false;
         for (size_t i = 1; i < plane_info.plane_eqs.size(); ++i) {
-            if (plane_info.plane_eqs[i][3] < min_plane_dist) {
+            if (abs(plane_info.plane_eqs[i][3]) < min_plane_dist) {
                 obstacle_near = true;
                 break;
             }
         }
         if (obstacle_near) {
             state = OBSTACLE_AVOIDANCE;
+        } else if (state == OBSTACLE_AVOIDANCE) {
+            state = RANDOM_WALK;
         }
+    } else if (state == OBSTACLE_AVOIDANCE) {
+        state = RANDOM_WALK;
     }
 
     if (state != OBSTACLE_AVOIDANCE) {
         if (state == FEEDBACK_CONTROL and have_object) {
             // Check if an object is in the workspace.
             // If so, go to PICKUP state.
-            PointXYZ pt = cloud->at(object_medoid.x, object_medoid.y);
-            if (point_in_workspace(pt, pickup_ftl, pickup_bbr)) {
+            if (point_in_workspace(medoid_pt, pickup_ftl, pickup_bbr)) {
                 state = PICKUP;
             }
         } else {
@@ -61,15 +63,15 @@ bool TrashSearch::update(
     switch (state) {
     case RANDOM_WALK:
         cout << "RANDOM WALK" << endl;
-        motors = random_walk();
+        motors = MCMotors(0.1, 0.1);
         break;
     case FEEDBACK_CONTROL:
         cout << "FEEDBACK CONTROL" << endl;
-        motors = feedback_control();
+        motors = feedback_control(medoid_pt, plane_info.plane_eqs[0]);
         break;
     case OBSTACLE_AVOIDANCE:
         cout << "OBSTACLE AVOIDANCE" << endl;
-        motors = obstacle_avoidance();
+        motors = MCMotors(-0.3, 0.3);
         break;
     case PICKUP:
         cout << "PICKUP" << endl;

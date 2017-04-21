@@ -22,8 +22,8 @@ public:
         const cv::Point3f& pickup_ftl,
         const cv::Point3f& pickup_bbr,
         const PlaneInfo&,
-        const cv::Point2i& object_medoid,
-        pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud);
+        const pcl::PointXYZ& medoid_pt);
+    TrashSearchState get_state() const;
 
     MCMotors motors;
 };

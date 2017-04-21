@@ -39,8 +39,9 @@ int main(int argc, char **argv) {
     bool manual_mode = true;
     int x_amp = 0;
     int y_amp = 0;
+    unsigned char prev_left_motor_byte = 0, prev_right_motor_byte = 0;
 
-    float left_motor, right_motor;
+    float left_motor = 0.0, right_motor = 0.0;
     while (true) {
         // The motion controller can be in 2 modes: manual control or
         // autonomous control. In manual control, the motion controller receives
@@ -49,34 +50,49 @@ int main(int argc, char **argv) {
         if (manual_mode) {
             CodePacket code(NONE_TYPE);
             JoystickEvent event;
+            sockaddr_un addr;
             ssize_t bytes_read = recvfrom(
                 sock,
                 &code,
                 sizeof(code),
                 0,
-                (sockaddr*)&js_addr,
+                (sockaddr*)&addr,
                 &len);
             if (bytes_read < 0) {
+                if (errno == EAGAIN) {
+                    usleep(10);
+                    continue;
+                }
                 perror("recvfrom");
                 return 1;
             }
-            if (bytes_read == EWOULDBLOCK) {
-                continue;
-            }
-            if (code.type == AXIS_EVENT) {
-                ssize_t bytes_read = recvfrom(
-                    sock,
-                    &event,
-                    sizeof(event),
-                    0,
-                    (sockaddr*)&js_addr,
-                    &len);
-                if (bytes_read < 0) {
-                    perror("recvfrom");
-                    return 1;
+            if (strcmp(addr.sun_path, js_addr.sun_path) == 0) {
+                if (code.type == AXIS_EVENT) {
+                    // Wait for packet... forever!
+                    while (true) {
+                        bytes_read = recvfrom(
+                            sock,
+                            &event,
+                            sizeof(event),
+                            0,
+                            (sockaddr*)&addr,
+                            &len);
+                        if (bytes_read < 0) {
+                            if (errno == EAGAIN) {
+                                usleep(10);
+                                continue;
+                            }
+                            perror("recvfrom");
+                            return 1;
+                        }
+                        if (strcmp(addr.sun_path, js_addr.sun_path) == 0) {
+                            break;
+                        }
+                    }
+                } else if (code.type == MODE_SWITCH_COMMAND) {
+                    cout << "ENTERING AUTONOMOUS MODE" << endl;
+                    manual_mode = false;
                 }
-            } else if (code.type == MODE_SWITCH_COMMAND) {
-                manual_mode = !manual_mode;
             }
 
             if (event.number == 2) { // Left X analog
@@ -96,48 +112,74 @@ int main(int argc, char **argv) {
             right_motor =
                 clamp(float(forward_speed * y_amp - x_amp) / max_amp);
         } else /* AUTONOMOUS MODE */ {
-            // Check if the joystick wants to turn off autonomous mode.
-            CodePacket code(NONE_TYPE);
-            ssize_t bytes_read = recvfrom(
-                sock,
-                &code,
-                sizeof(code),
-                0,
-                (sockaddr*)&js_addr,
-                &len);
-            if (bytes_read < 0) {
-                perror("recvfrom");
-                return 1;
-            }
-            if (code.type == MODE_SWITCH_COMMAND) {
-                manual_mode = !manual_mode;
-            }
-
             // Autonomous driving. Kinect senses obstacles and objects, while
             // telling the motion controller how to steer.
-            MCMotors motors;
-            bytes_read = recvfrom(
-                sock,
-                &motors,
-                sizeof(motors),
-                0,
-                (sockaddr*)&kin_addr,
-                &len);
-            left_motor = motors.l_motor;
-            right_motor = motors.r_motor;
+            // Block until we get new motor values, since the Arduino will
+            // continue to apply the previous motor values.
+            ssize_t bytes_read = 0;
+            while (bytes_read <= 0) {
+                // Here, we may receive from two different addresses, the kinect
+                // or the joystick. Thus, we must check the sender address
+                // before copying the buffer into a specific type.
+
+                // Both packet types are 8 bytes large.
+                char buffer[8];
+                sockaddr_un addr;
+                bytes_read = recvfrom(
+                    sock,
+                    &buffer,
+                    sizeof(buffer),
+                    0,
+                    (sockaddr*)&addr,
+                    &len);
+                if (bytes_read < 0) {
+                    if (errno != EAGAIN) {
+                        perror("recvfrom");
+                        return 1;
+                    }
+                }
+                if (strcmp(addr.sun_path, js_addr.sun_path) == 0) {
+                    if (bytes_read == sizeof(CodePacket)) {
+                        CodePacket code(NONE_TYPE);
+                        memcpy(&code, buffer, sizeof(code));
+                        if (code.type == MODE_SWITCH_COMMAND) {
+                            cout << "ENTERING MANUAL MODE" << endl;
+                            manual_mode = true;
+                            break;
+                        }
+                    }
+                } else if (strcmp(addr.sun_path, kin_addr.sun_path) == 0) {
+                    if (bytes_read == sizeof(MCMotors)) {
+                        MCMotors motors;
+                        memcpy(&motors, buffer, sizeof(motors));
+                        left_motor = motors.l_motor;
+                        right_motor = motors.r_motor;
+                        cout << "GOT KINECT MOTORS" << endl;
+                    }
+                }
+            }
         }
+
+        cout << "motor floats = " << left_motor << " " << right_motor << endl;
 
         unsigned char left_motor_byte = round(abs(left_motor) * 255);
         unsigned char right_motor_byte = round(abs(right_motor) * 255);
         char left_sgn = left_motor >= 0 ? '+' : '-';
         char right_sgn = right_motor >= 0 ? '+' : '-';
 
-        cout << left_motor << " " << right_motor << endl;
+        cout << "motor bytes = " << int(left_motor_byte) << " "
+             << int(right_motor_byte) << endl;
+        if (left_motor_byte != prev_left_motor_byte or
+            right_motor_byte != prev_right_motor_byte)
+        {
+            // Send over serial port.
+            arduino << 'L' << left_sgn << left_motor_byte
+                    << 'R' << right_sgn << right_motor_byte;
+            arduino.flush();
+        }
 
-        // Send over serial port.
-        arduino << 'L' << left_sgn << left_motor_byte
-                << 'R' << right_sgn << right_motor_byte;
-        arduino.flush();
+        prev_left_motor_byte = left_motor_byte;
+        prev_right_motor_byte = right_motor_byte;
     }
 
     arduino.close();

@@ -19,6 +19,43 @@ using namespace pcl;
 using namespace Eigen;
 using namespace boost;
 
+PlaneInfo merge_similar_planes(const PlaneInfo& plane_info) {
+    // Cluster by normal dot product and distance.
+    const float dist_thresh = 40.0;
+    const float dot_diff_thresh = 0.05;
+    vector<vector<float>> plane_eqs;
+    vector<size_t> plane_sizes;
+    int i = 0;
+    for (const auto& plane_eq : plane_info.plane_eqs) {
+        // Check for a similar plane.
+        int closest_cluster = -1;
+        int j = 0;
+        for (const auto& cluster_plane_eq : plane_eqs) {
+            float dot = abs(plane_eq[0] * cluster_plane_eq[0]
+                          + plane_eq[1] * cluster_plane_eq[1]
+                          + plane_eq[2] * cluster_plane_eq[2]);
+            float dist = abs(abs(cluster_plane_eq[3]) - abs(plane_eq[3]));
+            if (abs(1.0 - dot) <= dot_diff_thresh and dist <= dist_thresh) {
+                closest_cluster = j;
+            }
+            ++j;
+        }
+        if (closest_cluster == -1) {
+            // Make a new cluster.
+            plane_eqs.push_back(plane_eq);
+            plane_sizes.push_back(plane_info.plane_sizes[i]);
+        } else {
+            // Take the bigger plane.
+            if (plane_sizes[closest_cluster] < plane_info.plane_sizes[i]) {
+                plane_sizes[closest_cluster] = plane_info.plane_sizes[i];
+                plane_eqs[closest_cluster] = plane_info.plane_eqs[i];
+            }
+        }
+        ++i;
+    }
+    return { plane_eqs, plane_sizes };
+}
+
 Point2i region_centroid(const vector<Point2i>& region) {
     if (region.empty()) {
         return Point2i(0,0);
@@ -197,7 +234,7 @@ static PlaneInfo remove_planes(
         // Stop when the planes being removed become small.
         // TODO: Use inverse relationship between area and distance to improve
         // stopping accuracy (obstacle detection accuracy).
-        if (num_before - num_after < 10000) {
+        if (num_before - num_after < 5000) {
             break;
         }
 

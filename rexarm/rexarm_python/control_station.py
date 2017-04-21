@@ -537,6 +537,16 @@ class Gui(QtGui.QMainWindow):
         self.rex.cmd_publish()
 
 
+    #Checks if pose, a list of length 6, has angles within the range
+    #of the rexarm's joint limits
+    def check_pose_valid(self,pose):
+        valid = True
+        for i in range(len(pose)):
+            if  pose[i] < self.joint_limits[i][0] or self.joint_limits[i][1] < pose[i]:
+                valid = False
+                break
+        return valid
+
     def trash_state_machine(self):
         #Setting the torque and speed. Ranges from 0 to 1
         self.rex.max_torque = 0.55
@@ -589,14 +599,21 @@ class Gui(QtGui.QMainWindow):
                 #Run_IK
                 IK_cmd_thetas = self.runIK_noCommand(desired_IK)
                 print "IK_result:", IK_cmd_thetas
-                #Turn base towards object
-                next_pose[0] = IK_cmd_thetas[0]
-                linear = False
-                self.instant_publish(next_pose)
-                print "Published to joint 0:", IK_cmd_thetas[0]
-                #TODO: Get lcm joint angles returned from runIK so that
-                #we can wait before grasping
-                next_state = "RUN_IK_DESCEND"
+                #Check that the joint angles returned by IK are possible
+                if not self.check_pose_valid():
+                    print "ERROR: IK gave angles outside of feasible range"
+                    print "Returning to Hide position"
+                    linear = False
+                    next_state = "HIDE_POSITION"
+                else:
+                    #Turn base towards object
+                    next_pose[0] = IK_cmd_thetas[0]
+                    linear = False
+                    self.instant_publish(next_pose)
+                    print "Published to joint 0:", IK_cmd_thetas[0]
+                    #TODO: Get lcm joint angles returned from runIK so that
+                    #we can wait before grasping
+                    next_state = "RUN_IK_DESCEND"
             elif curr_state == "RUN_IK_DESCEND":
                 print "About to descend:"
                 print "Current pose:", self.rex.joint_angles_fb

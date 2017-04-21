@@ -516,6 +516,11 @@ class Gui(QtGui.QMainWindow):
         return reached
 
     def trash_state_machine(self):
+        #Setting the torque and speed. Ranges from 0 to 1
+        self.rex.max_torque = 0.48
+        self.rex.speed = 0.3
+        self.rex.cmd_publish()
+
         #Makes the feedback handler work
         self._timer3 = QtCore.QTimer(self)
         self._timer3.timeout.connect(self.rex.get_feedback)
@@ -622,7 +627,7 @@ class Gui(QtGui.QMainWindow):
                 #Velcro box on center
                 #kin_point = [-.045,-.209,.703]
                 #velcro box on side
-                #kin_point = [-.115,-.186,.730]
+                kin_point = [-.115,-.186,.730]
                 #Convert to rexarm coordinates from kinect coordinates
                 rex_point = self.kinect_world_to_rexarm_world(kin_point)
                 #TODO: Do matrix transformation from kinect to rexarm world

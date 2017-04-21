@@ -174,9 +174,11 @@ int main(int argc, char **argv) {
                 trash_search = TrashSearch(); // reset state machine
                 manual_mode = !manual_mode;
                 if (manual_mode) {
+                    object_grid.reset();
                     object_grid.set_update_odds(
                         pickup_hit_odds, pickup_miss_odds);
                 } else {
+                    object_grid.reset();
                     object_grid.set_update_odds(
                         search_hit_odds, search_miss_odds);
                 }

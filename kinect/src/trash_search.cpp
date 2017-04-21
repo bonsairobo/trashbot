@@ -24,10 +24,12 @@ static MCMotors feedback_control(
     float angle = atan2(ground_y_coord, ground_x_coord) - 3.14159 / 2.0;
 
     // Drive toward the destination point.
-    float turn_scalar = 0.1 * (2.0 / 3.14159);
+    float turn_scalar = 0.6 * (2.0 / 3.14159);
     MCMotors motors(0.1, 0.1); // Base amplitudes.
-    motors.l_motor += -turn_scalar * angle;
-    motors.r_motor += turn_scalar * angle;
+    if (abs(angle > 0.35)) {
+        motors.l_motor += -turn_scalar * angle;
+        motors.r_motor += turn_scalar * angle;
+    }
     return motors;
 }
 
@@ -35,13 +37,13 @@ static MCMotors obstacle_avoidance(const vector<float>& obstacle_plane) {
     // Check the sign of the distance to get the normal orientation.
     // Use the X coordinate of the normal to decide which direction to turn.
     if (obstacle_plane[3] > 0) {
-        if (obstacle_plane[1] > 0) {
+        if (obstacle_plane[0] > 0) {
             return MCMotors(0.3, -0.3);
         } else {
             return MCMotors(-0.3, 0.3);
         }
     } else {
-        if (obstacle_plane[1] < 0) {
+        if (obstacle_plane[0] < 0) {
             return MCMotors(0.3, -0.3);
         } else {
             return MCMotors(-0.3, 0.3);
@@ -79,19 +81,25 @@ bool TrashSearch::update(
         state = RANDOM_WALK;
     }
 
+    bool send_grasp = false;
     if (state != OBSTACLE_AVOIDANCE) {
-        if (state == FEEDBACK_CONTROL and have_object) {
-            // Check if an object is in the workspace.
-            // If so, go to PICKUP state.
-            if (point_in_workspace(medoid_pt, pickup_ftl, pickup_bbr)) {
-                state = PICKUP;
+        if (have_object) {
+            if (state == FEEDBACK_CONTROL) {
+                // Check if an object is in the workspace.
+                // If so, go to PICKUP state.
+                if (point_in_workspace(medoid_pt, pickup_ftl, pickup_bbr)) {
+                    send_grasp = true;
+                    state = PICKUP;
+                }
+            } else if (state == PICKUP) {
+                if (point_in_workspace(medoid_pt, pickup_ftl, pickup_bbr)) {
+                    state = PICKUP;
+                }
+            } else {
+                state = FEEDBACK_CONTROL;
             }
         } else {
-            if (have_object) {
-                state = FEEDBACK_CONTROL;
-            } else {
-                state = RANDOM_WALK;
-            }
+            state = RANDOM_WALK;
         }
     }
 
@@ -111,7 +119,9 @@ bool TrashSearch::update(
     case PICKUP:
         cout << "PICKUP" << endl;
         motors = MCMotors();
-        return true;
+        if (send_grasp) {
+            return true;
+        }
     case NONE_STATE:
         break;
     }

@@ -15,6 +15,10 @@ OccupancyGrid::OccupancyGrid(int width, int height):
     odds(height, width, CV_8U, Scalar(max_odds / 2))
 {}
 
+void OccupancyGrid::reset() {
+    odds = Scalar(0);
+}
+
 void OccupancyGrid::set_update_odds(uint8_t hit_odds, uint8_t miss_odds) {
     this->hit_odds = hit_odds;
     this->miss_odds = miss_odds;

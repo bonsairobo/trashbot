@@ -632,14 +632,14 @@ class Gui(QtGui.QMainWindow):
                 next_state = "SOCKET_READ"
             elif curr_state == "SOCKET_READ":
                 #Block and wait for next point of new object
-                #kin_point = self.get_socket_data()
+                kin_point = self.get_socket_data()
                 #kin_point = [.057,-.165,.731]
                 #Block on right
                 #kin_point = [.124,-.170,.770]
                 #Velcro box on center
                 #kin_point = [-.045,-.209,.703]
                 #velcro box on side
-                kin_point = [-.115,-.186,.730]
+                #kin_point = [-.115,-.186,.730]
                 #Convert to rexarm coordinates from kinect coordinates
                 rex_point = self.kinect_world_to_rexarm_world(kin_point)
                 #TODO: Do matrix transformation from kinect to rexarm world

@@ -196,12 +196,18 @@ class Rexarm():
             msg.commands.append(cmd)
         self.lc.publish("ARM_COMMAND",msg.encode())
     
-    def get_feedback(self):
+    def get_feedback(self,from_gui = True):
         """
         LCM Handler function
         Called continuously from the GUI 
         """
-        self.lc.handle_timeout(50)
+        if from_gui:
+            self.lc.handle_timeout(50)
+        else:
+            while True:
+                self.lc.handle_timeout(50)
+                print "Called get feedback"
+                time.sleep(0.5)              
 
     def feedback_handler(self, channel, data):
         print "Feedback handler called!"

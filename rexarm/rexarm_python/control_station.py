@@ -2,6 +2,7 @@ import struct
 import sys
 import os
 import time
+import thread
 import cv2
 import numpy as np
 import numpy.linalg
@@ -521,10 +522,13 @@ class Gui(QtGui.QMainWindow):
         self.rex.speed = 0.3
         self.rex.cmd_publish()
 
-        #Makes the feedback handler work
-        self._timer3 = QtCore.QTimer(self)
-        self._timer3.timeout.connect(self.rex.get_feedback)
-        self._timer3.start()
+        #Thread to call rex.get_feedback, which enables the callback
+        #function to work
+        try:
+            thread.start_new_thread(self.rex.get_feedback,(False,))
+            print "Started get_feedback thread"
+        except:
+            print "Unable to start get_feedback thread"
 
         self.init_socket()
         tighten_gripper = 115 * D2R

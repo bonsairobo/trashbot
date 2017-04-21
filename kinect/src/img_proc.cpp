@@ -1,4 +1,5 @@
 #include "img_proc.hpp"
+#include "common.hpp"
 #include <pcl/features/integral_image_normal.h>
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
@@ -282,6 +283,9 @@ ObjectInfo get_workspace_objects(
     float plane_dist_thresh,
     float cluster_tolerance)
 {
+    StopWatch watch;
+    watch.start();
+
     // 2D workspace culling.
     Mat crop = depth_f32_mat(roi);
     threshold(crop, crop, ftl.z, 0, THRESH_TOZERO);
@@ -291,6 +295,9 @@ ObjectInfo get_workspace_objects(
     if (workspc_px.empty()) {
         return ObjectInfo();
     }
+
+    cout << "2d workspace culling took "
+         << watch.click() << " seconds." << endl;
 
     // Create a point cloud of ROI regions.
     PointCloud<PointXYZ>::Ptr pc = zero_cloud(roi.width, roi.height);
@@ -304,6 +311,9 @@ ObjectInfo get_workspace_objects(
                 &pt.x, &pt.y, &pt.z);
         }
     }
+
+    cout << "point cloud creation took "
+         << watch.click() << " seconds." << endl;
 
     // 3D workspace culling. Organized cloud becomes unorganized, so keep track
     // of index -> pixel mapping.
@@ -319,10 +329,16 @@ ObjectInfo get_workspace_objects(
     filter.setInputCloud(filt_pc);
     filter.setIndices(idx_px_map);
     filter.filter(*filt_pc);
+    cout << "3d workspace culling took "
+         << watch.click() << " seconds." << endl;
 
     // Remove planes.
     PlaneInfo plane_info =
         remove_planes(filt_pc, plane_dist_thresh, idx_px_map);
+
+    cout << "removing planes took "
+         << watch.click() << " seconds." << endl;
+
     if (idx_px_map->size() < min_region_size) {
         return ObjectInfo();
     }
@@ -349,6 +365,9 @@ ObjectInfo get_workspace_objects(
         }
         object_px.push_back(px_coords);
     }
+
+    cout << "object clustering took "
+         << watch.click() << " seconds." << endl;
 
     return { plane_info, pc, object_px };
 }

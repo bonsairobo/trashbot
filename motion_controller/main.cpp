@@ -166,6 +166,8 @@ int main(int argc, char **argv) {
 
         cout << "motor bytes = " << int(left_motor_byte) << " "
              << int(right_motor_byte) << endl;
+
+        // Don't send duplicate motor bytes,
         if (left_motor_byte != prev_left_motor_byte or
             right_motor_byte != prev_right_motor_byte)
         {

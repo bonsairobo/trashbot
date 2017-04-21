@@ -25,6 +25,14 @@ PlaneInfo merge_similar_planes(const PlaneInfo& plane_info) {
     const float dot_diff_thresh = 0.05;
     vector<vector<float>> plane_eqs;
     vector<size_t> plane_sizes;
+
+    // Always provide the ground plane. This will get merged in the case where
+    // the ground plane is detected by segmentation. Otherwise, this estimate
+    // will suffice.
+    vector<float> ground_plane = { -0.02, 0.62, -0.78, 746.0 };
+    plane_eqs.push_back(ground_plane);
+    plane_sizes.push_back(1000); // dummy value
+
     int i = 0;
     for (const auto& plane_eq : plane_info.plane_eqs) {
         // Check for a similar plane.
@@ -204,6 +212,7 @@ static PlaneInfo remove_planes(
     ExtractIndices<PointXYZ> extract;
     vector<vector<float>> plane_eqs;
     vector<size_t> plane_sizes;
+
     while (true) {
         // Segment the largest planar component from the remaining cloud.
         seg.setInputCloud(pc);

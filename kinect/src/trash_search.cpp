@@ -9,9 +9,26 @@ using namespace Eigen;
 TrashSearch::TrashSearch(): state(RANDOM_WALK) {}
 
 static MCMotors feedback_control(
-    const PointXYZ& medoid_pt, const vector<float>& ground_plane)
+    const PointXYZ& dst_pt, const vector<float>& ground_plane)
 {
-    return MCMotors();
+    // Calculate ground plane coordinates of destination point.
+    Vector3f dst_pt_vec(dst_pt.x, dst_pt.y, dst_pt.z);
+    Vector3f normal(ground_plane[0], ground_plane[1], ground_plane[2]);
+    Vector3f x = Vector3f(1,0,0);
+    Vector3f z = Vector3f(0,0,1);
+    // (Vector in the plane is the rejection of the normal.)
+    Vector3f ground_x = x - x.dot(normal) * normal;
+    Vector3f ground_y = z - z.dot(normal) * normal;
+    float ground_x_coord = ground_x.normalized().dot(dst_pt_vec);
+    float ground_y_coord = ground_y.normalized().dot(dst_pt_vec);
+    float angle = atan2(ground_y_coord, ground_x_coord) - 3.14159 / 2.0;
+
+    // Drive toward the destination point.
+    float turn_scalar = 0.1 * (2.0 / 3.14159);
+    MCMotors motors(0.1, 0.1); // Base amplitudes.
+    motors.l_motor += -turn_scalar * angle;
+    motors.r_motor += turn_scalar * angle;
+    return motors;
 }
 
 static MCMotors obstacle_avoidance(const vector<float>& obstacle_plane) {

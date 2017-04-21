@@ -3,6 +3,19 @@
 using namespace std;
 using namespace cv;
 using namespace openni;
+using namespace chrono;
+
+void StopWatch::start() {
+    prev_time = high_resolution_clock::now();
+}
+
+float StopWatch::click() {
+    auto time_now = high_resolution_clock::now();
+    duration<float> time_span =
+        duration_cast<duration<float>>(time_now - prev_time);
+    prev_time = time_now;
+    return time_span.count();
+}
 
 static int try_start_video_stream(
     VideoStream& stream,

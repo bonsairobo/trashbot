@@ -7,13 +7,54 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/kdtree/kdtree.h>
+#include <pcl/common/pca.h>
 #include <queue>
 #include <cassert>
+#include <Eigen/Core>
 
 using namespace cv;
 using namespace std;
 using namespace openni;
 using namespace pcl;
+using namespace Eigen;
+using namespace boost;
+
+PlaneInfo merge_similar_planes(const PlaneInfo& plane_info) {
+    // Cluster by normal dot product and distance.
+    const float dist_thresh = 40.0;
+    const float dot_diff_thresh = 0.05;
+    vector<vector<float>> plane_eqs;
+    vector<size_t> plane_sizes;
+    int i = 0;
+    for (const auto& plane_eq : plane_info.plane_eqs) {
+        // Check for a similar plane.
+        int closest_cluster = -1;
+        int j = 0;
+        for (const auto& cluster_plane_eq : plane_eqs) {
+            float dot = abs(plane_eq[0] * cluster_plane_eq[0]
+                          + plane_eq[1] * cluster_plane_eq[1]
+                          + plane_eq[2] * cluster_plane_eq[2]);
+            float dist = abs(abs(cluster_plane_eq[3]) - abs(plane_eq[3]));
+            if (abs(1.0 - dot) <= dot_diff_thresh and dist <= dist_thresh) {
+                closest_cluster = j;
+            }
+            ++j;
+        }
+        if (closest_cluster == -1) {
+            // Make a new cluster.
+            plane_eqs.push_back(plane_eq);
+            plane_sizes.push_back(plane_info.plane_sizes[i]);
+        } else {
+            // Take the bigger plane.
+            if (plane_sizes[closest_cluster] < plane_info.plane_sizes[i]) {
+                plane_sizes[closest_cluster] = plane_info.plane_sizes[i];
+                plane_eqs[closest_cluster] = plane_info.plane_eqs[i];
+            }
+        }
+        ++i;
+    }
+    return { plane_eqs, plane_sizes };
+}
 
 Point2i region_centroid(const vector<Point2i>& region) {
     if (region.empty()) {
@@ -24,6 +65,43 @@ Point2i region_centroid(const vector<Point2i>& region) {
         c += px;
     }
     return c / float(region.size());
+}
+
+static Vector3f eigenvec3f_from_pointxyz(const PointXYZ& pt) {
+    return Vector3f(pt.x, pt.y, pt.z);
+}
+
+static inline Vector3f cloud_centroid(
+    vector<Point2i> object_px, PointCloud<PointXYZ>::Ptr cloud)
+{
+    if (cloud->empty()) {
+        return Vector3f(0,0,0);
+    }
+    Vector3f c(0,0,0);
+    for (auto& pt : *cloud) {
+        c += eigenvec3f_from_pointxyz(pt);
+    }
+    return c / float(cloud->size());
+}
+
+static IndicesPtr indices_from_px(
+    const vector<Point2i>& pixels, int width)
+{
+    IndicesPtr indices(new vector<int>);
+    for (const auto& px : pixels) {
+        indices->push_back(px.y * width + px.x);
+    }
+    return indices;
+}
+
+Vector3f object_principal_axis(
+    vector<Point2i> object_px, PointCloud<PointXYZ>::Ptr cloud)
+{
+    pcl::PCA<PointXYZ> pca(true);
+    pca.setInputCloud(cloud);
+    IndicesPtr indices = indices_from_px(object_px, cloud->width);
+    pca.setIndices(indices);
+    return pca.getEigenVectors().row(0);
 }
 
 Point2i region_medoid(const vector<Point2i>& region) {
@@ -105,10 +183,10 @@ void remove_small_regions(
     object_regions->erase(new_end, object_regions->end());
 }
 
-// `indices_out` returns the original pixel coordinates as indices.
+// `idx_px_map` returns the original pixel coordinates as indices.
 // I.e. for *returned* cloud point i,
-//   px_coord[i] = (indices_out[i] % img_width, indices_out[i] / img_width)
-static void remove_planes(
+//   px_coord[i] = (idx_px_map[i] % img_width, idx_px_map[i] / img_width)
+static PlaneInfo remove_planes(
     PointCloud<PointXYZ>::Ptr pc,
     float dist_thresh,
     IndicesPtr idx_px_map)
@@ -123,7 +201,8 @@ static void remove_planes(
     seg.setMaxIterations(500);
     seg.setDistanceThreshold(dist_thresh);
     ExtractIndices<PointXYZ> extract;
-    vector<vector<int>> planes;
+    vector<vector<float>> plane_eqs;
+    vector<size_t> plane_sizes;
     while (true) {
         // Segment the largest planar component from the remaining cloud.
         seg.setInputCloud(pc);
@@ -137,9 +216,6 @@ static void remove_planes(
         // Extract the inliers.
         extract.setInputCloud(pc);
         extract.setIndices(inliers);
-        vector<int> plane_idx;
-        extract.filter(plane_idx);
-        planes.push_back(plane_idx);
         extract.setNegative(true);
         vector<int> kept_idx;
         extract.filter(kept_idx);
@@ -156,15 +232,17 @@ static void remove_planes(
         swap(*idx_px_map, new_map);
 
         // Stop when the planes being removed become small.
-        if (plane_idx.size() < 10000) {
+        // TODO: Use inverse relationship between area and distance to improve
+        // stopping accuracy (obstacle detection accuracy).
+        if (num_before - num_after < 5000) {
             break;
         }
+
+        plane_eqs.push_back(coefficients->values);
+        plane_sizes.push_back(inliers->indices.size());
     }
-    if (planes.size() > 1 and planes[1].size() > 3000) {
-        cout << "BOUNDARY DETECTED" << endl;
-    } else {
-        cout << "NO BOUNDARY DETECTED" << endl;
-    }
+
+    return { plane_eqs, plane_sizes };
 }
 
 static PointCloud<PointXYZ>::Ptr zero_cloud(int width, int height) {
@@ -174,6 +252,14 @@ static PointCloud<PointXYZ>::Ptr zero_cloud(int width, int height) {
     pc->resize(width * height);
     pc->is_dense = true;
     return pc;
+}
+
+bool point_in_workspace(
+    const PointXYZ& pt, const Point3f& ftl, const Point3f& bbr)
+{
+    return pt.x > ftl.x and pt.x < bbr.x and
+           pt.y < ftl.y and pt.y > bbr.y and
+           pt.z > ftl.z and pt.z < bbr.z;
 }
 
 ObjectInfo get_workspace_objects(
@@ -214,10 +300,7 @@ ObjectInfo get_workspace_objects(
     IndicesPtr idx_px_map(new vector<int>);
     for (size_t i = 0; i < pc->size(); ++i) {
         const auto& pt = pc->points[i];
-        if (pt.x > ftl.x and pt.x < bbr.x and
-            pt.y < ftl.y and pt.y > bbr.y and
-            pt.z > ftl.z and pt.z < bbr.z)
-        {
+        if (point_in_workspace(pt, ftl, bbr)) {
             idx_px_map->push_back(i);
         }
     }
@@ -228,7 +311,8 @@ ObjectInfo get_workspace_objects(
     filter.filter(*filt_pc);
 
     // Remove planes.
-    remove_planes(filt_pc, plane_dist_thresh, idx_px_map);
+    PlaneInfo plane_info =
+        remove_planes(filt_pc, plane_dist_thresh, idx_px_map);
     if (idx_px_map->size() < min_region_size) {
         return ObjectInfo();
     }
@@ -256,7 +340,7 @@ ObjectInfo get_workspace_objects(
         object_px.push_back(px_coords);
     }
 
-    return { pc, object_px };
+    return { plane_info, pc, object_px };
 }
 
 PointCloud<Normal>::Ptr estimate_normals(PointCloud<PointXYZ>::ConstPtr pc) {

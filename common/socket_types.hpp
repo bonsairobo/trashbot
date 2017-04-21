@@ -9,8 +9,24 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-struct PickupCommand {
+enum PacketType {
+    NONE_TYPE,
+    AXIS_EVENT,
+    PICKUP_COMMAND,
+    MODE_SWITCH_COMMAND
+};
+
+struct MCMotors {
+    float l_motor, r_motor; // from -1.0 to 1.0
+    MCMotors();
+    MCMotors(float l, float r);
+};
+
+struct CodePacket {
     uint32_t time_ms;
+    PacketType type;
+
+    CodePacket(PacketType type);
 };
 
 // Just make a simple POD type so we don't have to use some library's type for
@@ -24,6 +40,7 @@ struct GraspingPoint {
     uint32_t time_ms;
     Vec3f point;
     Vec3f normal;
+    Vec3f principal_axis;
 };
 
 sockaddr_un create_udp_addr(const char *path);

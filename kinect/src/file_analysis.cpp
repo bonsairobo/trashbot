@@ -8,6 +8,7 @@ using namespace std;
 using namespace cv;
 using namespace openni;
 using namespace pcl;
+using namespace Eigen;
 
 int main(int argc, char **argv) {
     if (argc < 2) {
@@ -125,16 +126,25 @@ int main(int argc, char **argv) {
         // Choose the closest object to the Rexarm.
         float min_dist = numeric_limits<float>::max();
         int best_obj_idx = -1;
-        int j = 0;
+        int obj_idx = 0;
         for (const auto& object : final_objects) {
             auto px = region_medoid(object) - tl_px;
             PointXYZ pt = obj_info.cloud->at(px.x, px.y);
             float d = pt.x * pt.x + pt.y * pt.y + pt.z * pt.z;
             if (d < min_dist) {
                 min_dist = d;
-                best_obj_idx = j;
+                best_obj_idx = obj_idx;
             }
-            ++j;
+            ++obj_idx;
+        }
+
+        // Compute the principal axis unit vector of the chosen object.
+        if (best_obj_idx != -1) {
+            Vector3f principal_axis = object_principal_axis(
+                translate_px_coords(final_objects[best_obj_idx], -tl_px),
+                obj_info.cloud);
+            cout << "principal axis = (" << principal_axis(0) << ","
+                 << principal_axis(1) << "," << principal_axis(2) << ")" << endl;
         }
 
         // Draw edges.
@@ -146,13 +156,13 @@ int main(int argc, char **argv) {
 
         // Draw object clusters on color image.
         Mat masked = mask_image<uint16_t, Vec3b>(color_mat, depth_u16_mat);
-        j = 0;
-        for (const auto& object : final_objects) {
-            Vec3b color = j == best_obj_idx ?
+        obj_idx = 0;
+        for (const auto& object : trans_object_px) {
+            Vec3b color = obj_idx == best_obj_idx ?
                 Vec3b(0, 0, 255) :
                 Vec3b(dis(gen), dis(gen), dis(gen));
             draw_pixels(masked, object, color);
-            ++j;
+            ++obj_idx;
         }
         imshow("kinect", masked);
 

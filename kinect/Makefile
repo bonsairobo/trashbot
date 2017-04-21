@@ -1,5 +1,5 @@
 CXX = g++
-CXX_FLAGS = -g -Wall -pedantic -std=c++11 -c
+CXX_FLAGS = -O3 -Wall -pedantic -std=c++11 -c
 INCLUDE_PATH = -I libfreenect/include \
 			   -I OpenNI2/Include \
 			   -I ./pcl/build/include \
@@ -19,7 +19,8 @@ VPATH = src \
 KINECT_SRCS = main.cpp \
 			  img_proc.cpp \
 			  common.cpp \
-			  occupancy_grid.cpp
+			  occupancy_grid.cpp \
+			  trash_search.cpp
 
 KINECT_OBJS = $(KINECT_SRCS:.cpp=.o)
 

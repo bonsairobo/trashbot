@@ -17,26 +17,59 @@ int main(int argc, char **argv) {
     sockaddr_un js_addr = create_udp_addr("/tmp/joystick_endpoint");
     int sock = try_create_udp_socket();
     try_bind_path(sock, js_addr);
+    bool manual_mode = true;
 
     while (true) {
         usleep(1000);
         JoystickEvent event;
         while (js.sample(&event)) {
-            // Press any button to send a pickup command.
+            // Press button to send a pickup command or switch between manual
+            // and Roomba modes.
             if (event.isButton() and event.value == 1) {
-                PickupCommand cmd;
+                if (event.number == 12) { // Triangle
+                    manual_mode = !manual_mode;
+                    cout << int(event.number) << ": " << event.value << endl;
+                    CodePacket cmd(MODE_SWITCH_COMMAND);
+                    cmd.time_ms = event.time;
+                    sendto(
+                        sock,
+                        &cmd,
+                        sizeof(cmd),
+                        0,
+                        (sockaddr*)&kin_addr,
+                        sizeof(kin_addr));
+                    sendto(
+                        sock,
+                        &cmd,
+                        sizeof(cmd),
+                        0,
+                        (sockaddr*)&mc_addr,
+                        sizeof(mc_addr));
+                } else if (manual_mode and event.number == 14) { // X button
+                    cout << int(event.number) << ": " << event.value << endl;
+                    CodePacket cmd(PICKUP_COMMAND);
+                    cmd.time_ms = event.time;
+                    sendto(
+                        sock,
+                        &cmd,
+                        sizeof(cmd),
+                        0,
+                        (sockaddr*)&kin_addr,
+                        sizeof(kin_addr));
+                }
+            } else if (manual_mode and event.isAxis() and
+                (event.number == 2 or event.number == 12 or event.number == 13))
+            {
+                cout << int(event.number) << ": " << event.value << endl;
+                CodePacket cmd(AXIS_EVENT);
                 cmd.time_ms = event.time;
                 sendto(
                     sock,
                     &cmd,
                     sizeof(cmd),
                     0,
-                    (sockaddr*)&kin_addr,
-                    sizeof(kin_addr));
-            } else if (event.isAxis() and
-                // TODO: get actual axis #s for left X analog and right Y analog
-                (event.number == 0 or event.number == 1))
-            {
+                    (sockaddr*)&mc_addr,
+                    sizeof(mc_addr));
                 sendto(
                     sock,
                     &event,

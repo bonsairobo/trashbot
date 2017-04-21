@@ -16,6 +16,7 @@ class OccupancyGrid {
 
 public:
     OccupancyGrid(int width, int height);
+    void reset();
     void set_update_odds(uint8_t hit_odds, uint8_t miss_odds);
     void update(
         const std::vector<std::vector<cv::Point2i>>& objects,

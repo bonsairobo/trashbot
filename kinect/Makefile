@@ -1,5 +1,5 @@
 CXX = g++
-CXX_FLAGS = -O3 -Wall -pedantic -std=c++11 -c
+CXX_FLAGS = -O3 -g -Wall -pedantic -std=c++11 -c
 INCLUDE_PATH = -I libfreenect/include \
 			   -I OpenNI2/Include \
 			   -I ./pcl/build/include \

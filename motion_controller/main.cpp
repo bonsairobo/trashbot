@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
     // Open serial port to Arduino.
     ofstream arduino("/dev/ttyACM0");
     if (!arduino.is_open()) {
-        cerr << "No arduino present" << endl;
+        cerr << "No arduino present." << endl;
         return 1;
     }
 
@@ -105,8 +105,8 @@ int main(int argc, char **argv) {
 
             cout << "Packet received from time: " << event.time << endl;
 
-            // We assume both left and right motors use positive magnitude to roll
-            // "forward" w.r.t. the robot.
+            // We assume both left and right motors use positive magnitude to
+            // roll "forward" w.r.t. the robot.
             left_motor =
                 clamp(float(forward_speed * y_amp + x_amp) / max_amp);
             right_motor =
@@ -154,13 +154,10 @@ int main(int argc, char **argv) {
                         memcpy(&motors, buffer, sizeof(motors));
                         left_motor = motors.l_motor;
                         right_motor = motors.r_motor;
-                        cout << "GOT KINECT MOTORS" << endl;
                     }
                 }
             }
         }
-
-        cout << "motor floats = " << left_motor << " " << right_motor << endl;
 
         uint8_t left_motor_byte = round(abs(left_motor) * 255);
         uint8_t right_motor_byte = round(abs(right_motor) * 255);

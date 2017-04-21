@@ -27,17 +27,13 @@ static int closest_object_index(
     int best_obj_idx = -1;
     int obj_idx = 0;
     for (const auto& medoid : medoids) {
-        if (medoid.x >= 0 and medoid.y >= 0 and
-            medoid.x < int(cloud->height) and medoid.y < int(cloud->height))
-        {
-            PointXYZ pt = cloud->at(medoid.x, medoid.y);
-            float d = pt.x * pt.x + pt.y * pt.y + pt.z * pt.z;
-            if (d < min_dist) {
-                min_dist = d;
-                best_obj_idx = obj_idx;
-            }
-            ++obj_idx;
+        PointXYZ pt = cloud->at(medoid.x, medoid.y);
+        float d = pt.x * pt.x + pt.y * pt.y + pt.z * pt.z;
+        if (d < min_dist) {
+            min_dist = d;
+            best_obj_idx = obj_idx;
         }
+        ++obj_idx;
     }
     return best_obj_idx;
 }

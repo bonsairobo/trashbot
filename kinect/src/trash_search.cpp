@@ -17,8 +17,8 @@ static MCMotors feedback_control(
     Vector3f x = Vector3f(1,0,0);
     Vector3f z = Vector3f(0,0,1);
     // (Vector in the plane is the rejection of the normal.)
-    Vector3f ground_x = x - x.dot(normal) * x;
-    Vector3f ground_y = z - z.dot(normal) * z;
+    Vector3f ground_x = x - x.dot(normal) * normal;
+    Vector3f ground_y = z - z.dot(normal) * normal;
     float ground_x_coord = ground_x.normalized().dot(dst_pt_vec);
     float ground_y_coord = ground_y.normalized().dot(dst_pt_vec);
     float angle = atan2(ground_y_coord, ground_x_coord) - 3.14159 / 2.0;

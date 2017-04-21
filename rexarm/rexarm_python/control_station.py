@@ -449,17 +449,23 @@ class Gui(QtGui.QMainWindow):
         self.video.aff_flag = 1 
         self.ui.rdoutStatus.setText("Affine Calibration: Click Point %d" 
                                     %(self.video.mouse_click_id + 1))
- 
+
+    #Initialize socket to send acknowledgement over
+    def send_socket_ack(self):
+        print "Sending socket acknowledgement..."
+        self.sock.sendto("1","/tmp/kinect_endpoint")
+        return
+
     def init_socket(self):
         self.sock = socket.socket(socket.AF_UNIX, # Local computer
                          socket.SOCK_DGRAM) # UDP
-        self.kinect_path = "/tmp/rexarm_endpoint"
+        self.kinect_path_recv = "/tmp/rexarm_endpoint"
 
         try:
-            os.remove(self.kinect_path)
+            os.remove(self.kinect_path_recv)
         except OSError:
             pass
-        self.sock.bind(self.kinect_path)
+        self.sock.bind(self.kinect_path_recv)
         print "Socket binded. Ready to receive data."
         # Don't need this?
         #self.sock.listen(1)
@@ -539,6 +545,7 @@ class Gui(QtGui.QMainWindow):
             print "Unable to start get_feedback thread"
 
         self.init_socket()
+
         tighten_gripper = 115 * D2R
         net_base_angle = -1.71 
         poses = {"HOME": [0,0,0,0,0,tighten_gripper],#Tightens gripper
@@ -627,6 +634,8 @@ class Gui(QtGui.QMainWindow):
                 next_pose[0] = 0
                 linear = False
                 self.instant_publish(next_pose)
+                #Acknowledge that we are done picking up and disposing of object
+                self.send_socket_ack()
                 next_state = "HIDE_POSITION"
             elif curr_state == "UNHIDE":
                 #Go to home position. Then run IK

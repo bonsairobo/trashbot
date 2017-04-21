@@ -453,12 +453,16 @@ class Gui(QtGui.QMainWindow):
     #Initialize socket to send acknowledgement over
     def send_socket_ack(self):
         print "Sending socket acknowledgement..."
-        self.kinect_endpoint = "/tmp/kinect_endpoint" 
+        self.kinect_endpoint = "/tmp/kinect_endpoint"
 
-        if not os.path.isfile(self.kinect_endpoint):
-            open(self.kinect_endpoint, 'w').close()
+        #if not os.path.isfile(self.kinect_endpoint):
+        #    open(self.kinect_endpoint, 'w').close()
 
-        self.sock.sendto("1",self.kinect_endpoint)
+        try:
+            self.sock.sendto("1",self.kinect_endpoint)
+            print "Acknowledgement successfully sent."
+        except:
+            print "Failed to send acknowledgement."
         return
 
     def init_socket(self):
@@ -666,6 +670,7 @@ class Gui(QtGui.QMainWindow):
                 desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87 *D2R]
                 #desired_IK = [0.131,0.139,-0.015, 87 * D2R]
                 #desired_IK = [0.15,0.1,0.05, 87 * D2R]
+                #desired_IK = [0.1,0,0, 87 * D2R]
                 print "Inverse Kinematics Target:"
                 print "Goal x in Rexarm:", desired_IK[0]
                 print "Goal y in Rexarm:", desired_IK[1]
@@ -700,6 +705,7 @@ def main():
     ex = Gui()
     #Successfully uses socket to listen for data
     #ex.init_socket()
+    #ex.send_socket_ack()
     #ex.get_socket_data()
     #Put these back when not testing socket anymore
     #import pdb

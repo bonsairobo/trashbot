@@ -3,6 +3,7 @@ import sys
 import os
 import time
 import thread
+#import threading
 import cv2
 import numpy as np
 import numpy.linalg
@@ -24,7 +25,7 @@ MAX_X = 950
 
 MIN_Y = 30
 MAX_Y = 510
- 
+
 class Gui(QtGui.QMainWindow):
     """ 
     Main GUI Class
@@ -491,10 +492,27 @@ class Gui(QtGui.QMainWindow):
     #Busy waits code until rexarm has reached desired pose 
     def wait_until_reached(self,pose):
         while not self.reached_pose(pose):
-            #print "not reached pose yet"
-            #print "Pose:", pose
-            #print "Rexarm:", self.rex.joint_angles_fb
-            continue
+            time.sleep(1)
+            print "not reached pose yet"
+            print "Pose:", pose
+            print "Rexarm:", self.rex.joint_angles_fb
+            pass
+
+    #Returns true if the rexarm's angles match the pose input approximately.
+    #Use this to repeatedly check if rexarm has reached a configuration
+    # pose is a list of angles for each rexarm_joint ex. [0,0,0,0,0,0]
+    def reached_pose(self,pose):
+        reached = True
+        allowed_error = 0.4 #radians
+        self.rex.lcm_mutex.acquire()
+        for i in range(len(self.rex.joint_angles_fb)):
+            #If error for any of the joints is > 0.01, then arm is not
+            #at the desired location.
+            if abs(self.rex.joint_angles_fb[i] - pose[i]) > allowed_error:
+                reached = False
+                break
+        self.rex.lcm_mutex.release()
+        return reached
 
     #Instantly publishes pose to rexarm without any motion smoothing
     #Used to save time
@@ -502,30 +520,19 @@ class Gui(QtGui.QMainWindow):
         self.rex.joint_angles = pose[:]
         self.rex.cmd_publish()
 
-    #Returns true if the rexarm's angles match the pose input approximately.
-    #Use this to repeatedly check if rexarm has reached a configuration
-    # pose is a list of angles for each rexarm_joint ex. [0,0,0,0,0,0]
-    def reached_pose(self,pose):
-        reached = True
-        allowed_error = 0.025 #radians
-        for i in range(len(self.rex.joint_angles_fb)):
-            #If error for any of the joints is > 0.01, then arm is not
-            #at the desired location.
-            if abs(self.rex.joint_angles_fb[i] - pose[i]) > allowed_error:
-                reached = False
-                break
-        return reached
 
     def trash_state_machine(self):
         #Setting the torque and speed. Ranges from 0 to 1
-        self.rex.max_torque = 0.48
-        self.rex.speed = 0.3
+        self.rex.max_torque = 0.55
+        self.rex.speed = 0.5
         self.rex.cmd_publish()
 
         #Thread to call rex.get_feedback, which enables the callback
         #function to work
         try:
             thread.start_new_thread(self.rex.get_feedback,(False,))
+            #t = Thread(target = self.rex.get_feedback, args = (False,))
+            #t.start()
             print "Started get_feedback thread"
         except:
             print "Unable to start get_feedback thread"
@@ -658,7 +665,8 @@ class Gui(QtGui.QMainWindow):
             #Setting current_pose to whatever next_pose was 
             #determined to be
             current_pose = next_pose[:]
-            time.sleep(synchro_timer)
+            self.wait_until_reached(next_pose)
+            #time.sleep(synchro_timer)
 
             print "Next State:", next_state
             print "----------------------------------------"

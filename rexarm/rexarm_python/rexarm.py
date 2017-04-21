@@ -2,7 +2,7 @@ import lcm
 import time
 import numpy as np
 import math
-import threading
+from threading import Lock
 from lcmtypes import dynamixel_command_t
 from lcmtypes import dynamixel_command_list_t
 from lcmtypes import dynamixel_status_t
@@ -176,6 +176,8 @@ class Rexarm():
                                         self.feedback_handler)
         print "Subscribed to LCM feedback_handler"
 
+        self.lcm_mutex = Lock()
+
     def cmd_publish(self):
         """ 
         Publish the commands to the arm using LCM. 
@@ -206,21 +208,24 @@ class Rexarm():
         else:
             while True:
                 self.lc.handle_timeout(50)
-                print "Called get feedback"
-                time.sleep(0.5)              
+                #print "Called get feedback"
+                time.sleep(.027)              
 
     def feedback_handler(self, channel, data):
-        print "Feedback handler called!"
+        #print "Feedback handler called!"
 
         """
         Feedback Handler for LCM
         """
         msg = dynamixel_status_list_t.decode(data)
+
+        self.lcm_mutex.acquire()
         for i in range(msg.len):
             self.joint_angles_fb[i] = msg.statuses[i].position_radians 
             self.speed_fb[i] = msg.statuses[i].speed 
             self.load_fb[i] = msg.statuses[i].load 
             self.temp_fb[i] = msg.statuses[i].temperature
+        self.lcm_mutex.release()
 
         """
         Compute forward kinematics

@@ -106,17 +106,16 @@ int main(int argc, char **argv) {
     bool manual_mode = true;
     TrashSearch trash_search;
 
-    Point3f search_ftl(-350.0, 350.0, 650.0);
-    Point3f search_bbr(350.0, -300.0, 2000.0);
+    Point3f search_ftl(-300.0, 250.0, 650.0);
+    Point3f search_bbr(300.0, -250.0, 2000.0);
     Rect search_roi = roi_from_workspace_corners(
         search_ftl, search_bbr, depth_stream);
-    //Point3f pickup_ftl(-200.0, -50.0, 650.0);
-    Point3f pickup_ftl = search_ftl;
-    //Point3f pickup_bbr(200.0, -250.0, 950.0);
-    Point3f pickup_bbr = search_bbr;
-    // Rect pickup_roi = roi_from_workspace_corners(
-    //     pickup_ftl, pickup_bbr, depth_stream);
-    Rect pickup_roi = search_roi;
+    Point3f pickup_ftl(-200.0, -50.0, 650.0);
+    Point3f pickup_bbr(200.0, -250.0, 950.0);
+    Rect pickup_roi = roi_from_workspace_corners(
+         pickup_ftl, pickup_bbr, depth_stream);
+    uint8_t search_hit_odds = 250, search_miss_odds = 100;
+    uint8_t pickup_hit_odds = 20, pickup_miss_odds = 5;
 
     uint8_t key = 0;
     const uint8_t ESC_KEYCODE = 27;
@@ -175,6 +174,13 @@ int main(int argc, char **argv) {
             } else if (cmd.type == MODE_SWITCH_COMMAND) {
                 trash_search = TrashSearch(); // reset state machine
                 manual_mode = !manual_mode;
+                if (manual_mode) {
+                    object_grid.set_update_odds(
+                        pickup_hit_odds, pickup_miss_odds);
+                } else {
+                    object_grid.set_update_odds(
+                        search_hit_odds, search_miss_odds);
+                }
                 cout << "manual_mode = " << manual_mode << endl;
             }
         }
@@ -272,7 +278,7 @@ int main(int argc, char **argv) {
 
         cout << "# objects = " << final_objects.size() << endl;
 
-        if (!manual_mode and !obj_info.object_pixels.empty()) {
+        if (!manual_mode and obj_info.cloud != nullptr) {
             // Execute trash search state machine.
             auto medoid = best_obj_idx == -1 ?
                 Point2i(0,0) : final_medoids[best_obj_idx];

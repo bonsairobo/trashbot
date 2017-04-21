@@ -558,7 +558,7 @@ class Gui(QtGui.QMainWindow):
         #State1: Turn 90 degrees at base to prevent collision
         states = ["START","RUN_IK_TURN_BASE","RUN_IK_DESCEND", "GRASP", "LIFT_UP", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION", "UNHIDE","TURN_TO_HOME_FROM_UNHIDE"]
         curr_state = "START"
-        synchro_timer = 3
+        synchro_timer = 2
         start = True
         linear = True
         grasp = False
@@ -597,16 +597,19 @@ class Gui(QtGui.QMainWindow):
                 #Set all joints except base joint and gripper joint to 0
                 for i in range(1,5):
                     next_pose[i] = 0
+                grasp = True
                 next_state = "TURN_TO_NET"
             elif curr_state == "TURN_TO_NET":
                 next_pose[0] = net_base_angle
                 linear = False
+                grasp = True
                 self.instant_publish(next_pose)
                 next_state = "ARCH_TO_NET"
             elif curr_state == "ARCH_TO_NET":
                 next_pose[1] = -0.08
                 next_pose[2] = -0.97
                 next_pose[3] = -1.58
+                grasp = True
                 next_state = "DROP"
             elif curr_state == "DROP":
                 #Set joint 5 to 0 angle

@@ -10,10 +10,15 @@ OccupancyGrid::OccupancyGrid(int width, int height):
     width(width),
     max_odds(numeric_limits<uint8_t>::max()),
     min_odds(numeric_limits<uint8_t>::lowest()),
-    hit_odds(250),
-    miss_odds(100),
+    hit_odds(20),
+    miss_odds(5),
     odds(height, width, CV_8U, Scalar(max_odds / 2))
 {}
+
+void OccupancyGrid::set_update_odds(uint8_t hit_odds, uint8_t miss_odds) {
+    this->hit_odds = hit_odds;
+    this->miss_odds = miss_odds;
+}
 
 uint8_t OccupancyGrid::clamp_odds(int odds) {
     if (odds < min_odds)

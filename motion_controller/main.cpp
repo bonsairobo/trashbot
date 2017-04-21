@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
     bool manual_mode = true;
     int x_amp = 0;
     int y_amp = 0;
-    unsigned char prev_left_motor_byte = 0, prev_right_motor_byte = 0;
+    uint8_t prev_left_motor_byte = 0, prev_right_motor_byte = 0;
 
     float left_motor = 0.0, right_motor = 0.0;
     while (true) {
@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
                 // before copying the buffer into a specific type.
 
                 // Both packet types are 8 bytes large.
-                char buffer[8];
+                uint8_t buffer[8];
                 sockaddr_un addr;
                 bytes_read = recvfrom(
                     sock,
@@ -162,8 +162,8 @@ int main(int argc, char **argv) {
 
         cout << "motor floats = " << left_motor << " " << right_motor << endl;
 
-        unsigned char left_motor_byte = round(abs(left_motor) * 255);
-        unsigned char right_motor_byte = round(abs(right_motor) * 255);
+        uint8_t left_motor_byte = round(abs(left_motor) * 255);
+        uint8_t right_motor_byte = round(abs(right_motor) * 255);
         char left_sgn = left_motor >= 0 ? '+' : '-';
         char right_sgn = right_motor >= 0 ? '+' : '-';
 

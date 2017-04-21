@@ -14,6 +14,24 @@ MCMotors feedback_control(
     return MCMotors();
 }
 
+MCMotors obstacle_avoidance(const vector<float>& obstacle_plane) {
+    // Check the sign of the distance to get the normal orientation.
+    // Use the X coordinate of the normal to decide which direction to turn.
+    if (obstacle_plane[3] > 0) {
+        if (obstacle_plane[1] > 0) {
+            return MCMotors(0.3, -0.3);
+        } else {
+            return MCMotors(-0.3, 0.3);
+        }
+    } else {
+        if (obstacle_plane[1] > 0) {
+            return MCMotors(-0.3, 0.3);
+        } else {
+            return MCMotors(0.3, -0.3);
+        }
+    }
+}
+
 TrashSearchState TrashSearch::get_state() const {
     return state;
 }
@@ -25,17 +43,17 @@ bool TrashSearch::update(
     const PlaneInfo& plane_info,
     const PointXYZ& medoid_pt)
 {
+    vector<float> closest_plane;
     if (plane_info.plane_eqs.size() > 1) {
         // Check if any of the non-ground planes are close to the robot.
-        float min_plane_dist = 600.0;
-        bool obstacle_near = false;
+        float min_plane_dist = 700.0;
         for (size_t i = 1; i < plane_info.plane_eqs.size(); ++i) {
             if (abs(plane_info.plane_eqs[i][3]) < min_plane_dist) {
-                obstacle_near = true;
+                closest_plane = plane_info.plane_eqs[i];
                 break;
             }
         }
-        if (obstacle_near) {
+        if (!closest_plane.empty()) {
             state = OBSTACLE_AVOIDANCE;
         } else if (state == OBSTACLE_AVOIDANCE) {
             state = RANDOM_WALK;
@@ -71,7 +89,7 @@ bool TrashSearch::update(
         break;
     case OBSTACLE_AVOIDANCE:
         cout << "OBSTACLE AVOIDANCE" << endl;
-        motors = MCMotors(-0.3, 0.3);
+        motors = obstacle_avoidance(closest_plane);
         break;
     case PICKUP:
         cout << "PICKUP" << endl;

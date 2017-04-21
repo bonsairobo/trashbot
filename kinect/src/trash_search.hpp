@@ -18,6 +18,7 @@ class TrashSearch {
 public:
     TrashSearch(); // initialize state machine
     bool update(
+        bool pickup_complete,
         bool have_object,
         const cv::Point3f& pickup_ftl,
         const cv::Point3f& pickup_bbr,

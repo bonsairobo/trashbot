@@ -56,6 +56,7 @@ TrashSearchState TrashSearch::get_state() const {
 }
 
 bool TrashSearch::update(
+    bool pickup_complete,
     bool have_object,
     const Point3f& pickup_ftl,
     const Point3f& pickup_bbr,
@@ -63,43 +64,46 @@ bool TrashSearch::update(
     const PointXYZ& medoid_pt)
 {
     vector<float> closest_plane;
-    if (plane_info.plane_eqs.size() > 1) {
-        // Check if any of the non-ground planes are close to the robot.
-        float min_plane_dist = 700.0;
-        for (size_t i = 1; i < plane_info.plane_eqs.size(); ++i) {
-            if (abs(plane_info.plane_eqs[i][3]) < min_plane_dist) {
-                closest_plane = plane_info.plane_eqs[i];
-                break;
+    bool send_grasp = false;
+
+    if (state != PICKUP or pickup_complete) {
+        if (plane_info.plane_eqs.size() > 1) {
+            // Check if any of the non-ground planes are close to the robot.
+            float min_plane_dist = 700.0;
+            for (size_t i = 1; i < plane_info.plane_eqs.size(); ++i) {
+                if (abs(plane_info.plane_eqs[i][3]) < min_plane_dist) {
+                    closest_plane = plane_info.plane_eqs[i];
+                    break;
+                }
             }
-        }
-        if (!closest_plane.empty()) {
-            state = OBSTACLE_AVOIDANCE;
+            if (!closest_plane.empty()) {
+                state = OBSTACLE_AVOIDANCE;
+            } else if (state == OBSTACLE_AVOIDANCE) {
+                state = RANDOM_WALK;
+            }
         } else if (state == OBSTACLE_AVOIDANCE) {
             state = RANDOM_WALK;
         }
-    } else if (state == OBSTACLE_AVOIDANCE) {
-        state = RANDOM_WALK;
-    }
 
-    bool send_grasp = false;
-    if (state != OBSTACLE_AVOIDANCE) {
-        if (have_object) {
-            if (state == FEEDBACK_CONTROL) {
-                // Check if an object is in the workspace.
-                // If so, go to PICKUP state.
-                if (point_in_workspace(medoid_pt, pickup_ftl, pickup_bbr)) {
-                    send_grasp = true;
-                    state = PICKUP;
-                }
-            } else if (state == PICKUP) {
-                if (point_in_workspace(medoid_pt, pickup_ftl, pickup_bbr)) {
-                    state = PICKUP;
+        if (state != OBSTACLE_AVOIDANCE) {
+            if (have_object) {
+                if (state == FEEDBACK_CONTROL) {
+                    // Check if an object is in the workspace.
+                    // If so, go to PICKUP state.
+                    if (point_in_workspace(medoid_pt, pickup_ftl, pickup_bbr)) {
+                        send_grasp = true;
+                        state = PICKUP;
+                    }
+                } else if (state == PICKUP) {
+                    if (point_in_workspace(medoid_pt, pickup_ftl, pickup_bbr)) {
+                        state = PICKUP;
+                    }
+                } else {
+                    state = FEEDBACK_CONTROL;
                 }
             } else {
-                state = FEEDBACK_CONTROL;
+                state = RANDOM_WALK;
             }
-        } else {
-            state = RANDOM_WALK;
         }
     }
 

@@ -15,8 +15,7 @@ using namespace pcl;
 using namespace Eigen;
 
 static int closest_object_index(
-    const vector<Point2i>& medoids,
-    PointCloud<PointXYZ>::ConstPtr cloud)
+    const vector<Point2i>& medoids, PointCloud<PointXYZ>::ConstPtr cloud)
 {
     if (cloud == nullptr) {
         return -1;
@@ -100,6 +99,7 @@ int main(int argc, char **argv) {
     OccupancyGrid object_grid(vm.getResolutionX(), vm.getResolutionY());
 
     bool manual_mode = true;
+    bool pickup_complete = false;
     TrashSearch trash_search;
 
     Point3f search_ftl(-300.0, 250.0, 650.0);
@@ -161,9 +161,16 @@ int main(int argc, char **argv) {
                 }
                 perror("recvfrom");
                 exit(1);
-            } else if (strcmp(addr.sun_path, js_addr.sun_path) != 0
-                or bytes_read != sizeof(cmd))
+            } else if (strcmp(addr.sun_path, js_addr.sun_path) and
+                bytes_read == sizeof(cmd))
             {
+                // Do nothing, we already have the code packet.
+            } else if (strcmp(addr.sun_path, rex_addr.sun_path) != 0 and
+                bytes_read == 1)
+            {
+                pickup_complete = true;
+            } else {
+                cerr << "Bad packet!" << endl;
                 continue;
             }
 
@@ -311,6 +318,7 @@ int main(int argc, char **argv) {
             auto medoid = best_obj_idx == -1 ?
                 Point2i(0,0) : final_medoids[best_obj_idx];
             if (trash_search.update(
+                pickup_complete,
                 best_obj_idx >= 0,
                 pickup_ftl,
                 pickup_bbr,

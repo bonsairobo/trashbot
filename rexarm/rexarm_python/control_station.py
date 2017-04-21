@@ -551,16 +551,17 @@ class Gui(QtGui.QMainWindow):
         #Use this since LCM feedback handler isn't being called :(
         current_pose = None
         next_pose = None
-        
+
         desired_IK = []
         IK_cmd_thetas = None
 
         #State1: Turn 90 degrees at base to prevent collision
         states = ["START","RUN_IK_TURN_BASE","RUN_IK_DESCEND", "GRASP", "LIFT_UP", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION", "UNHIDE","TURN_TO_HOME_FROM_UNHIDE"]
         curr_state = "START"
-        synchro_timer = 0.5
+        synchro_timer = 3
         start = True
         linear = True
+        grasp = False
 
         while True:
             print "----------------------------------------"
@@ -590,6 +591,7 @@ class Gui(QtGui.QMainWindow):
             elif curr_state == "GRASP":
                 #Set joint 5 to grasp
                 next_pose[5] = tighten_gripper
+                grasp = True
                 next_state = "LIFT_TO_HOME"
             elif curr_state == "LIFT_TO_HOME":
                 #Set all joints except base joint and gripper joint to 0
@@ -666,8 +668,11 @@ class Gui(QtGui.QMainWindow):
             #Setting current_pose to whatever next_pose was 
             #determined to be
             current_pose = next_pose[:]
-            self.wait_until_reached(next_pose)
-            #time.sleep(synchro_timer)
+            if not grasp:
+                self.wait_until_reached(next_pose)
+            else:
+                time.sleep(synchro_timer)
+                grasp = False
 
             print "Next State:", next_state
             print "----------------------------------------"

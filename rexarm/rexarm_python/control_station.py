@@ -736,7 +736,10 @@ class Gui(QtGui.QMainWindow):
                 grasp = True
                 next_state = "TURN_TO_NET"
             elif curr_state == "TURN_TO_NET":
+                #Turn to net
                 next_pose[0] = net_base_angle
+                #Change angle of wrist joint to pi/2
+                next_pose[4] = math.PI/2
                 linear = False
                 grasp = True
                 self.instant_publish(next_pose)

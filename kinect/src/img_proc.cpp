@@ -274,6 +274,7 @@ bool point_in_workspace(
 }
 
 ObjectInfo get_workspace_objects(
+    ostream& log_stream,
     const VideoStream& depth_stream,
     const Mat& depth_f32_mat,
     const Point3f& ftl,
@@ -296,8 +297,8 @@ ObjectInfo get_workspace_objects(
         return ObjectInfo();
     }
 
-    //cout << "2d workspace culling took "
-    //     << watch.click() << " seconds." << endl;
+    log_stream << "2d workspace culling took "
+               << watch.click() << " seconds." << endl;
 
     // Create a point cloud of ROI regions.
     PointCloud<PointXYZ>::Ptr pc = zero_cloud(roi.width, roi.height);
@@ -312,8 +313,8 @@ ObjectInfo get_workspace_objects(
         }
     }
 
-    //cout << "point cloud creation took "
-    //     << watch.click() << " seconds." << endl;
+    log_stream << "point cloud creation took "
+               << watch.click() << " seconds." << endl;
 
     // 3D workspace culling. Organized cloud becomes unorganized, so keep track
     // of index -> pixel mapping.
@@ -329,15 +330,16 @@ ObjectInfo get_workspace_objects(
     filter.setInputCloud(filt_pc);
     filter.setIndices(idx_px_map);
     filter.filter(*filt_pc);
-    //cout << "3d workspace culling took "
-    //     << watch.click() << " seconds." << endl;
+
+    log_stream << "3d workspace culling took "
+               << watch.click() << " seconds." << endl;
 
     // Remove planes.
     PlaneInfo plane_info =
         remove_planes(filt_pc, plane_dist_thresh, idx_px_map);
 
-    //cout << "removing planes took "
-    //     << watch.click() << " seconds." << endl;
+    log_stream << "removing planes took "
+               << watch.click() << " seconds." << endl;
 
     if (idx_px_map->size() < min_region_size) {
         return ObjectInfo();
@@ -366,8 +368,8 @@ ObjectInfo get_workspace_objects(
         object_px.push_back(px_coords);
     }
 
-    //cout << "object clustering took "
-    //     << watch.click() << " seconds." << endl;
+    log_stream << "object clustering took "
+               << watch.click() << " seconds." << endl;
 
     return { plane_info, pc, object_px };
 }

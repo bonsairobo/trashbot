@@ -17,4 +17,6 @@ the following steps.
 2. `install_deps.sh`
 3. `make`
 
-For the newly built modules to link with shared libraries, you must run `source set_ld_path.sh` in each new shell at the root of the source tree.
+For the newly built modules to link with shared libraries, you must run `source set_release_ld_path.sh` in each new shell at the root of the source tree. (Use
+`set_debug_ld_path.sh` to link with the debug build of OpenNI2. This solves a
+segfault in libOniFile.so).

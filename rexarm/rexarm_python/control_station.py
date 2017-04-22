@@ -621,6 +621,9 @@ class Gui(QtGui.QMainWindow):
         if (3 * math.pi/2) < angle_2d and angle_2d <= 2 * math.pi:
             phi = angle_2d - 3 * math.pi/2
 
+        #Add pi/2 to phi for unknown reason
+        phi += math.pi/2
+
         return phi
 
     def trash_state_machine(self):
@@ -690,6 +693,13 @@ class Gui(QtGui.QMainWindow):
                     IK_message = "ERROR: IK gave angles outside of feasible range.\n"
 
                 print "IK_result:", IK_cmd_thetas
+
+                #Wrist rotation angle with respect to the x-axis of the rexarm base frame
+                wrist_rot_angle = self.compute_wrist_angle(principal_axis_rexarm)
+
+                #Subtract the rotation of the base before adding the wrist_rot_angle
+                IK_cmd_thetas[4] = wrist_rot_angle - IK_cmd_thetas[0]
+
                 #Check that the joint angles returned by IK are possible
                 if not IK_successful:
                     print IK_message
@@ -699,6 +709,8 @@ class Gui(QtGui.QMainWindow):
                 else:
                     #Turn base towards object
                     next_pose[0] = IK_cmd_thetas[0]
+                    #Twist wrist
+                    next_pose[4] = IK_cmd_thetas[4]
                     linear = False
                     self.instant_publish(next_pose)
                     print "Published to joint 0:", IK_cmd_thetas[0]
@@ -711,8 +723,6 @@ class Gui(QtGui.QMainWindow):
                 print "Desired Pose:", IK_cmd_thetas
                 #Descend the rest of the IK outside of base
                 next_pose = IK_cmd_thetas[:]
-                #Set wrist angle rotation
-                next_pose[4] = wrist_rot_angle
                 next_state = "GRASP"
             elif curr_state == "GRASP":
                 #Set joint 5 to grasp
@@ -777,8 +787,7 @@ class Gui(QtGui.QMainWindow):
 
                 #Converts principal axis from kinect coordinates to rexarm coordinates
                 principal_axis_rexarm = self.kinect_vec_to_rexarm_vec(principal_axis_kinect)
-                wrist_rot_angle = self.compute_wrist_angle(principal_axis_rexarm)
-                #TODO: Use wrist_rot_angle in kinematics
+                #principal_axis_rexarm = [-1,-1,5]
 
                 desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87 *D2R]
 
@@ -824,8 +833,8 @@ def main():
     #Put these back when not testing socket anymore
     #import pdb
     #pdb.set_trace()
-    ex.show()
-    #ex.trash_state_machine()
+    #ex.show()
+    ex.trash_state_machine()
     sys.exit(app.exec_())
     """
     """

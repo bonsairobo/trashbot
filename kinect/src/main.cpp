@@ -195,9 +195,6 @@ int main(int argc, char **argv) {
             }
         }
 
-        StopWatch watch;
-        watch.start();
-
         // Get pixels, cloud, and ROI for workspace objects.
         ObjectInfo obj_info = get_workspace_objects(
             log_stream,

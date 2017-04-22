@@ -8,8 +8,8 @@ INCLUDE_PATH = -I libfreenect/include \
 
 LINK_PATH = -L opencv/build/lib \
 			-L libfreenect/build/lib \
-			-L OpenNI2/Bin/x64-Debug/OpenNI2/Drivers \
-			-L OpenNI2/Bin/x64-Debug \
+			-L OpenNI2/Bin/x64-Release/OpenNI2/Drivers \
+			-L OpenNI2/Bin/x64-Release \
 			-L ../common \
 			-L /usr/local/lib
 

@@ -7,13 +7,11 @@ INCLUDE_PATH = -I libfreenect/include \
 			   -I /usr/local/include/pcl-1.8 \
 
 LINK_PATH_RELEASE = -L opencv/build/lib \
-			        -L OpenNI2/Bin/x64-Release/OpenNI2/Drivers \
 			        -L OpenNI2/Bin/x64-Release \
 			        -L ../common \
 			        -L /usr/local/lib
 
 LINK_PATH_DEBUG = -L opencv/build/lib \
-			      -L OpenNI2/Bin/x64-Debug/OpenNI2/Drivers \
 			      -L OpenNI2/Bin/x64-Debug \
 			      -L ../common \
 			      -L /usr/local/lib

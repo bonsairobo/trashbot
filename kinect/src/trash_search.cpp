@@ -9,11 +9,6 @@ using namespace Eigen;
 
 TrashSearch::TrashSearch(): state(RANDOM_WALK) {}
 
-static float pickup_wait_time = 1.0;
-static float feedback_wait_time = 0.5;
-static float feedback_drive_time = 0.2;
-static float feedback_turn_time = 0.2;
-
 static float angle_to_point(
     const PointXYZ& dst_pt, const vector<float>& ground_plane)
 {
@@ -69,6 +64,11 @@ bool TrashSearch::update(
     const PlaneInfo& plane_info,
     const PointXYZ& dst_pt)
 {
+    const float pickup_wait_time = 1.0;
+    const float feedback_wait_time = 0.5;
+    const float feedback_drive_time = 0.2;
+    const float feedback_turn_time = 0.2;
+
     vector<float> closest_plane;
     if (plane_info.plane_eqs.size() > 1) {
         // Check if any of the non-ground planes are close to the robot.

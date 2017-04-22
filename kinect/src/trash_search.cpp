@@ -4,11 +4,17 @@
 using namespace cv;
 using namespace pcl;
 using namespace std;
+using namespace chrono;
 using namespace Eigen;
 
 TrashSearch::TrashSearch(): state(RANDOM_WALK) {}
 
-static MCMotors feedback_control(
+static float pickup_wait_time = 1.0;
+static float feedback_wait_time = 0.5;
+static float feedback_drive_time = 0.2;
+static float feedback_turn_time = 0.2;
+
+static float angle_to_point(
     const PointXYZ& dst_pt, const vector<float>& ground_plane)
 {
     // Calculate ground plane coordinates of destination point.
@@ -21,16 +27,16 @@ static MCMotors feedback_control(
     Vector3f ground_y = z - z.dot(normal) * normal;
     float ground_x_coord = ground_x.normalized().dot(dst_pt_vec);
     float ground_y_coord = ground_y.normalized().dot(dst_pt_vec);
-    float angle = atan2(ground_y_coord, ground_x_coord) - 3.14159 / 2.0;
+    return atan2(ground_y_coord, ground_x_coord) - 3.14159 / 2.0;
+}
 
-    // Drive toward the destination point.
+static MCMotors feedback_turn(
+    const PointXYZ& dst_pt, const vector<float>& ground_plane)
+{
+    float angle = angle_to_point(dst_pt, ground_plane);
+    cout << "ANGLE TO OBJECT = " << angle << endl;
     float turn_scalar = 0.6 * (2.0 / 3.14159);
-    MCMotors motors(0.1, 0.1); // Base amplitudes.
-    if (abs(angle > 0.35)) {
-        motors.l_motor += -turn_scalar * angle;
-        motors.r_motor += turn_scalar * angle;
-    }
-    return motors;
+    return MCMotors(-turn_scalar * angle, turn_scalar * angle);
 }
 
 static MCMotors obstacle_avoidance(const vector<float>& obstacle_plane) {
@@ -61,64 +67,108 @@ bool TrashSearch::update(
     const Point3f& pickup_ftl,
     const Point3f& pickup_bbr,
     const PlaneInfo& plane_info,
-    const PointXYZ& medoid_pt)
+    const PointXYZ& dst_pt)
 {
     vector<float> closest_plane;
-    bool send_grasp = false;
-
-    if (state != PICKUP or pickup_complete) {
-        if (plane_info.plane_eqs.size() > 1) {
-            // Check if any of the non-ground planes are close to the robot.
-            float min_plane_dist = 700.0;
-            for (size_t i = 1; i < plane_info.plane_eqs.size(); ++i) {
-                if (abs(plane_info.plane_eqs[i][3]) < min_plane_dist) {
-                    closest_plane = plane_info.plane_eqs[i];
-                    break;
-                }
+    if (plane_info.plane_eqs.size() > 1) {
+        // Check if any of the non-ground planes are close to the robot.
+        float min_plane_dist = 700.0;
+        for (size_t i = 1; i < plane_info.plane_eqs.size(); ++i) {
+            if (abs(plane_info.plane_eqs[i][3]) < min_plane_dist) {
+                closest_plane = plane_info.plane_eqs[i];
+                break;
             }
-            if (!closest_plane.empty()) {
-                state = OBSTACLE_AVOIDANCE;
-            } else if (state == OBSTACLE_AVOIDANCE) {
-                state = RANDOM_WALK;
-            }
-        } else if (state == OBSTACLE_AVOIDANCE) {
-            state = RANDOM_WALK;
         }
+    }
 
-        if (state != OBSTACLE_AVOIDANCE) {
+    auto time_now = high_resolution_clock::now();
+    duration<float> time_span =
+        duration_cast<duration<float>>(time_now - prev_time);
+
+    bool send_grasp = false;
+    if (!closest_plane.empty()) {
+        // Obstacle avoidance is the first priority.
+        state = OBSTACLE_AVOIDANCE;
+    } else if (state == OBSTACLE_AVOIDANCE) {
+        state = RANDOM_WALK;
+    } else if (state == RANDOM_WALK) {
+        if (have_object) {
+            state = FEEDBACK_WAIT;
+            prev_time = time_now;
+        }
+    } else if (state == FEEDBACK_WAIT) {
+        if (time_span.count() >= feedback_wait_time) {
             if (have_object) {
-                if (state == FEEDBACK_CONTROL) {
-                    // Check if an object is in the workspace.
-                    // If so, go to PICKUP state.
-                    if (point_in_workspace(medoid_pt, pickup_ftl, pickup_bbr)) {
-                        send_grasp = true;
-                        state = PICKUP;
-                    }
-                } else if (state == PICKUP) {
-                    if (point_in_workspace(medoid_pt, pickup_ftl, pickup_bbr)) {
-                        state = PICKUP;
-                    }
+                prev_time = time_now;
+                if (point_in_workspace(dst_pt, pickup_ftl, pickup_bbr)) {
+                    state = PICKUP_WAIT;
                 } else {
-                    state = FEEDBACK_CONTROL;
+                    float angle =
+                        angle_to_point(dst_pt, plane_info.plane_eqs[0]);
+                    if (abs(angle) > 0.1) {
+                        state = FEEDBACK_TURN;
+                    } else {
+                        state = FEEDBACK_DRIVE;
+                    }
                 }
             } else {
                 state = RANDOM_WALK;
             }
         }
+    } else if (state == FEEDBACK_DRIVE) {
+        if (time_span.count() >= feedback_drive_time) {
+            prev_time = time_now;
+            state = FEEDBACK_WAIT;
+        }
+    } else if (state == FEEDBACK_TURN) {
+        if (time_span.count() >= feedback_turn_time) {
+            prev_time = time_now;
+            state = FEEDBACK_WAIT;
+        }
+    } else if (state == PICKUP_WAIT) {
+        if (time_span.count() >= pickup_wait_time) {
+            prev_time = time_now;
+            if (have_object) {
+                if (point_in_workspace(dst_pt, pickup_ftl, pickup_bbr)) {
+                    send_grasp = true;
+                    state = PICKUP;
+                } else {
+                    state = FEEDBACK_WAIT;
+                }
+            } else {
+                state = RANDOM_WALK;
+            }
+        }
+    } else if (state == PICKUP) {
+        if (pickup_complete) {
+            state = RANDOM_WALK;
+        }
     }
 
     switch (state) {
+    case OBSTACLE_AVOIDANCE:
+        cout << "OBSTACLE AVOIDANCE" << endl;
+        motors = obstacle_avoidance(closest_plane);
+        break;
     case RANDOM_WALK:
         cout << "RANDOM WALK" << endl;
         motors = MCMotors(0.1, 0.1);
         break;
-    case FEEDBACK_CONTROL:
-        cout << "FEEDBACK CONTROL" << endl;
-        motors = feedback_control(medoid_pt, plane_info.plane_eqs[0]);
+    case FEEDBACK_WAIT:
+        cout << "FEEDBACK WAIT" << endl;
+        motors = MCMotors();
         break;
-    case OBSTACLE_AVOIDANCE:
-        cout << "OBSTACLE AVOIDANCE" << endl;
-        motors = obstacle_avoidance(closest_plane);
+    case FEEDBACK_TURN:
+        cout << "FEEDBACK TURN" << endl;
+        motors = feedback_turn(dst_pt, plane_info.plane_eqs[0]);
+        break;
+    case FEEDBACK_DRIVE:
+        cout << "FEEDBACK DRIVE" << endl;
+        motors = MCMotors(0.1, 0.1);
+        break;
+    case PICKUP_WAIT:
+        cout << "PICKUP WAIT" << endl;
+        motors = MCMotors();
         break;
     case PICKUP:
         cout << "PICKUP" << endl;
@@ -126,6 +176,7 @@ bool TrashSearch::update(
         if (send_grasp) {
             return true;
         }
+        break;
     case NONE_STATE:
         break;
     }

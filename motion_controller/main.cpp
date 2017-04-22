@@ -107,10 +107,10 @@ int main(int argc, char **argv) {
 
             // We assume both left and right motors use positive magnitude to
             // roll "forward" w.r.t. the robot.
-            left_motor =
-                clamp(float(forward_speed * y_amp + x_amp) / max_amp);
-            right_motor =
-                clamp(float(forward_speed * y_amp - x_amp) / max_amp);
+            left_motor = clamp(
+                float(forward_speed * y_amp + turn_speed * x_amp) / max_amp);
+            right_motor = clamp(
+                float(forward_speed * y_amp - turn_speed * x_amp) / max_amp);
         } else /* AUTONOMOUS MODE */ {
             // Autonomous driving. Kinect senses obstacles and objects, while
             // telling the motion controller how to steer.
@@ -144,6 +144,8 @@ int main(int argc, char **argv) {
                         memcpy(&code, buffer, sizeof(code));
                         if (code.type == MODE_SWITCH_COMMAND) {
                             cout << "ENTERING MANUAL MODE" << endl;
+                            left_motor = 0.0;
+                            right_motor = 0.0;
                             manual_mode = true;
                             break;
                         }

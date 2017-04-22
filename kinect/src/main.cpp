@@ -97,29 +97,31 @@ int main(int argc, char **argv) {
 
     VideoMode vm = depth_stream.getVideoMode();
     OccupancyGrid object_grid(vm.getResolutionX(), vm.getResolutionY());
+    bool object_grid_reset = false;
 
     bool manual_mode = true;
-    bool pickup_complete = false;
     TrashSearch trash_search;
 
     Point3f search_ftl(-300.0, 250.0, 650.0);
-    Point3f search_bbr(300.0, -250.0, 2000.0);
+    Point3f search_bbr(300.0, -200.0, 2000.0);
     Rect search_roi = roi_from_workspace_corners(
         search_ftl, search_bbr, depth_stream);
-    Point3f pickup_ftl(-200.0, -50.0, 650.0);
-    Point3f pickup_bbr(200.0, -250.0, 950.0);
+    Point3f pickup_ftl(-200.0, -125.0, 650.0);
+    Point3f pickup_bbr(200.0, -225.0, 900.0);
     Rect pickup_roi = roi_from_workspace_corners(
          pickup_ftl, pickup_bbr, depth_stream);
 
     // Search odds are very large for more responsive object recognition in
     // autonomous mode (when the update rate is slow).
-    uint8_t search_hit_odds = 250, search_miss_odds = 100;
+    uint8_t search_hit_odds = 250, search_miss_odds = 40;
     uint8_t pickup_hit_odds = 20, pickup_miss_odds = 5;
 
     uint8_t key = 0;
     const uint8_t ESC_KEYCODE = 27;
     const uint8_t SPACEBAR = 32;
     while (key != ESC_KEYCODE) {
+        bool pickup_complete = false;
+
         // Select workspace based on control mode.
         Point3f ftl = manual_mode ? pickup_ftl : search_ftl;
         Point3f bbr = manual_mode ? pickup_bbr : search_bbr;
@@ -190,7 +192,7 @@ int main(int argc, char **argv) {
                     object_grid.set_update_odds(
                         search_hit_odds, search_miss_odds);
                 }
-                cout << "manual_mode = " << manual_mode << endl;
+                log_stream << "manual_mode = " << manual_mode << endl;
             }
         }
 
@@ -201,13 +203,13 @@ int main(int argc, char **argv) {
         ObjectInfo obj_info = get_workspace_objects(
             depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.0, 4.3);
 
-        cout << "get_workspace_objects took "
+        log_stream << "get_workspace_objects took "
              << watch.click() << " seconds." << endl;
 
         // Merge similar planes (by unit normal dot product and distance).
         PlaneInfo merged_plane_info = merge_similar_planes(obj_info.plane_info);
 
-        cout << "merge_similar_planes took "
+        log_stream << "merge_similar_planes took "
              << watch.click() << " seconds." << endl;
 
         // Translate pixel coordinates back to original image from ROI.
@@ -218,7 +220,7 @@ int main(int argc, char **argv) {
                 translate_px_coords(object, tl_px));
         }
 
-        cout << "translate_px_coords took "
+        log_stream << "translate_px_coords took "
              << watch.click() << " seconds." << endl;
 
         // Make edge image.
@@ -233,7 +235,7 @@ int main(int argc, char **argv) {
             Point(dilation_size, dilation_size));
         dilate(edges, edges, element);
 
-        cout << "making edge image took "
+        log_stream << "making edge image took "
              << watch.click() << " seconds." << endl;
 
         // Extract objects from edges in point cloud ROI.
@@ -241,7 +243,7 @@ int main(int argc, char **argv) {
             find_nonzero_components<uint8_t>(edges);
         remove_small_regions(&edge_objects, 30);
 
-        cout << "find_nonzero_components took "
+        log_stream << "find_nonzero_components took "
              << watch.click() << " seconds." << endl;
 
         // Do object-edge correspondence filtering.
@@ -270,14 +272,14 @@ int main(int argc, char **argv) {
             final_medoids.push_back(region_medoid(object) - tl_px);
         }
 
-        cout << "entire object filtering took "
+        log_stream << "entire object filtering took "
              << watch.click() << " seconds." << endl;
 
         // Choose the closest object to the Kinect.
         int best_obj_idx = closest_object_index(
             final_medoids, obj_info.cloud);
 
-        cout << "choosing closest object took "
+        log_stream << "choosing closest object took "
              << watch.click() << " seconds." << endl;
 
         if (show_feeds) {
@@ -299,7 +301,7 @@ int main(int argc, char **argv) {
             //draw_points(color_edges, object_medoids, Vec3b(255,0,0));
             imshow("edges", color_edges);
 
-            cout << "drawing feeds took "
+            log_stream << "drawing feeds took "
                  << watch.click() << " seconds." << endl;
         }
 
@@ -329,6 +331,20 @@ int main(int argc, char **argv) {
                 do_send_grasp = true;
             }
 
+            // Before picking up, change the odds to make a more accurate
+            // object filter.
+            if (trash_search.get_state() == PICKUP_WAIT) {
+                object_grid_reset = true;
+                object_grid.reset();
+                object_grid.set_update_odds(pickup_hit_odds, pickup_miss_odds);
+            } else if (object_grid_reset and
+                trash_search.get_state() != PICKUP_WAIT)
+            {
+                object_grid_reset = false;
+                object_grid.reset();
+                object_grid.set_update_odds(search_hit_odds, search_miss_odds);
+            }
+
             // Send motor amplitudes to motion controller.
             cout << "motors: " << trash_search.motors.l_motor << " "
                  << trash_search.motors.r_motor << endl;
@@ -340,7 +356,7 @@ int main(int argc, char **argv) {
                 (sockaddr*)&mc_addr,
                 sizeof(mc_addr));
 
-            cout << "trash search state machine took "
+            log_stream << "trash search state machine took "
                  << watch.click() << " seconds." << endl;
         }
 

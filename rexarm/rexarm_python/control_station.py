@@ -1,6 +1,7 @@
 import struct
 import sys
 import os
+import math
 import time
 import thread
 #import threading
@@ -489,20 +490,24 @@ class Gui(QtGui.QMainWindow):
         #Grasping Point struct is 28 bytes
         while True:
             print "Waiting for data..."
-            data,addr = self.sock.recvfrom(28)
-            print "Received 28 bytes"
+            #Num bytes in grasping point struct
+            struct_size = 40
+            data,addr = self.sock.recvfrom(struct_size)
+            print "Received", struct_size," bytes"
             if not data:
                 #Error
                 pass
             #p is point. n is normal
             #TODO: Check endianness
-            time, p1,p2,p3,n1,n2,n3 = struct.unpack("iffffff", data)
+            time, p1,p2,p3,n1,n2,n3,a1,a2,a3 = struct.unpack("ifffffffff", data)
             print "Time:", time
             print "Point (mm):", p1,p2,p3
             print "Normal (mm):", n1,n2,n3
+            print "Principal Axis (mm):", a1,a2,a3
             point = [p1/1000.0,p2/1000.0,p3/1000.0]
+            axis = [a1/1000.0,a2/1000.0,a3/1000.0]
             break
-        return point
+        return point,axis
 
 
     #Busy waits code until rexarm has reached desired pose 
@@ -548,6 +553,76 @@ class Gui(QtGui.QMainWindow):
                 break
         return valid
 
+    #Returns angle between x-axis and princiapl axis in range 0 to 360
+    #x-axis and principal axis are 3D lists
+    #Takes in x-axis and principal axis as 1D arrays of size 2
+    def compute_2D_angle(self,x_axis,princ_axis):
+        #Use the dot product
+        x_np = np.array(x_axis)
+        p_np = np.array(princ_axis)
+
+        #Find angle
+        temp = np.dot(x_np,p_np) / (numpy.linalg.norm(x_np) * numpy.linalg.norm(p_np))
+        #Take arccos
+        angle = math.acos(temp)
+        #Angle is in range 0 to pi
+
+        return_angle = None
+        #Quadrant 1
+        if p_np[0] > 0 and p_np[1] >= 0:
+            return_angle = angle
+        #Quadrant 2
+        elif p_np[0] <= 0 and p_np[1] >= 0:
+            return_angle = angle
+        #Quadrant 3
+        elif p_np[0] < 0 and p_np[1] < 0:
+            return_angle = 2 * math.pi - angle 
+        #Quadrant 4
+        elif p_np[0] >= 0 and p_np[1] < 0:
+            return_angle = 2 * math.pi - angle
+
+        return return_angle
+
+    #Converts vector defined in kinect coordinates to vector defined in rexarm coordinates.
+    #Must be lists
+    def kinect_vec_to_rexarm_vec(self,kinect_vec):
+        #Convert [0,0,0] and principal_axis point to rexarm coordinates
+        #Get the vector in rexarm world
+        start_point_rex = kinect_world_to_rexarm_world([0,0,0])
+        end_point_rex = kinect_world_to_rexarm_world(kinect_vec)
+        rex_vec = list(np.array(end_point_rex) - np.array(start_point_rex))
+        return rex_vec
+
+    #Takes in the principal axis in terms of rexarm coordinates as
+    # a [x,y,z] list and returns hardware angle for wrist to rotate to
+    def compute_wrist_angle(self,rex_axis_input):
+        #Project the axis vector onto the rexarm's x-y plane by setting z to 0
+        rex_axis = rex_axis_input[:]
+        rex_axis[2] = 0
+
+        #2D vector
+        axis = rex_axis[:2]
+
+        #Find angle between x-axis of rexarm and the rex_principal_axis
+        x_axis = [1,0]
+        angle_2d = self.compute_2D_angle(x_axis,axis)
+
+        assert (0 <= angle_2d and angle_2d <= 2 * math.pi)
+
+        phi = 0
+
+        #Based on 4 cases, compute wrist_angle
+        if 0 < angle_2d and angle_2d <= math.pi/2:
+            phi = -(math.pi/2 - angle_2d)
+        if math.pi/2 < angle_2d and angle_2d <= math.pi:
+            phi = angle_2d - math.pi/2
+        if math.pi < angle_2d and angle_2d <= (3 * math.pi/2):
+            phi = -(3 * math.pi/2 - angle_2d)
+        if (3 * math.pi/2) < angle_2d and angle_2d <= 2 * math.pi:
+            phi = angle_2d - 3 * math.pi/2
+
+        return phi
+
     def trash_state_machine(self):
         #Setting the torque and speed. Ranges from 0 to 1
         self.rex.max_torque = 0.55
@@ -579,7 +654,11 @@ class Gui(QtGui.QMainWindow):
         current_pose = None
         next_pose = None
 
+        #x,y,z coordinates to conduct IK for
         desired_IK = []
+        #Angle at which to rotate wrist and grab
+        wrist_rot_angle = 0
+        #Angles to command rexarm for inverse kinematics
         IK_cmd_thetas = None
 
         #State1: Turn 90 degrees at base to prevent collision
@@ -632,6 +711,8 @@ class Gui(QtGui.QMainWindow):
                 print "Desired Pose:", IK_cmd_thetas
                 #Descend the rest of the IK outside of base
                 next_pose = IK_cmd_thetas[:]
+                #Set wrist angle rotation
+                next_pose[4] = wrist_rot_angle
                 next_state = "GRASP"
             elif curr_state == "GRASP":
                 #Set joint 5 to grasp
@@ -690,19 +771,17 @@ class Gui(QtGui.QMainWindow):
                 next_state = "SOCKET_READ"
             elif curr_state == "SOCKET_READ":
                 #Block and wait for next point of new object
-                kin_point = self.get_socket_data()
-                #kin_point = [.057,-.165,.731]
-                #Block on right
-                #kin_point = [.124,-.170,.770]
-                #Velcro box on center
-                #kin_point = [-.045,-.209,.703]
-                #velcro box on side
-                #kin_point = [-.115,-.186,.730]
+                kin_point,principal_axis_kinect = self.get_socket_data()
                 #Convert to rexarm coordinates from kinect coordinates
                 rex_point = self.kinect_world_to_rexarm_world(kin_point)
-                #TODO: Do matrix transformation from kinect to rexarm world
-                #and populate desired_IK
+
+                #Converts principal axis from kinect coordinates to rexarm coordinates
+                principal_axis_rexarm = self.kinect_vec_to_rexarm_vec(principal_axis_kinect)
+                wrist_rot_angle = self.compute_wrist_angle(principal_axis_rexarm)
+                #TODO: Use wrist_rot_angle in kinematics
+
                 desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87 *D2R]
+
                 #desired_IK = [0.131,0.139,-0.015, 87 * D2R]
                 #desired_IK = [0.15,0.1,0.05, 87 * D2R]
                 #desired_IK = [0.1,0,0, 87 * D2R]
@@ -745,8 +824,8 @@ def main():
     #Put these back when not testing socket anymore
     #import pdb
     #pdb.set_trace()
-    #ex.show()
-    ex.trash_state_machine()
+    ex.show()
+    #ex.trash_state_machine()
     sys.exit(app.exec_())
     """
     """

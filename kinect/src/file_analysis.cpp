@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
 
         // Get pixels, points, normals, and ROI for workspace objects.
         ObjectInfo obj_info = get_workspace_objects(
-            depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.0, 4.3);
+            cout, depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.0, 4.3);
         Point2i tl_px(roi.x, roi.y);
 
         // Translate pixel coordinates back to original image from ROI.

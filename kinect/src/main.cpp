@@ -192,7 +192,6 @@ int main(int argc, char **argv) {
                     object_grid.set_update_odds(
                         search_hit_odds, search_miss_odds);
                 }
-                log_stream << "manual_mode = " << manual_mode << endl;
             }
         }
 
@@ -201,16 +200,13 @@ int main(int argc, char **argv) {
 
         // Get pixels, cloud, and ROI for workspace objects.
         ObjectInfo obj_info = get_workspace_objects(
-            depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.0, 4.3);
-
-        log_stream << "get_workspace_objects took "
-             << watch.click() << " seconds." << endl;
+            log_stream,
+            depth_stream,
+            depth_f32_mat,
+            ftl, bbr, roi, 100, 2.0, 4.3);
 
         // Merge similar planes (by unit normal dot product and distance).
         PlaneInfo merged_plane_info = merge_similar_planes(obj_info.plane_info);
-
-        log_stream << "merge_similar_planes took "
-             << watch.click() << " seconds." << endl;
 
         // Translate pixel coordinates back to original image from ROI.
         Point2i tl_px(roi.x, roi.y);
@@ -219,9 +215,6 @@ int main(int argc, char **argv) {
             trans_object_px.push_back(
                 translate_px_coords(object, tl_px));
         }
-
-        log_stream << "translate_px_coords took "
-             << watch.click() << " seconds." << endl;
 
         // Make edge image.
         Mat gray_mat, edges;
@@ -235,16 +228,10 @@ int main(int argc, char **argv) {
             Point(dilation_size, dilation_size));
         dilate(edges, edges, element);
 
-        log_stream << "making edge image took "
-             << watch.click() << " seconds." << endl;
-
         // Extract objects from edges in point cloud ROI.
         vector<vector<Point2i>> edge_objects =
             find_nonzero_components<uint8_t>(edges);
         remove_small_regions(&edge_objects, 30);
-
-        log_stream << "find_nonzero_components took "
-             << watch.click() << " seconds." << endl;
 
         // Do object-edge correspondence filtering.
         vector<Point2i> object_medoids;
@@ -272,15 +259,9 @@ int main(int argc, char **argv) {
             final_medoids.push_back(region_medoid(object) - tl_px);
         }
 
-        log_stream << "entire object filtering took "
-             << watch.click() << " seconds." << endl;
-
         // Choose the closest object to the Kinect.
         int best_obj_idx = closest_object_index(
             final_medoids, obj_info.cloud);
-
-        log_stream << "choosing closest object took "
-             << watch.click() << " seconds." << endl;
 
         if (show_feeds) {
             Mat masked = mask_image<uint16_t, Vec3b>(
@@ -300,9 +281,6 @@ int main(int argc, char **argv) {
             //draw_points(color_edges, edge_medoids, Vec3b(0,0,255));
             //draw_points(color_edges, object_medoids, Vec3b(255,0,0));
             imshow("edges", color_edges);
-
-            log_stream << "drawing feeds took "
-                 << watch.click() << " seconds." << endl;
         }
 
         cout << "# planes = " << merged_plane_info.plane_eqs.size() << endl;
@@ -355,9 +333,6 @@ int main(int argc, char **argv) {
                 0,
                 (sockaddr*)&mc_addr,
                 sizeof(mc_addr));
-
-            log_stream << "trash search state machine took "
-                 << watch.click() << " seconds." << endl;
         }
 
         // Send grasping point to the Rexarm.

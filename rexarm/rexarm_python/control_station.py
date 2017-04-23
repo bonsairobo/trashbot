@@ -676,7 +676,7 @@ class Gui(QtGui.QMainWindow):
         #State1: Turn 90 degrees at base to prevent collision
         states = ["START","RUN_IK_TURN_BASE","RUN_IK_DESCEND", "GRASP", "LIFT_UP", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION_1","HIDE_POSITION_2","UNHIDE","TURN_TO_HOME_FROM_UNHIDE"]
         curr_state = "START"
-        synchro_timer = 2
+        synchro_timer = 1.5
         start = True
         linear = True
         #Set to True if we're in a state where we're holding object

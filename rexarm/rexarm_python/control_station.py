@@ -595,8 +595,8 @@ class Gui(QtGui.QMainWindow):
     def kinect_vec_to_rexarm_vec(self,kinect_vec):
         #Convert [0,0,0] and principal_axis point to rexarm coordinates
         #Get the vector in rexarm world
-        start_point_rex = kinect_world_to_rexarm_world([0,0,0])
-        end_point_rex = kinect_world_to_rexarm_world(kinect_vec)
+        start_point_rex = self.kinect_world_to_rexarm_world([0,0,0])
+        end_point_rex = self.kinect_world_to_rexarm_world(kinect_vec)
         rex_vec = list(np.array(end_point_rex) - np.array(start_point_rex))
         return rex_vec
 

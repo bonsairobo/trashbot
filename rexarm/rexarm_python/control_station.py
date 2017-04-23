@@ -629,7 +629,7 @@ class Gui(QtGui.QMainWindow):
             phi = angle_2d - 3 * math.pi/2
 
         #Add pi/2 to phi for unknown reason
-        phi += math.pi/2
+        #phi += math.pi/2
 
         return phi
 
@@ -711,6 +711,20 @@ class Gui(QtGui.QMainWindow):
 
                 #Subtract the rotation of the base before adding the wrist_rot_angle
                 IK_cmd_thetas[4] = wrist_rot_angle - IK_cmd_thetas[0]
+
+                #---------------------------TODO: Put in function
+                #Map it to an untangled state from -wrist_limit to wrist_limit
+                IK_cmd_thetas[4] = IK_cmd_thetas[4] % (2 * math.pi)
+
+                #Map it from -PI to PI
+                if IK_cmd_thetas[4] > math.pi:
+                    IK_cmd_thetas[4] -= 2 * math.pi
+                if IK_cmd_thetas[4] <= -self.rex.wrist_limit:
+                    IK_cmd_thetas[4] += math.pi
+                if IK_cmd_thetas[4] >= self.rex.wrist_limit:
+                    IK_cmd_thetas[4] -= math.pi
+
+                #---------------------------TODO: Put in function
 
                 #Check that the joint angles returned by IK are possible
                 if not IK_successful:
@@ -799,7 +813,7 @@ class Gui(QtGui.QMainWindow):
 
                 #Converts principal axis from kinect coordinates to rexarm coordinates
                 principal_axis_rexarm = self.kinect_vec_to_rexarm_vec(principal_axis_kinect)
-                #principal_axis_rexarm = [-1,-1,5]
+                #principal_axis_rexarm = [2,-1,5]
                 print "Principal Axis Vector in Kinect World:", principal_axis_kinect
                 print "Principal Axis Vector in Rexarm World:", principal_axis_rexarm
 

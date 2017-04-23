@@ -84,13 +84,14 @@ class Rexarm():
                              .1,
                              .11]
 
+        self.wrist_limit = 2.61
 
         """ Joint Limits """
         self.joint_limits = [[-PI,PI], #Joint 0
                              [-2.00,2.00], #Joint 1
                              [-1.87,1.87], #Joint 2
                              [-1.82,2.51], #Joint 3
-                             [-PI,PI],
+                             [-self.wrist_limit,self.wrist_limit], #Wrist joint
                              [-0.37,2.15]] 
 
         """ DH Table """

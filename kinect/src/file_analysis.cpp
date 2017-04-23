@@ -140,9 +140,12 @@ int main(int argc, char **argv) {
 
         // Compute the principal axis unit vector of the chosen object.
         if (best_obj_idx != -1) {
+            const auto& trans_obj_px = translate_px_coords(
+                final_objects[best_obj_idx], -tl_px);
+            const auto& filt_px =
+                filter_z_outliers(trans_obj_px, obj_info.cloud);
             Vector3f principal_axis = object_principal_axis(
-                translate_px_coords(final_objects[best_obj_idx], -tl_px),
-                obj_info.cloud);
+                filt_px, obj_info.cloud);
             cout << "principal axis = (" << principal_axis(0) << ","
                  << principal_axis(1) << "," << principal_axis(2) << ")" << endl;
         }

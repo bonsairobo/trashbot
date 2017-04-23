@@ -511,9 +511,9 @@ class Gui(QtGui.QMainWindow):
 
 
     #Busy waits code until rexarm has reached desired pose 
-    def wait_until_reached(self,pose):
+    def wait_until_reached(self,pose,ignore_grasp = False):
         self.rex.lcm_mutex.acquire()
-        while not self.reached_pose(pose):
+        while not self.reached_pose(pose,ignore_grasp):
             #time.sleep(1)
             print "not reached pose yet. Thread going to sleep..."
             #print "Pose:", pose
@@ -525,10 +525,17 @@ class Gui(QtGui.QMainWindow):
     #Returns true if the rexarm's angles match the pose input approximately.
     #Use this to repeatedly check if rexarm has reached a configuration
     # pose is a list of angles for each rexarm_joint ex. [0,0,0,0,0,0]
-    def reached_pose(self,pose):
+    def reached_pose(self,pose,ignore_grasp):
         reached = True
         allowed_error = 0.3 #radians
-        for i in range(len(self.rex.joint_angles_fb)):
+
+        limit = 0
+        if ignore_grasp:
+            limit = len(self.rex.joint_angles_fb) - 1
+        else:
+            limit = len(self.rex.joint_angles_fb)
+
+        for i in range(limit):
             #If error for any of the joints is > 0.01, then arm is not
             #at the desired location.
             if abs(self.rex.joint_angles_fb[i] - pose[i]) > allowed_error:
@@ -667,10 +674,13 @@ class Gui(QtGui.QMainWindow):
         #State1: Turn 90 degrees at base to prevent collision
         states = ["START","RUN_IK_TURN_BASE","RUN_IK_DESCEND", "GRASP", "LIFT_UP", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION_1","HIDE_POSITION_2","UNHIDE","TURN_TO_HOME_FROM_UNHIDE"]
         curr_state = "START"
-        synchro_timer = 1.5
+        synchro_timer = 2
         start = True
         linear = True
+        #Set to True if we're in a state where we're holding object
         grasp = False
+        #Set to True if we're in the grasping state
+        clamp = False
 
         while True:
             print "----------------------------------------"
@@ -727,7 +737,7 @@ class Gui(QtGui.QMainWindow):
             elif curr_state == "GRASP":
                 #Set joint 5 to grasp
                 next_pose[5] = tighten_gripper
-                grasp = True
+                clamp = True
                 next_state = "LIFT_TO_HOME"
             elif curr_state == "LIFT_TO_HOME":
                 #Set all joints except base joint and gripper joint to 0
@@ -816,11 +826,16 @@ class Gui(QtGui.QMainWindow):
             #Setting current_pose to whatever next_pose was 
             #determined to be
             current_pose = next_pose[:]
-            if not grasp:
-                self.wait_until_reached(next_pose)
+            if not clamp:
+                if not grasp:
+                    self.wait_until_reached(next_pose)
+                else:
+                    self.wait_until_reached(next_pose,ignore_grasp=True)
+                    grasp = False
             else:
                 time.sleep(synchro_timer)
-                grasp = False
+                clamp = False
+
 
             print "Next State:", next_state
             print "----------------------------------------"

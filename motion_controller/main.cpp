@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
     fcntl(sock, F_SETFL, O_NONBLOCK);
 
     // Open serial port to Arduino.
-    ofstream arduino("/dev/ttyACM0");
+    ofstream arduino("/dev/ttyACM1");
     if (!arduino.is_open()) {
         cerr << "No arduino present." << endl;
         return 1;
@@ -108,9 +108,9 @@ int main(int argc, char **argv) {
             // We assume both left and right motors use positive magnitude to
             // roll "forward" w.r.t. the robot.
             left_motor = clamp(
-                float(forward_speed * y_amp + turn_speed * x_amp) / max_amp);
+                float(forward_speed * y_amp + x_amp) / max_amp);
             right_motor = clamp(
-                float(forward_speed * y_amp - turn_speed * x_amp) / max_amp);
+                float(forward_speed * y_amp - x_amp) / max_amp);
         } else /* AUTONOMOUS MODE */ {
             // Autonomous driving. Kinect senses obstacles and objects, while
             // telling the motion controller how to steer.

@@ -30,7 +30,7 @@ static MCMotors feedback_turn(
 {
     float angle = angle_to_point(dst_pt, ground_plane);
     cout << "ANGLE TO OBJECT = " << angle << endl;
-    float turn_scalar = 0.6 * (2.0 / 3.14159);
+    float turn_scalar = 2.0 * (2.0 / 3.14159);
     return MCMotors(-turn_scalar * angle, turn_scalar * angle);
 }
 
@@ -65,14 +65,14 @@ bool TrashSearch::update(
     const PointXYZ& dst_pt)
 {
     const float pickup_wait_time = 1.0;
-    const float feedback_wait_time = 0.5;
-    const float feedback_drive_time = 0.2;
-    const float feedback_turn_time = 0.2;
+    const float feedback_wait_time = 0.8;
+    const float feedback_drive_time = 0.8;
+    const float feedback_turn_time = 0.1;
+    float min_plane_dist = state == RANDOM_WALK ? 650.0 : 550.0;
 
     vector<float> closest_plane;
     if (plane_info.plane_eqs.size() > 1) {
         // Check if any of the non-ground planes are close to the robot.
-        float min_plane_dist = 700.0;
         for (size_t i = 1; i < plane_info.plane_eqs.size(); ++i) {
             if (abs(plane_info.plane_eqs[i][3]) < min_plane_dist) {
                 closest_plane = plane_info.plane_eqs[i];
@@ -105,7 +105,7 @@ bool TrashSearch::update(
                 } else {
                     float angle =
                         angle_to_point(dst_pt, plane_info.plane_eqs[0]);
-                    if (abs(angle) > 0.1) {
+                    if (abs(angle) > 0.2) {
                         state = FEEDBACK_TURN;
                     } else {
                         state = FEEDBACK_DRIVE;

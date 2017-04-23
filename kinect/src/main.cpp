@@ -97,17 +97,17 @@ int main(int argc, char **argv) {
 
     VideoMode vm = depth_stream.getVideoMode();
     OccupancyGrid object_grid(vm.getResolutionX(), vm.getResolutionY());
-    bool object_grid_reset = false;
+    bool first_time_pickup_wait = true;
 
     bool manual_mode = true;
     TrashSearch trash_search;
 
-    Point3f search_ftl(-300.0, 250.0, 650.0);
-    Point3f search_bbr(300.0, -200.0, 2000.0);
+    Point3f search_ftl(-400.0, 250.0, 650.0);
+    Point3f search_bbr(400.0, -200.0, 2000.0);
     Rect search_roi = roi_from_workspace_corners(
         search_ftl, search_bbr, depth_stream);
     Point3f pickup_ftl(-200.0, -125.0, 650.0);
-    Point3f pickup_bbr(200.0, -225.0, 900.0);
+    Point3f pickup_bbr(200.0, -200.0, 900.0);
     Rect pickup_roi = roi_from_workspace_corners(
          pickup_ftl, pickup_bbr, depth_stream);
 
@@ -123,9 +123,11 @@ int main(int argc, char **argv) {
         bool pickup_complete = false;
 
         // Select workspace based on control mode.
-        Point3f ftl = manual_mode ? pickup_ftl : search_ftl;
-        Point3f bbr = manual_mode ? pickup_bbr : search_bbr;
-        Rect roi = manual_mode ? pickup_roi : search_roi;
+        bool use_pickup_workspace =
+            manual_mode or trash_search.get_state() == PICKUP_WAIT;
+        Point3f ftl = use_pickup_workspace ? pickup_ftl : search_ftl;
+        Point3f bbr = use_pickup_workspace ? pickup_bbr : search_bbr;
+        Rect roi = use_pickup_workspace ? pickup_roi : search_roi;
 
         Mat depth_u16_mat, color_mat;
         VideoFrameRef depth_frame;
@@ -308,14 +310,16 @@ int main(int argc, char **argv) {
 
             // Before picking up, change the odds to make a more accurate
             // object filter.
-            if (trash_search.get_state() == PICKUP_WAIT) {
-                object_grid_reset = true;
+            if (trash_search.get_state() == PICKUP_WAIT and
+                first_time_pickup_wait)
+            {
+                first_time_pickup_wait = false;
                 object_grid.reset();
                 object_grid.set_update_odds(pickup_hit_odds, pickup_miss_odds);
-            } else if (object_grid_reset and
+            } else if (!first_time_pickup_wait and
                 trash_search.get_state() != PICKUP_WAIT)
             {
-                object_grid_reset = false;
+                first_time_pickup_wait = true;
                 object_grid.reset();
                 object_grid.set_update_odds(search_hit_odds, search_miss_odds);
             }

@@ -654,8 +654,10 @@ class Gui(QtGui.QMainWindow):
         tighten_gripper = 115 * D2R
         net_base_angle = -1.71 
         poses = {"HOME": [0,0,0,0,0,tighten_gripper],#Tightens gripper
-                 "HIDE_INTERMEDIATE": [0.008,-2.038,0.171,1.30,-0.015,-0.015],
-                 "HIDE": [1.557,-2.03,-0.629,1.079,-0.061,1.994]#,
+                 "HIDE": [1.557,-2.03,-0.629,1.079,-0.061,1.994],
+                 "PRE_DUNK": [1.544,0.233,-0.781,-0.736,-1.565,tighten_gripper],
+                 "ABOUT_TO_DUNK": [1.545,0.040,-0.019,0.046,-1.564,tighten_gripper],
+                 "DUNK": [1.237,-0.124,0.26,0.854,-1.559,tighten_gripper]
                  #"NET_ARCH": [net_base_angle,-0.135,-1.223,-1.447,-0.061,tighten_gripper]
         }
 
@@ -738,45 +740,42 @@ class Gui(QtGui.QMainWindow):
                 #Set joint 5 to grasp
                 next_pose[5] = tighten_gripper
                 clamp = True
-                next_state = "LIFT_TO_HOME"
-            elif curr_state == "LIFT_TO_HOME":
-                #Set all joints except base joint and gripper joint to 0
-                for i in range(1,5):
-                    next_pose[i] = 0
+                next_state = "PRE_DUNK"
+
+            #------------------------------------------------------------------------------------
+            #Lift to pre-dunk state after grasping. Ignore last joint
+            elif curr_state == "PRE_DUNK":
+                next_pose = poses["PRE_DUNK"][:]
                 grasp = True
-                next_state = "TURN_TO_NET"
-            elif curr_state == "TURN_TO_NET":
-                #Turn to net
-                next_pose[0] = net_base_angle
-                #Change angle of wrist joint to pi/2
-                next_pose[4] = math.PI/2
-                linear = False
+                next_state = "ABOUT_TO_DUNK"
+
+            elif curr_state == "ABOUT_TO_DUNK":
+                next_pose = poses["ABOUT_TO_DUNK"][:]
                 grasp = True
-                self.instant_publish(next_pose)
-                next_state = "ARCH_TO_NET"
-            elif curr_state == "ARCH_TO_NET":
-                next_pose[1] = -0.08
-                next_pose[2] = -0.97
-                next_pose[3] = -1.58
+                next_state = "DUNK"
+
+            elif curr_state == "DUNK":
+                next_pose = poses["DUNK"][:]
                 grasp = True
                 next_state = "DROP"
+
             elif curr_state == "DROP":
                 #Set joint 5 to 0 angle
                 next_pose[5] = 0
                 linear = False
                 self.instant_publish(next_pose)
-                next_state = "UNARCH"
-            elif curr_state == "UNARCH":
-                #Set all joints except base to 0
-                for i in range(1,6):
-                    next_pose[i] = 0
-                next_state = "TURN_TO_HOME_FROM_NET"
-            elif curr_state == "TURN_TO_HOME_FROM_NET":
-                #Set all joints to 0
-                next_pose[0] = 0
-                linear = False
-                self.instant_publish(next_pose)
+                next_state = "RETURN_HOME"
+
+            elif curr_state == "RETURN_HOME":
+                next_pose = poses["ABOUT_TO_DUNK"][:]
+                next_state = "HOME_TURN"
+                
+            elif curr_state == "HOME_TURN":
+                next_pose = poses["HOME"][:]
                 next_state = "HIDE_POSITION_2"
+
+            #------------------------------------------------------------------------------------
+
             elif curr_state == "UNHIDE":
                 #Go to home position. Then run IK
                 next_pose = poses["HOME"][:]

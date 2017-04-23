@@ -515,9 +515,9 @@ class Gui(QtGui.QMainWindow):
         self.rex.lcm_mutex.acquire()
         while not self.reached_pose(pose,ignore_grasp):
             #time.sleep(1)
-            print "not reached pose yet. Thread going to sleep..."
-            #print "Pose:", pose
-            #print "Rexarm:", self.rex.joint_angles_fb
+            print "Desired Pose:", pose
+            print "Current Rexarm Pose:", self.rex.joint_angles_fb
+            print "not reached desired pose yet. Thread going to sleep..."
             self.rex.lcm_cv.wait()
             #print "Woke up"
         self.rex.lcm_mutex.release()
@@ -800,8 +800,10 @@ class Gui(QtGui.QMainWindow):
                 #Converts principal axis from kinect coordinates to rexarm coordinates
                 principal_axis_rexarm = self.kinect_vec_to_rexarm_vec(principal_axis_kinect)
                 #principal_axis_rexarm = [-1,-1,5]
+                print "Principal Axis Vector in Kinect World:", principal_axis_kinect
+                print "Principal Axis Vector in Rexarm World:", principal_axis_rexarm
 
-                desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87 *D2R]
+                desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87*D2R]
 
                 #desired_IK = [0.131,0.139,-0.015, 87 * D2R]
                 #desired_IK = [0.15,0.1,0.05, 87 * D2R]

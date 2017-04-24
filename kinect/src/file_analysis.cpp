@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
 
         // Get pixels, points, normals, and ROI for workspace objects.
         ObjectInfo obj_info = get_workspace_objects(
-            cout, depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.0, 4.3);
+            depth_stream, depth_f32_mat, ftl, bbr, roi, 100, 2.0, 4.3);
         Point2i tl_px(roi.x, roi.y);
 
         // Translate pixel coordinates back to original image from ROI.
@@ -160,11 +160,12 @@ int main(int argc, char **argv) {
         // Draw object clusters on color image.
         Mat masked = mask_image<uint16_t, Vec3b>(color_mat, depth_u16_mat);
         obj_idx = 0;
-        for (const auto& object : trans_object_px) {
+        for (const auto& object : final_objects) {
+            const auto& trans_obj_px = translate_px_coords(object, -tl_px);
             Vec3b color = obj_idx == best_obj_idx ?
                 Vec3b(0, 0, 255) :
                 Vec3b(dis(gen), dis(gen), dis(gen));
-            draw_pixels(masked, object, color);
+            draw_pixels(masked, trans_obj_px, color);
             ++obj_idx;
         }
         imshow("kinect", masked);

@@ -42,7 +42,6 @@ cv::Rect roi_from_workspace_corners(
     const openni::VideoStream& depth_stream);
 
 ObjectInfo get_workspace_objects(
-    std::ostream& log_stream,
     const openni::VideoStream& depth_stream,
     const cv::Mat& depth_f32_mat,
     const cv::Point3f& ftl,

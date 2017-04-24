@@ -9,7 +9,12 @@ using namespace Eigen;
 
 TrashSearch::TrashSearch(): state(RANDOM_WALK) {}
 
-static float angle_to_point(
+struct PolarVec2D {
+    float magnitude;
+    float angle;
+};
+
+static PolarVec2D polar_vec_in_plane(
     const PointXYZ& dst_pt, const vector<float>& ground_plane)
 {
     // Calculate ground plane coordinates of destination point.
@@ -22,14 +27,13 @@ static float angle_to_point(
     Vector3f ground_y = z - z.dot(normal) * normal;
     float ground_x_coord = ground_x.normalized().dot(dst_pt_vec);
     float ground_y_coord = ground_y.normalized().dot(dst_pt_vec);
-    return atan2(ground_y_coord, ground_x_coord) - 3.14159 / 2.0;
+    return {
+        hypot(ground_y_coord, ground_y_coord),
+        float(atan2(ground_y_coord, ground_x_coord) - 3.14159 / 2.0)
+    };
 }
 
-static MCMotors feedback_turn(
-    const PointXYZ& dst_pt, const vector<float>& ground_plane)
-{
-    float angle = angle_to_point(dst_pt, ground_plane);
-    cout << "ANGLE TO OBJECT = " << angle << endl;
+static MCMotors feedback_turn(float angle) {
     float turn_scalar = 2.0 * (2.0 / 3.14159);
     return MCMotors(-turn_scalar * angle, turn_scalar * angle);
 }
@@ -64,9 +68,11 @@ bool TrashSearch::update(
     const PlaneInfo& plane_info,
     const PointXYZ& dst_pt)
 {
+    PolarVec2D polar = polar_vec_in_plane(dst_pt, plane_info.plane_eqs[0]);
+
     const float pickup_wait_time = 1.0;
     const float feedback_wait_time = 0.8;
-    const float feedback_drive_time = 0.8;
+    const float feedback_drive_time = 0.0015 * polar.magnitude;
     const float feedback_turn_time = 0.1;
     float min_plane_dist = state == RANDOM_WALK ? 650.0 : 550.0;
 
@@ -103,9 +109,7 @@ bool TrashSearch::update(
                 if (point_in_workspace(dst_pt, pickup_ftl, pickup_bbr)) {
                     state = PICKUP_WAIT;
                 } else {
-                    float angle =
-                        angle_to_point(dst_pt, plane_info.plane_eqs[0]);
-                    if (abs(angle) > 0.2) {
+                    if (abs(polar.angle) > 0.2) {
                         state = FEEDBACK_TURN;
                     } else {
                         state = FEEDBACK_DRIVE;
@@ -160,7 +164,7 @@ bool TrashSearch::update(
         break;
     case FEEDBACK_TURN:
         cout << "FEEDBACK TURN" << endl;
-        motors = feedback_turn(dst_pt, plane_info.plane_eqs[0]);
+        motors = feedback_turn(polar.angle);
         break;
     case FEEDBACK_DRIVE:
         cout << "FEEDBACK DRIVE" << endl;

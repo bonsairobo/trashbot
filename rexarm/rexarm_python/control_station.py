@@ -706,11 +706,30 @@ class Gui(QtGui.QMainWindow):
 
                 print "IK_result:", IK_cmd_thetas
 
+                #Check that the joint angles returned by IK are possible
+                if not IK_successful:
+                    print IK_message
+                    print "Returning to Hide position"
+                    linear = False
+                    next_state = "HIDE_POSITION_2"
+                else:
+                    #Turn base towards object
+                    next_pose[0] = IK_cmd_thetas[0]
+                    #Twist wrist
+                    #next_pose[4] = IK_cmd_thetas[4]
+                    linear = False
+                    self.instant_publish(next_pose)
+                    print "Published to joint 0:", IK_cmd_thetas[0]
+                    #TODO: Get lcm joint angles returned from runIK so that
+                    #we can wait before grasping
+                    next_state = "TURN_WRIST"
+
+            elif curr_state == "TURN_WRIST":
                 #Wrist rotation angle with respect to the x-axis of the rexarm base frame
                 wrist_rot_angle = self.compute_wrist_angle(principal_axis_rexarm)
 
                 #Subtract the rotation of the base before adding the wrist_rot_angle
-                IK_cmd_thetas[4] = wrist_rot_angle - IK_cmd_thetas[0]
+                IK_cmd_thetas[4] = wrist_rot_angle - self.rex.joint_angles_fb[0]
 
                 #---------------------------TODO: Put in function
                 #Map it to an untangled state from -wrist_limit to wrist_limit
@@ -723,26 +742,12 @@ class Gui(QtGui.QMainWindow):
                     IK_cmd_thetas[4] += math.pi
                 if IK_cmd_thetas[4] >= self.rex.wrist_limit:
                     IK_cmd_thetas[4] -= math.pi
-
                 #---------------------------TODO: Put in function
+                next_pose[4] = IK_cmd_thetas[4]
+                linear = False
+                self.instant_publish(next_pose)
+                next_state = "RUN_IK_DESCEND"
 
-                #Check that the joint angles returned by IK are possible
-                if not IK_successful:
-                    print IK_message
-                    print "Returning to Hide position"
-                    linear = False
-                    next_state = "HIDE_POSITION_2"
-                else:
-                    #Turn base towards object
-                    next_pose[0] = IK_cmd_thetas[0]
-                    #Twist wrist
-                    next_pose[4] = IK_cmd_thetas[4]
-                    linear = False
-                    self.instant_publish(next_pose)
-                    print "Published to joint 0:", IK_cmd_thetas[0]
-                    #TODO: Get lcm joint angles returned from runIK so that
-                    #we can wait before grasping
-                    next_state = "RUN_IK_DESCEND"
             elif curr_state == "RUN_IK_DESCEND":
                 print "About to descend:"
                 print "Current pose:", self.rex.joint_angles_fb

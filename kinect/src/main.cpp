@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
     Point3f search_bbr(400.0, -200.0, 2000.0);
     Rect search_roi = roi_from_workspace_corners(
         search_ftl, search_bbr, depth_stream);
-    Point3f pickup_ftl(-200.0, -125.0, 650.0);
+    Point3f pickup_ftl(-200.0, -145.0, 650.0);
     Point3f pickup_bbr(200.0, -200.0, 900.0);
     Rect pickup_roi = roi_from_workspace_corners(
          pickup_ftl, pickup_bbr, depth_stream);
@@ -259,7 +259,7 @@ int main(int argc, char **argv) {
         }
 
         // Choose the closest object to the Kinect.
-        int best_obj_idx = closest_object_index(
+        const int best_obj_idx = closest_object_index(
             final_medoids, obj_info.cloud);
 
         if (show_feeds) {
@@ -336,12 +336,32 @@ int main(int argc, char **argv) {
                 sizeof(mc_addr));
         }
 
+        // TODO: remove this
+        if (best_obj_idx != -1) {
+            const auto& object =
+                translate_px_coords(final_objects[best_obj_idx], -tl_px);
+            // Filter z outliers. These arise when the XOR of the filtered
+            // object and the point cloud object is nontrivial.
+            const auto& filt_obj_px = filter_z_outliers(object, obj_info.cloud);
+            Vector3f principal_axis = object_principal_axis(
+                filt_obj_px, obj_info.cloud);
+
+            log_stream << "principal axis = (" << principal_axis(0) << ","
+                           << principal_axis(1) << "," << principal_axis(2)
+                           << ")" << endl;
+        }
+
         // Send grasping point to the Rexarm.
         if (!final_objects.empty() and do_send_grasp) {
+            const auto& object =
+                translate_px_coords(final_objects[best_obj_idx], -tl_px);
+            // Filter z outliers. These arise when the XOR of the filtered
+            // object and the point cloud object is nontrivial.
+            const auto& filt_obj_px = filter_z_outliers(object, obj_info.cloud);
+
             // Compute the principal axis unit vector of the chosen object.
             Vector3f principal_axis = object_principal_axis(
-                translate_px_coords(final_objects[best_obj_idx], -tl_px),
-                obj_info.cloud);
+                filt_obj_px, obj_info.cloud);
             log_stream << "principal axis = (" << principal_axis(0) << ","
                        << principal_axis(1) << "," << principal_axis(2)
                        << ")" << endl;

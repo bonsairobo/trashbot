@@ -24,8 +24,12 @@ struct ObjectInfo {
 bool point_in_workspace(
     const pcl::PointXYZ&, const cv::Point3f& ftl, const cv::Point3f& bbr);
 
+std::vector<cv::Point2i> filter_z_outliers(
+    const std::vector<cv::Point2i>& object_px,
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
+
 Eigen::Vector3f object_principal_axis(
-    std::vector<cv::Point2i> object_px,
+    const std::vector<cv::Point2i>& object_px,
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
 
 void remove_small_regions(

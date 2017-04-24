@@ -77,23 +77,6 @@ Point2i region_centroid(const vector<Point2i>& region) {
     return c / float(region.size());
 }
 
-static Vector3f eigenvec3f_from_pointxyz(const PointXYZ& pt) {
-    return Vector3f(pt.x, pt.y, pt.z);
-}
-
-static inline Vector3f cloud_centroid(
-    vector<Point2i> object_px, PointCloud<PointXYZ>::Ptr cloud)
-{
-    if (cloud->empty()) {
-        return Vector3f(0,0,0);
-    }
-    Vector3f c(0,0,0);
-    for (auto& pt : *cloud) {
-        c += eigenvec3f_from_pointxyz(pt);
-    }
-    return c / float(cloud->size());
-}
-
 static IndicesPtr indices_from_px(
     const vector<Point2i>& pixels, int width)
 {
@@ -104,14 +87,43 @@ static IndicesPtr indices_from_px(
     return indices;
 }
 
+vector<Point2i> filter_z_outliers(
+    const vector<Point2i>& object_px, PointCloud<PointXYZ>::Ptr cloud)
+{
+    // Compute mean.
+    float z_mean = 0.0;
+    for (const auto& px : object_px) {
+        z_mean += cloud->at(px.x, px.y).z;
+    }
+    z_mean /= object_px.size();
+
+    // Compute standard deviation.
+    float z_deviance = 0.0;
+    for (const auto& px : object_px) {
+        float diff = z_mean - cloud->at(px.x, px.y).z;
+        z_deviance += diff * diff;
+    }
+    float z_std = sqrt(z_deviance / object_px.size());
+
+    // Remove points outside 2 standard deviations.
+    vector<Point2i> filt_px;
+    for (const auto& px : object_px) {
+        if (abs(cloud->at(px.x, px.y).z - z_mean) <= 2 * z_std) {
+            filt_px.push_back(px);
+        }
+    }
+
+    return filt_px;
+}
+
 Vector3f object_principal_axis(
-    vector<Point2i> object_px, PointCloud<PointXYZ>::Ptr cloud)
+    const vector<Point2i>& object_px, PointCloud<PointXYZ>::Ptr cloud)
 {
     pcl::PCA<PointXYZ> pca(true);
     pca.setInputCloud(cloud);
     IndicesPtr indices = indices_from_px(object_px, cloud->width);
     pca.setIndices(indices);
-    return pca.getEigenVectors().row(0);
+    return pca.getEigenVectors().col(0);
 }
 
 Point2i region_medoid(const vector<Point2i>& region) {

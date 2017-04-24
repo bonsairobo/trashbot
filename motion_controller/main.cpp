@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
     fcntl(sock, F_SETFL, O_NONBLOCK);
 
     // Open serial port to Arduino.
-    ofstream arduino("/dev/ttyACM1");
+    ofstream arduino("/dev/ttyACM0");
     if (!arduino.is_open()) {
         cerr << "No arduino present." << endl;
         return 1;

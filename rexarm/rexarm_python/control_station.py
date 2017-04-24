@@ -771,11 +771,15 @@ class Gui(QtGui.QMainWindow):
             elif curr_state == "ABOUT_TO_DUNK":
                 next_pose = poses["ABOUT_TO_DUNK"][:]
                 grasp = True
+                linear = False
+                self.instant_publish(next_pose)
                 next_state = "DUNK"
 
             elif curr_state == "DUNK":
                 next_pose = poses["DUNK"][:]
                 grasp = True
+                #linear = False
+                #self.instant_publish(next_pose)
                 next_state = "DROP"
 
             elif curr_state == "DROP":
@@ -788,9 +792,11 @@ class Gui(QtGui.QMainWindow):
             elif curr_state == "RETURN_HOME":
                 next_pose = poses["ABOUT_TO_DUNK"][:]
                 next_state = "HOME_TURN"
-                
+
             elif curr_state == "HOME_TURN":
                 next_pose = poses["HOME"][:]
+                linear = False
+                self.instant_publish(next_pose)
                 next_state = "HIDE_POSITION_2"
 
             #------------------------------------------------------------------------------------

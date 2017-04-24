@@ -610,9 +610,11 @@ class Gui(QtGui.QMainWindow):
         #2D vector
         axis = rex_axis[:2]
 
-        #Find angle between x-axis of rexarm and the rex_principal_axis
+        #Find angle between x-axis of rexarm and the rex_principal_axis in range 0
+        #to 360
         x_axis = [1,0]
         angle_2d = self.compute_2D_angle(x_axis,axis)
+        print "Angle between Rexarm x axis and principal axis:", angle_2d
 
         assert (0 <= angle_2d and angle_2d <= 2 * math.pi)
 
@@ -719,29 +721,42 @@ class Gui(QtGui.QMainWindow):
                     #next_pose[4] = IK_cmd_thetas[4]
                     linear = False
                     self.instant_publish(next_pose)
-                    print "Published to joint 0:", IK_cmd_thetas[0]
+                    print "Turned Base to:", next_pose[0]
                     #TODO: Get lcm joint angles returned from runIK so that
                     #we can wait before grasping
                     next_state = "TURN_WRIST"
 
             elif curr_state == "TURN_WRIST":
+                #Current base angle
+                print "Current base angle after turning:", self.rex.joint_angles_fb[0]
+                print "Principal Axis Vector in Kinect World:", principal_axis_kinect
+                print "Principal Axis Vector in Rexarm World:", principal_axis_rexarm
+
                 #Wrist rotation angle with respect to the x-axis of the rexarm base frame
                 wrist_rot_angle = self.compute_wrist_angle(principal_axis_rexarm)
 
+                print "wrist rotation angle determined with respect to rexarm x-axis:", wrist_rot_angle
+
                 #Subtract the rotation of the base before adding the wrist_rot_angle
                 IK_cmd_thetas[4] = wrist_rot_angle - self.rex.joint_angles_fb[0]
+                print "wrist rotation angle after subtracting base joint rotation:", IK_cmd_thetas[4]
 
                 #---------------------------TODO: Put in function
                 #Map it to an untangled state from -wrist_limit to wrist_limit
                 IK_cmd_thetas[4] = IK_cmd_thetas[4] % (2 * math.pi)
+                print "wrist rotation angle after modulus with 2PI:", IK_cmd_thetas[4]
 
                 #Map it from -PI to PI
                 if IK_cmd_thetas[4] > math.pi:
                     IK_cmd_thetas[4] -= 2 * math.pi
+                print "wrist rotation angle after restricting to -PI to PI:", IK_cmd_thetas[4]
+
                 if IK_cmd_thetas[4] <= -self.rex.wrist_limit:
                     IK_cmd_thetas[4] += math.pi
                 if IK_cmd_thetas[4] >= self.rex.wrist_limit:
                     IK_cmd_thetas[4] -= math.pi
+                print "wrist rotation angle after restricting to wrist range:", IK_cmd_thetas[4]
+                
                 #---------------------------TODO: Put in function
                 next_pose[4] = IK_cmd_thetas[4]
                 linear = False
@@ -771,11 +786,15 @@ class Gui(QtGui.QMainWindow):
             elif curr_state == "ABOUT_TO_DUNK":
                 next_pose = poses["ABOUT_TO_DUNK"][:]
                 grasp = True
+                linear = False
+                self.instant_publish(next_pose)
                 next_state = "DUNK"
 
             elif curr_state == "DUNK":
                 next_pose = poses["DUNK"][:]
                 grasp = True
+                #linear = False
+                #self.instant_publish(next_pose)
                 next_state = "DROP"
 
             elif curr_state == "DROP":
@@ -788,9 +807,11 @@ class Gui(QtGui.QMainWindow):
             elif curr_state == "RETURN_HOME":
                 next_pose = poses["ABOUT_TO_DUNK"][:]
                 next_state = "HOME_TURN"
-                
+
             elif curr_state == "HOME_TURN":
                 next_pose = poses["HOME"][:]
+                linear = False
+                self.instant_publish(next_pose)
                 next_state = "HIDE_POSITION_2"
 
             #------------------------------------------------------------------------------------

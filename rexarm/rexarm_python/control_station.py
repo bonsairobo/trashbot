@@ -631,9 +631,26 @@ class Gui(QtGui.QMainWindow):
             phi = angle_2d - 3 * math.pi/2
 
         #Add pi/2 to phi for unknown reason
-        #phi += math.pi/2
+        phi += math.pi/2
 
         return phi
+
+    #base vector is [x,y,z]
+    def get_principal_angle(self,principal_axis_rexarm,base_vector):
+        #Get angle between rexarm principal axis and vector from origin
+        #to object.
+        #First project both to z = 0
+        p = np.array(principal_axis_rexarm[0:2])
+        v = np.array(base_vector[0:2])
+
+        #Flip principal axis if in quadrants 2 or 3
+        if p[0] < 0:
+            p = -p
+
+        temp = np.dot(p,v)/(numpy.linalg.norm(p) * numpy.linalg.norm(v))
+        angle = math.acos(temp)
+
+        return angle
 
     def trash_state_machine(self):
         #Setting the torque and speed. Ranges from 0 to 1
@@ -674,6 +691,8 @@ class Gui(QtGui.QMainWindow):
         wrist_rot_angle = 0
         #Angles to command rexarm for inverse kinematics
         IK_cmd_thetas = None
+
+        principal_axis_kinect = None
 
         #State1: Turn 90 degrees at base to prevent collision
         states = ["START","RUN_IK_TURN_BASE","RUN_IK_DESCEND", "GRASP", "LIFT_UP", "TURN_TO_NET", "ARCH_TO_NET", "DROP", "UNARCH", "TURN_TO_HOME_FROM_NET", "HIDE_POSITION_1","HIDE_POSITION_2","UNHIDE","TURN_TO_HOME_FROM_UNHIDE"]
@@ -741,6 +760,12 @@ class Gui(QtGui.QMainWindow):
                 IK_cmd_thetas[4] = wrist_rot_angle - self.rex.joint_angles_fb[0]
                 print "wrist rotation angle after subtracting base joint rotation:", IK_cmd_thetas[4]
 
+                #Now subtract the angle between principal axis and vector from
+                #base to object
+                axis_baserot_angle = self.get_principal_angle(principal_axis_rexarm,desired_IK[:3])
+
+                IK_cmd_thetas[4] -= axis_baserot_angle
+
                 #---------------------------TODO: Put in function
                 #Map it to an untangled state from -wrist_limit to wrist_limit
                 IK_cmd_thetas[4] = IK_cmd_thetas[4] % (2 * math.pi)
@@ -758,6 +783,7 @@ class Gui(QtGui.QMainWindow):
                 print "wrist rotation angle after restricting to wrist range:", IK_cmd_thetas[4]
                 
                 #---------------------------TODO: Put in function
+
                 next_pose[4] = IK_cmd_thetas[4]
                 linear = False
                 self.instant_publish(next_pose)
@@ -833,21 +859,22 @@ class Gui(QtGui.QMainWindow):
                 next_state = "SOCKET_READ"
             elif curr_state == "SOCKET_READ":
                 #Block and wait for next point of new object
-                kin_point,principal_axis_kinect = self.get_socket_data()
+                #kin_point,principal_axis_kinect = self.get_socket_data()
                 #Convert to rexarm coordinates from kinect coordinates
-                rex_point = self.kinect_world_to_rexarm_world(kin_point)
+                #rex_point = self.kinect_world_to_rexarm_world(kin_point)
 
                 #Converts principal axis from kinect coordinates to rexarm coordinates
-                principal_axis_rexarm = self.kinect_vec_to_rexarm_vec(principal_axis_kinect)
+                #principal_axis_rexarm = self.kinect_vec_to_rexarm_vec(principal_axis_kinect)
                 #principal_axis_rexarm = [2,-1,5]
-                print "Principal Axis Vector in Kinect World:", principal_axis_kinect
+                principal_axis_rexarm = [1,0,5]
+                #print "Principal Axis Vector in Kinect World:", principal_axis_kinect
                 print "Principal Axis Vector in Rexarm World:", principal_axis_rexarm
 
-                desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87*D2R]
+                #desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87*D2R]
 
                 #desired_IK = [0.131,0.139,-0.015, 87 * D2R]
                 #desired_IK = [0.15,0.1,0.05, 87 * D2R]
-                #desired_IK = [0.1,0,0, 87 * D2R]
+                desired_IK = [0.15,0.15,0, 87 * D2R]
                 print "Inverse Kinematics Target:"
                 print "Goal x in Rexarm:", desired_IK[0]
                 print "Goal y in Rexarm:", desired_IK[1]

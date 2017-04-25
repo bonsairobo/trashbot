@@ -1,4 +1,6 @@
-# Trashbot
+# TrashBot
+
+![Trash Bot](trashbot.jpg)
 
 ![Data Flow](trashbot_dataflow.png)
 

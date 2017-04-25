@@ -1,5 +1,7 @@
 # Trashbot
 
+![Data Flow](trashbot_dataflow.png)
+
 All testing is done on Ubuntu 14.04 LTS, and the dependency install scripts all make this assumption.
 
 This project is split into separate modules:

@@ -784,6 +784,8 @@ class Gui(QtGui.QMainWindow):
                 
                 #---------------------------TODO: Put in function
 
+                IK_cmd_thetas[4] = 0
+
                 next_pose[4] = IK_cmd_thetas[4]
                 linear = False
                 self.instant_publish(next_pose)
@@ -859,22 +861,22 @@ class Gui(QtGui.QMainWindow):
                 next_state = "SOCKET_READ"
             elif curr_state == "SOCKET_READ":
                 #Block and wait for next point of new object
-                #kin_point,principal_axis_kinect = self.get_socket_data()
+                kin_point,principal_axis_kinect = self.get_socket_data()
                 #Convert to rexarm coordinates from kinect coordinates
-                #rex_point = self.kinect_world_to_rexarm_world(kin_point)
+                rex_point = self.kinect_world_to_rexarm_world(kin_point)
 
                 #Converts principal axis from kinect coordinates to rexarm coordinates
-                #principal_axis_rexarm = self.kinect_vec_to_rexarm_vec(principal_axis_kinect)
+                principal_axis_rexarm = self.kinect_vec_to_rexarm_vec(principal_axis_kinect)
                 #principal_axis_rexarm = [2,-1,5]
-                principal_axis_rexarm = [1,0,5]
+                #principal_axis_rexarm = [1,0,5]
                 #print "Principal Axis Vector in Kinect World:", principal_axis_kinect
                 print "Principal Axis Vector in Rexarm World:", principal_axis_rexarm
 
-                #desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87*D2R]
+                desired_IK = [rex_point[0],rex_point[1],rex_point[2], 87*D2R]
 
                 #desired_IK = [0.131,0.139,-0.015, 87 * D2R]
                 #desired_IK = [0.15,0.1,0.05, 87 * D2R]
-                desired_IK = [0.15,0.15,0, 87 * D2R]
+                #desired_IK = [0.15,0.15,0, 87 * D2R]
                 print "Inverse Kinematics Target:"
                 print "Goal x in Rexarm:", desired_IK[0]
                 print "Goal y in Rexarm:", desired_IK[1]

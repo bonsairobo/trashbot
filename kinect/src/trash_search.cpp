@@ -72,9 +72,9 @@ bool TrashSearch::update(
 
     const float pickup_wait_time = 1.0;
     const float feedback_wait_time = 0.8;
-    const float feedback_drive_time = 0.0015 * polar.magnitude;
+    const float feedback_drive_time = 0.001 * polar.magnitude;
     const float feedback_turn_time = 0.1;
-    float min_plane_dist = state == RANDOM_WALK ? 650.0 : 550.0;
+    float min_plane_dist = state == RANDOM_WALK ? 680.0 : 550.0;
 
     vector<float> closest_plane;
     if (plane_info.plane_eqs.size() > 1) {

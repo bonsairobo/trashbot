@@ -106,8 +106,8 @@ int main(int argc, char **argv) {
     Point3f search_bbr(400.0, -200.0, 2000.0);
     Rect search_roi = roi_from_workspace_corners(
         search_ftl, search_bbr, depth_stream);
-    Point3f pickup_ftl(-200.0, -145.0, 650.0);
-    Point3f pickup_bbr(200.0, -245.0, 900.0);
+    Point3f pickup_ftl(-200.0, -155.0, 650.0);
+    Point3f pickup_bbr(200.0, -250.0, 900.0);
     Rect pickup_roi = roi_from_workspace_corners(
          pickup_ftl, pickup_bbr, depth_stream);
 

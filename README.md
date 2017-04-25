@@ -1,5 +1,7 @@
 # TrashBot
 
+[Watch the TrashBot in action!](https://www.youtube.com/watch?v=a6qHyMERqR0)
+
 ![Trash Bot](trashbot.jpg)
 
 ![Data Flow](trashbot_dataflow.png)
